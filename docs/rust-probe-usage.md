@@ -50,7 +50,11 @@ External termination cannot establish completion or cleanup.
 The builder checks the exact Rust/Cargo version, rejects additional dependency
 or lockfile entries, builds offline/locked, remaps checkout paths, strips release
 symbols and applies publication patterns to raw bytes and UTF-16/byte-preserving
-string views. No invalid UTF-8 bytes are silently dropped. Generated
+string views. A conservative printable-ASCII projection flags known path/key
+patterns interrupted by binary padding or invalid bytes; URL inspection uses
+separate strings to avoid inventing hostnames. These checks cover known patterns
+and these encodings, not arbitrary encryption or programmatic secret reconstruction.
+Suspicious patterns fail the build and require review. Generated
 files stay under ignored `target/`; do not commit binaries or private captures.
 It writes an **unsigned** `gate-http-probe.provenance.json` beside the binary with
 protocol/source/binary digests, package/compiler versions, target and source commit.

@@ -120,12 +120,20 @@ class RustToolingTests(unittest.TestCase):
                         build.artifact_privacy(prefix + value.encode(encoding) + b"\x00\x00\xff")
                     self.assertNotIn("synthetic-operator", str(caught.exception))
 
-    def test_binary_privacy_keeps_invalid_utf8_boundaries_and_raw_patterns(self):
+    def test_binary_privacy_detects_raw_and_interleaved_patterns(self):
         token = b"gh" + b"p_" + b"x" * 40
         with self.assertRaises(ValueError):
             build.artifact_privacy(b"\x00\xff" + token + b"\xfe\x00")
-        # Invalid bytes must not be discarded to fabricate a sensitive token.
-        build.artifact_privacy(b"ghp_" + b"x" * 20 + b"\xff" + b"x" * 20)
+        # Conservative projection treats a padded/interleaved token as suspect.
+        with self.assertRaises(ValueError):
+            build.artifact_privacy(b"ghp_" + b"x" * 20 + b"\xff" + b"x" * 20)
+
+    def test_binary_privacy_detects_utf16_token_with_mid_string_alignment_shift(self):
+        token = "gh" + "p_" + "x" * 40
+        for encoding in ("utf-16-le", "utf-16-be"):
+            raw = token.encode(encoding)
+            with self.assertRaises(ValueError):
+                build.artifact_privacy(raw[:33] + b"\xff" + raw[33:])
 
     def report(self):
         return {

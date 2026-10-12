@@ -94,12 +94,16 @@ def inspect_static_elf(raw: bytes, target: str) -> None:
 
 def artifact_privacy(raw: bytes) -> None:
     # Deliberately do not export matched strings or binary data.
+    # Conservatively inspect printable ASCII with binary padding/interleaving
+    # removed for known path/key patterns. Do not URL-parse this projection:
+    # joining separate binary strings could manufacture a fictitious hostname.
+    projected = bytes(value for value in raw if 0x20 <= value <= 0x7E)
     for pattern in PATTERNS.values():
         byte_pattern = re.compile(pattern.pattern.encode("ascii"), pattern.flags & ~re.UNICODE)
-        if byte_pattern.search(raw):
+        if byte_pattern.search(raw) or byte_pattern.search(projected):
             raise ValueError("rust-probe-artifact-privacy-failed")
     # Latin-1 preserves every byte. UTF-16 views cover either endian/alignment;
-    # replacement characters retain invalid boundaries instead of deleting them.
+    # replacement characters retain invalid boundaries in these decoded views.
     views = [raw.decode("latin-1"), raw.decode("utf-8", errors="replace")]
     for encoding in ("utf-16-le", "utf-16-be"):
         views.extend(raw[offset:].decode(encoding, errors="replace") for offset in (0, 1))
