@@ -94,6 +94,8 @@ jobs:
         run: uv run --no-sync python -m scripts.rust_probe_build --check --target '${{ matrix.target }}'
       - name: Execute shared probe conformance on the native architecture
         run: uv run --no-sync python -m unittest discover -s tests -p test_probe_conformance.py -v
+      - name: Verify artifact staging and delivery admission on the native architecture
+        run: uv run --no-sync python -m unittest discover -s tests -p test_probe_delivery.py -v
       - name: Retain experimental binary and unsigned build manifest
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

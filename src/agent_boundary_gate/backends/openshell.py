@@ -4,6 +4,7 @@ CLI JSON/flags correspond to cached source f745aa4df4b1e63ca362cb4624d3952796a7c
 This driver does not provision containment, issue leases or invent supervisor readiness.
 """
 
+import ipaddress
 import json
 import math
 import re
@@ -18,6 +19,12 @@ from agent_boundary_gate.auth import digest
 from agent_boundary_gate.backends import BackendFailure, Readiness, UnsupportedCapability
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
 from agent_boundary_gate.evidence import bytes_digest
+from agent_boundary_gate.probe_delivery import (
+    DeliveryProvider,
+    DeliveryRejected,
+    DeliveryVerifier,
+    RustProbeDeployment,
+)
 from agent_boundary_gate.probes import PERL_PROBE, PROBE, validate_receiver_url
 from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import (
@@ -47,10 +54,21 @@ class OpenShellBackend:
         lease: LeaseBinding,
         receipt_provider: ReceiptProvider,
         receipt_verifier: ReceiptVerifier,
-        probe_runtime: Literal["python3", "perl"] = "python3",
+        probe_runtime: Literal["python3", "perl", "rust"] = "python3",
+        rust_deployment: RustProbeDeployment | None = None,
+        delivery_provider: DeliveryProvider | None = None,
+        delivery_verifier: DeliveryVerifier | None = None,
     ):
-        if probe_runtime not in ("python3", "perl"):
+        if probe_runtime not in ("python3", "perl", "rust"):
             raise ValueError("unsupported probe runtime")
+        if probe_runtime == "rust":
+            if rust_deployment is None or delivery_provider is None or delivery_verifier is None:
+                raise ValueError("rust probe requires trusted delivery configuration")
+            rust_deployment = RustProbeDeployment.model_validate(rust_deployment)
+        elif any(
+            item is not None for item in (rust_deployment, delivery_provider, delivery_verifier)
+        ):
+            raise ValueError("rust delivery configuration requires explicit rust selection")
         if bytes_digest(executable.read_bytes()) != executable_digest:
             raise ValueError("OpenShell binary does not match its pin")
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}", gateway):
@@ -72,6 +90,8 @@ class OpenShellBackend:
         self.lease = lease
         self.receipt_provider, self.receipt_verifier = receipt_provider, receipt_verifier
         self.probe_runtime = probe_runtime
+        self.rust_deployment = rust_deployment
+        self.delivery_provider, self.delivery_verifier = delivery_provider, delivery_verifier
         self._attempt_bound = False
         self._last_readiness: LifecycleReceipt | None = None
 
@@ -200,10 +220,9 @@ class OpenShellBackend:
             ).total_seconds(),
         )
         validate_receiver_url(url)
-        seconds = max(1, math.ceil(deadline - time.monotonic()))
         if self.probe_runtime == "python3":
             probe = ["python3", "-c", PROBE, url, attempt_id, str(action.timeout_seconds)]
-        else:
+        elif self.probe_runtime == "perl":
             receiver = urlsplit(url)
             probe = [
                 "perl",
@@ -215,6 +234,41 @@ class OpenShellBackend:
                 attempt_id,
                 str(max(1, math.ceil(action.timeout_seconds))),
             ]
+        else:
+            receiver = urlsplit(url)
+            try:
+                host = str(ipaddress.ip_address(receiver.hostname))
+            except ValueError:
+                raise UnsupportedCapability("rust-probe-ip-literal-required") from None
+            timeout = math.ceil(action.timeout_seconds)
+            if not 1 <= timeout <= 30 or not re.fullmatch(
+                r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", attempt_id
+            ):
+                raise UnsupportedCapability("rust-probe-input-unsupported")
+            request = self.delivery_verifier.request(self.lease, self.rust_deployment)
+            try:
+                if cancelled.is_set() or time.monotonic() >= deadline:
+                    return False
+                raw = self.delivery_provider.fetch(request, deadline=deadline, cancelled=cancelled)
+                receipt = self.delivery_verifier.verify(raw, request=request, now=datetime.now(UTC))
+            except (DeliveryRejected, OSError):
+                raise BackendFailure("backend-probe-delivery-rejected") from None
+            if cancelled.is_set() or time.monotonic() >= deadline:
+                return False
+            deadline = min(
+                deadline,
+                time.monotonic() + (receipt.expires_at - datetime.now(UTC)).total_seconds(),
+            )
+            if time.monotonic() >= deadline:
+                return False
+            probe = [
+                self.rust_deployment.executable_path,
+                host,
+                str(receiver.port),
+                attempt_id,
+                str(timeout),
+            ]
+        seconds = max(1, math.ceil(deadline - time.monotonic()))
         result = self._command(
             [
                 "sandbox",

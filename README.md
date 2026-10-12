@@ -25,6 +25,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - A [read-only OpenShell compatibility doctor](docs/compatibility-doctor.md) with sanitized reports.
 - An [independently versioned experimental Rust HTTP probe](docs/rust-probe-usage.md),
   with shared Python/Perl/Rust conformance and no OpenShell runtime dependency.
+- [Digest-verified Rust staging and authenticated delivery admission](docs/rust-probe-delivery.md)
+  for experimental IP-only OpenShell execution in an operator-owned pinned image.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the

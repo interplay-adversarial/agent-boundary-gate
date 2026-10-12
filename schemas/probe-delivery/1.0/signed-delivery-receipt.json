@@ -1,0 +1,307 @@
+{
+  "$defs": {
+    "ComponentIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "component_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Component Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "instance_uid": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Instance Uid",
+          "type": "string"
+        },
+        "generation": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Generation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component_id",
+        "role",
+        "instance_uid",
+        "generation"
+      ],
+      "title": "ComponentIdentity",
+      "type": "object"
+    },
+    "DeliveryReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "signer_identity": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Signer Identity",
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/DeliveryRequest"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "state": {
+          "const": "verified-immutable-delivery",
+          "title": "State",
+          "type": "string"
+        },
+        "immutable_until": {
+          "format": "date-time",
+          "title": "Immutable Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signer_identity",
+        "request",
+        "issued_at",
+        "expires_at",
+        "state",
+        "immutable_until"
+      ],
+      "title": "DeliveryReceipt",
+      "type": "object"
+    },
+    "DeliveryRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "challenge": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge",
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/LeaseBinding"
+        },
+        "deployment": {
+          "$ref": "#/$defs/RustProbeDeployment"
+        }
+      },
+      "required": [
+        "challenge",
+        "binding",
+        "deployment"
+      ],
+      "title": "DeliveryRequest",
+      "type": "object"
+    },
+    "LeaseBinding": {
+      "additionalProperties": false,
+      "description": "Trusted provisioning context, never learned from a returned receipt.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "binding_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Binding Digest",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "lease_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "cell_uid": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Cell Uid",
+          "type": "string"
+        },
+        "component": {
+          "$ref": "#/$defs/ComponentIdentity"
+        },
+        "effective_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Effective Policy Digest",
+          "type": "string"
+        },
+        "lease_expires_at": {
+          "format": "date-time",
+          "title": "Lease Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_digest",
+        "run_id",
+        "attempt_id",
+        "lease_id",
+        "cell_uid",
+        "component",
+        "effective_policy_digest",
+        "lease_expires_at"
+      ],
+      "title": "LeaseBinding",
+      "type": "object"
+    },
+    "RustProbeArtifact": {
+      "additionalProperties": false,
+      "description": "Out-of-band baseline pins; never derive expected values from a download.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "package_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Package Version",
+          "type": "string"
+        },
+        "protocol": {
+          "const": "agent-boundary-gate/http-probe/1.0",
+          "default": "agent-boundary-gate/http-probe/1.0",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "protocol_digest": {
+          "const": "sha256:33af33787bd74a862579ca43ddbbc313043135a8ea7b15baa0a7f01feaa6af2f",
+          "default": "sha256:33af33787bd74a862579ca43ddbbc313043135a8ea7b15baa0a7f01feaa6af2f",
+          "title": "Protocol Digest",
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-musl"
+          ],
+          "title": "Target",
+          "type": "string"
+        },
+        "binary_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Binary Digest",
+          "type": "string"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        },
+        "manifest_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Manifest Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "binary_digest",
+        "source_digest",
+        "manifest_digest"
+      ],
+      "title": "RustProbeArtifact",
+      "type": "object"
+    },
+    "RustProbeDeployment": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "$ref": "#/$defs/RustProbeArtifact"
+        },
+        "workload_image_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Workload Image Digest",
+          "type": "string"
+        },
+        "executable_path": {
+          "const": "/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe",
+          "default": "/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe",
+          "title": "Executable Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "workload_image_digest"
+      ],
+      "title": "RustProbeDeployment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "receipt": {
+      "$ref": "#/$defs/DeliveryReceipt"
+    },
+    "algorithm": {
+      "const": "Ed25519",
+      "default": "Ed25519",
+      "title": "Algorithm",
+      "type": "string"
+    },
+    "signature": {
+      "pattern": "^[0-9a-f]{128}$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "receipt",
+    "signature"
+  ],
+  "title": "SignedDeliveryReceipt",
+  "type": "object"
+}

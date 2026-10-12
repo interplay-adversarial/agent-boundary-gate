@@ -26,6 +26,7 @@ PUBLIC_HOSTS = {
     "apache.org",
     "localhost",
     "127.0.0.1",
+    "::1",  # IPv6 loopback, like the synthetic IPv4 receiver above.
     "receiver",
     "example.com",
 }

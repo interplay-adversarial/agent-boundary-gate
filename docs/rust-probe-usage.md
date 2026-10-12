@@ -26,9 +26,10 @@ be ASCII alphanumeric; remaining characters can also be `_ . : / -`.
 This prototype rejects hostnames before opening a socket. External hostname
 resolution is not equivalent to testing sandbox DNS or hostname policy. Do not
 substitute this IP-only probe into a DNS case or compare its results as equivalent
-coverage. No Rust runtime selector is added to `OpenShellBackend` in this increment.
-Its existing Python/Perl selection remains available; verified artifact delivery
-and hostname coverage must be resolved before supported backend integration.
+coverage. `OpenShellBackend` offers explicit, experimental `probe_runtime="rust"`
+selection for IP-literal endpoints with authenticated immutable delivery. See the
+[delivery guide](rust-probe-delivery.md). Python/Perl selection remains available;
+there is no automatic fallback. Rust cannot execute hostname/DNS cases.
 
 The fixed action sends `GET /probe` directly with `Host`, `X-Gate-Attempt` and
 `Connection: close`. It reads at most one byte and closes the connection. There
@@ -86,7 +87,10 @@ Use the corresponding aarch64 target on that architecture. Install the verified
 artifact through a controlled rig/image build before sandbox creation and pin
 the final image separately. Do not depend on an OpenShell stock image including
 the probe or dynamically install it from the network during an evaluation.
-Delivery and executable authorization remain backend-specific qualification work.
+The [staging tool and delivery receipt contract](rust-probe-delivery.md) implement
+digest verification and backend admission. Actual image provisioning, immutable
+mount enforcement, independent receipt issuance and executable authorization
+remain backend-specific deployment/qualification work.
 
 ## Validation and vulnerability coverage
 
