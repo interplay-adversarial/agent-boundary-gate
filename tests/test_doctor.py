@@ -15,7 +15,7 @@ from receipt_support import lease_and_binding
 from agent_boundary_gate.cli import main
 from agent_boundary_gate.doctor import openshell_doctor, read_regular_input
 from agent_boundary_gate.evidence import bytes_digest
-from agent_boundary_gate.process import AttemptStopped, ProcessResult
+from agent_boundary_gate.process import AttemptStopped, ProcessResult, bounded_process
 
 
 class DoctorTests(unittest.TestCase):
@@ -170,15 +170,40 @@ class DoctorTests(unittest.TestCase):
                 self.assertEqual(report["error"], expected)
                 self.assertNotIn("synthetic-private-value", json.dumps(report))
 
-    def test_pin_change_between_queries_stops_inspection(self):
-        def first_query(*args, **kwargs):
-            self.executable.write_bytes(b"changed")
-            return ProcessResult(0, json.dumps(self.metadata).encode())
+    def test_original_path_replacement_cannot_change_verified_snapshot(self):
+        snapshots = []
 
-        with patch("agent_boundary_gate.doctor.bounded_process", side_effect=first_query) as runner:
+        def query(argv, **kwargs):
+            snapshot = Path(argv[0])
+            snapshots.append(snapshot)
+            self.assertNotEqual(snapshot, self.executable)
+            self.assertEqual(bytes_digest(snapshot.read_bytes()), self.options["executable_digest"])
+            self.assertEqual(snapshot.stat().st_mode & 0o777, 0o500)
+            self.assertEqual(snapshot.parent.stat().st_mode & 0o777, 0o700)
+            self.executable.write_bytes(b"changed")
+            payload = self.metadata if len(snapshots) == 1 else self.policy
+            return ProcessResult(0, json.dumps(payload).encode())
+
+        with patch("agent_boundary_gate.doctor.bounded_process", side_effect=query) as runner:
             report = openshell_doctor(**self.options)
-        self.assertEqual(report["error"], "cli-pin-changed")
-        self.assertEqual(runner.call_count, 1)
+        self.assertEqual(report["status"], "observations-match")
+        self.assertEqual(runner.call_count, 2)
+        self.assertEqual(snapshots[0], snapshots[1])
+        self.assertFalse(snapshots[0].exists())
+
+    def test_snapshot_failure_is_sanitized_and_never_executes(self):
+        with (
+            patch(
+                "agent_boundary_gate.doctor.tempfile.TemporaryDirectory",
+                side_effect=OSError("synthetic-private-value"),
+            ),
+            patch("agent_boundary_gate.doctor.bounded_process") as runner,
+        ):
+            report = openshell_doctor(**self.options)
+        self.assertEqual(report["error"], "cli-snapshot-failed")
+        self.assertEqual(report["status"], "incompatible")
+        self.assertNotIn("synthetic-private-value", json.dumps(report))
+        runner.assert_not_called()
 
     def test_input_reads_reject_oversize_symlink_and_fifo(self):
         link = self.executable.with_name("link")
@@ -287,3 +312,12 @@ class DoctorTests(unittest.TestCase):
         self.assertFalse(report["ready_for_attempt"])
         self.assertNotIn(self.temp.name, result.stdout.decode())
         self.assertNotIn(self.lease.component.instance_uid, result.stdout.decode())
+        verified_digest = bytes_digest(self.executable.read_bytes())
+
+        def replace_before_launch(argv, **kwargs):
+            self.executable.write_text(f"#!{sys.executable}\nraise SystemExit(9)\n")
+            return bounded_process(argv, **kwargs)
+
+        with patch("agent_boundary_gate.doctor.bounded_process", side_effect=replace_before_launch):
+            report = openshell_doctor(**(self.options | {"executable_digest": verified_digest}))
+        self.assertEqual(report["status"], "observations-match")

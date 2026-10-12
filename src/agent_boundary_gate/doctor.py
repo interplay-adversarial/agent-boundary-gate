@@ -6,6 +6,7 @@ import math
 import os
 import re
 import stat
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -94,12 +95,42 @@ def openshell_doctor(
     checks["lease-current"] = "match" if datetime.now(UTC) < lease.lease_expires_at else "expired"
     if checks["lease-current"] != "match":
         return report
+    # Execute the bytes we hashed, not the original path after checking it.
+    # Other local users cannot traverse this private directory; processes with
+    # this same controller identity remain trusted, as do the binary's libraries.
+    try:
+        with tempfile.TemporaryDirectory(prefix="gate-doctor-cli-") as private:
+            snapshot = Path(private) / "openshell"
+            snapshot.write_bytes(raw)
+            snapshot.chmod(0o500)
+            return _inspect(
+                executable=snapshot,
+                gateway=gateway,
+                sandbox=sandbox,
+                policy_revision=policy_revision,
+                lease=lease,
+                deadline=deadline,
+                report=report,
+            )
+    except OSError:
+        report["status"] = "incompatible"
+        report["error"] = "cli-snapshot-failed"
+        return report
+
+
+def _inspect(
+    *,
+    executable: Path,
+    gateway: str,
+    sandbox: str,
+    policy_revision: int,
+    lease: LeaseBinding,
+    deadline: float,
+    report: dict,
+) -> dict:
+    checks = report["checks"]
 
     def query(args: list[str]) -> dict:
-        current = read_regular_input(executable, limit=64 * 1024 * 1024)
-        if "sha256:" + hashlib.sha256(current).hexdigest() != executable_digest:
-            checks["cli-pin"] = "mismatch"
-            raise ValueError("cli-pin-changed")
         result = bounded_process(
             [str(executable.resolve()), "--gateway", gateway, *args],
             deadline=deadline,
@@ -157,9 +188,7 @@ def openshell_doctor(
     except ValueError as error:
         # Only locally constructed codes; never include exception/CLI input text.
         report["error"] = (
-            str(error)
-            if str(error) in {"cli-exit-nonzero", "cli-json-invalid", "cli-pin-changed"}
-            else "cli-invalid"
+            str(error) if str(error) in {"cli-exit-nonzero", "cli-json-invalid"} else "cli-invalid"
         )
         return report
     # Observe expiry again after both queries; a slow query cannot preserve currency.

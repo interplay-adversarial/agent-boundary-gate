@@ -29,10 +29,13 @@ The executable must be a regular file at its actual path, not a symlink, and mat
 the supplied `sha256:` digest. Inputs are bounded: lease JSON at 64 KiB, CLI binary
 at 64 MiB and each CLI response at 64 KiB. The timeout must be finite, positive
 and at most sixty seconds; both queries share it. Existing process-group cleanup
-can take up to five additional seconds. Keep the executable and its parent
-directories controlled by the operator; digest checks before each invocation do
-not prevent a malicious concurrent executable replacement between checking and
-launching. The doctor trusts the pinned CLI's implementation of read commands.
+can take up to five additional seconds. The doctor executes a copy of the verified
+bytes in a temporary `0700` directory with file mode `0500`, removed after inspection.
+Replacing the original path between checking and launch cannot change this copy.
+The controller identity, its temporary storage and the CLI's shared libraries
+remain trusted; this does not protect against another process with the same
+controller identity. The pinned CLI must support execution from the temporary
+location. The doctor trusts its implementation of read commands.
 
 The report contains only fixed check names, statuses and error codes. It omits
 gateway/sandbox names, UIDs, digests, lease identifiers, paths and raw CLI output.
