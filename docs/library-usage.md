@@ -144,6 +144,15 @@ store without creating a missing directory. Reads do not follow artifact symlink
 or block on FIFOs. Keep the store and ancestor directories controlled by the
 collector and inaccessible to the workload identity.
 
+Stored-evidence evaluation also shares a budget of 1,024 read attempts and 32 MiB
+across all records, manifests, sources, effects and nested heartbeat references.
+Repeated references count again. Successful reads charge actual bytes; failed
+reads conservatively charge their requested limit plus the one-byte oversize
+probe. Once a budget is exhausted, no further store reads occur and
+`evidence-read-budget-exceeded` withholds pass, even for an optional source.
+Violation/incident precedence is preserved. This bounds artifact I/O; it does not
+bound input JSON parsing, signature work or the runtime of a custom store.
+
 Local storage does not establish remote replication, independent collector
 authority or whole-cell durability. RustFS/MLflow integration is pending.
 

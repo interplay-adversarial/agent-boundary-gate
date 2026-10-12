@@ -243,3 +243,118 @@ class EvidenceEvaluationTests(unittest.TestCase):
         self.assertIn(
             "referenced-evidence-unavailable", json.loads(result.stdout)["decision_reasons"]
         )
+
+    def test_read_budget_is_shared_across_distinct_case_records(self):
+        record = self.record()
+        first = self.dispatch.instances[0]
+        second = first.model_copy(update={"benchmark_index": 1, "case_id": "second-case"})
+        self.dispatch = self.dispatch.model_copy(update={"instances": (first, second)})
+        records = []
+        for instance in self.dispatch.instances:
+            evidence = record.evidence.model_copy(
+                update={
+                    "expected_instances": self.dispatch.instances,
+                    "instance": instance,
+                }
+            )
+            self.store.persist(canonical(evidence))
+            records.append(
+                sign(
+                    record.result.model_copy(
+                        update={
+                            "instance": instance,
+                            "evidence_manifest_digest": digest(evidence),
+                        }
+                    ),
+                    evidence,
+                    self.key,
+                )
+            )
+        with (
+            patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_READS", 6),
+            patch.object(self.store, "read", wraps=self.store.read) as read,
+        ):
+            decision = evaluate(
+                self.dispatch,
+                records,
+                {"fixture-verifier": self.key.public_key()},
+                now=self.now,
+                job_complete=True,
+                server_aggregate=1.0,
+                evidence_store=self.store,
+            )
+        self.assertEqual(read.call_count, 6)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+
+    def test_repeated_nested_heartbeats_cannot_bypass_read_budget(self):
+        heartbeat = self.store.persist_json({"synthetic-heartbeat": True})
+        record = self.record(monitor_packet={"heartbeat_refs": [heartbeat] * 10})
+        with (
+            patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_READS", 5),
+            patch.object(self.store, "read", wraps=self.store.read) as read,
+        ):
+            decision = self.decision(record)
+        self.assertEqual(read.call_count, 5)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+
+    def test_byte_budget_caps_store_reads_and_success_charges_actual_bytes(self):
+        record = self.record()
+        refs = [
+            self.manifest,
+            *(s.artifact_digest for s in record.evidence.sources),
+            self.heartbeat,
+        ]
+        total = sum(len(self.store.read(ref)) for ref in refs)
+        with patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_BYTES", total + 1):
+            self.assertEqual(self.decision(record).release_decision, "pass")
+        # A final optional read that consumes the remaining reservation must
+        # still report byte-budget exhaustion, without requiring another read.
+        with patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_BYTES", total):
+            decision = self.decision(record)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+        budget = len(self.store.read(self.manifest))
+        with (
+            patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_BYTES", budget),
+            patch.object(self.store, "read", wraps=self.store.read) as read,
+        ):
+            decision = self.decision(record)
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(read.call_args.kwargs["max_bytes"], budget - 1)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+
+    def test_failed_reads_retain_byte_reservation_and_stop_further_io(self):
+        record = self.record()
+        with (
+            patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_BYTES", 9),
+            patch.object(self.store, "read", side_effect=OSError("synthetic-read-failure")) as read,
+        ):
+            decision = self.decision(record)
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(read.call_args.kwargs["max_bytes"], 8)
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+
+    def test_optional_budget_exhaustion_withholds_pass_and_resets_per_evaluation(self):
+        record = self.record()
+        # Four reads cover all required artifacts; the optional source is fifth.
+        with patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_READS", 4):
+            decision = self.decision(record)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+        with patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_READS", 5):
+            for _ in range(2):
+                self.assertEqual(self.decision(record).release_decision, "pass")
+
+    def test_budget_exhaustion_preserves_violation_and_incident_precedence(self):
+        for scenario, expected in (("weakened", "criteria_failed"), ("incident", "incident")):
+            with self.subTest(scenario=scenario):
+                record = self.record(scenario)
+                with patch("agent_boundary_gate.gate_policy.MAX_EVIDENCE_READS", 1):
+                    decision = self.decision(record)
+                self.assertEqual(decision.release_decision, expected)
+                self.assertIn("evidence-read-budget-exceeded", decision.decision_reasons)
+                if scenario == "weakened":
+                    self.assertEqual(decision.confirmed_violations, ("denied-egress-v1",))

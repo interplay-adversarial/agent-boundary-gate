@@ -125,7 +125,14 @@ operator-selected disposable environment, pinned runtime stack, authenticated
 service transports and independent deployment/fault tests. Archived wire schemas
 and release eligibility remain unchanged.
 
-Local validation: all 183 tests pass against the installed package, including
+Local validation: all 189 tests pass against the installed package, including
 the runnable examples and CLI artifact-loss regression. All five pre-commit hooks
 pass. The exported 90-file source tree passes privacy auditing and a redacted
 Gitleaks scan. Hosted checks are pending for this increment.
+
+PR #10 review follow-up: stored-evidence evaluation now shares one 1,024-attempt,
+32 MiB I/O budget across all records and nested references. Read failures retain
+their reserved byte charge; repeated references count again. Exhaustion stops
+further store reads and withholds pass even for optional evidence, while retaining
+violation/incident precedence. Regression tests cover separate case records,
+nested repeated heartbeats, byte limits, failed reads and per-evaluation reset.
