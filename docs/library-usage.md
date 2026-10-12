@@ -11,6 +11,7 @@ may change. Every decision carries `qualification: m0-prototype` and
 | Stored evidence verification | `evaluate(..., evidence_store=store)` | Also retrieves manifest, effect, source and nested monitor heartbeat bytes and checks their digests |
 | Loopback integration | `local_rig.local_run` | Real local HTTP receiver observations with simulated enforcement and monitoring |
 | Custom attempt orchestration | `lifecycle.run_attempt` | Composes backend, observer, optional agent, monitor and lease recovery interfaces |
+| Read-only OpenShell inspection | `doctor.openshell_doctor` / CLI `doctor` | Pinned CLI, lease expiry, sandbox identity/phase and active policy observations; no authenticated readiness |
 | Live OpenShell qualification | Pending | Requires a pinned isolated rig, independent services and fault qualification |
 
 Hermes, OpenCode and OpenClaw adapters are planned. Typed tool-request contracts
@@ -25,6 +26,8 @@ explicitly if those bounds fit measured rig latency; these are starting examples
 not qualified defaults. Both remain bounded at sixty seconds, and readiness
 cannot outlive dispatch. See the [live-rig handoff](live-rig-handoff.md) for active
 policy revision discovery, sanitized diagnostics, and timing/trust requirements.
+The [compatibility doctor guide](compatibility-doctor.md) provides CLI inputs,
+report interpretation and limitations for read-only inspection.
 
 ## Install from source
 

@@ -22,6 +22,7 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - Challenge-bound signed broker receipts with scoped trust and lease/attempt checks.
 - Unknown-by-default monitoring, signed heartbeat freshness and latched loss/incidents.
 - A private durable lease journal and restartable cleanup recovery worker.
+- A [read-only OpenShell compatibility doctor](docs/compatibility-doctor.md) with sanitized reports.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
