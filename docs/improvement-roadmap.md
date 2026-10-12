@@ -48,8 +48,15 @@ No milestone in this roadmap silently enables it.
 SEC-01 adds regression coverage for exact pins, normalized names/versions,
 missing or invalid versions, duplicate/unexpected records, marker selection,
 conflicting pins and vulnerability preservation on version mismatch. The local
-unit and loopback suite passes 93 tests. All five pre-commit hooks pass. The
+unit and loopback suite passes 97 tests. All five pre-commit hooks pass. The
 online audit verifies 45 locked packages with zero gaps and no known vulnerabilities;
 the staged publication privacy audit reports no findings. CI repeats validation on Python 3.12 and
 3.13; local validation is Python 3.12. Hosted workflows, scheduled execution,
 Dependabot proposals and repository ruleset enforcement are not yet validated.
+
+PR review follow-up: duplicate package names invalidate every associated row,
+including matching-version rows. Only unique, matching, complete records count
+as scanned dependencies or verified `vulnerabilities`. Advisories from rejected
+records are deduplicated under `unverified_vulnerabilities`; they cannot establish
+coverage or approval. Output is independent of duplicate record order, and an
+incomplete audit always exits with status 2.

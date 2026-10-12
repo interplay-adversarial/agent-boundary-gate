@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 from packaging.requirements import Requirement
@@ -42,9 +43,16 @@ def summarize(report: object, expected: dict[str, Version]) -> tuple[int, dict[s
         or not expected
     ):
         return 2, {"error": "dependency-audit-incomplete"}
+    # Count names before validating rows: every record for a duplicated package
+    # is untrusted, even if one row has the correct version or occurs first.
+    name_counts = Counter(
+        canonicalize_name(dependency["name"])
+        for dependency in report["dependencies"]
+        if isinstance(dependency, dict) and isinstance(dependency.get("name"), str)
+    )
     scanned: set[str] = set()
-    seen: set[str] = set()
-    vulnerable = []
+    verified_advisories: set[tuple[str, str]] = set()
+    unverified_advisories: set[tuple[str, str]] = set()
     gaps = 0
     for dependency in report["dependencies"]:
         if not isinstance(dependency, dict) or not isinstance(dependency.get("name"), str):
@@ -54,31 +62,47 @@ def summarize(report: object, expected: dict[str, Version]) -> tuple[int, dict[s
         if not re.fullmatch(r"[a-z0-9_.-]+", name):
             gaps += 1
             continue
-        if dependency.get("skip_reason") or not isinstance(dependency.get("vulns"), list):
-            gaps += 1
-            continue
         try:
             version = Version(dependency["version"])
         except (KeyError, TypeError, InvalidVersion):
-            gaps += 1
-            continue
-        if name in seen or name not in expected or version != expected[name]:
-            gaps += 1
-        else:
+            version = None
+        accepted = (
+            name_counts[name] == 1
+            and name in expected
+            and version == expected[name]
+            and not dependency.get("skip_reason")
+            and isinstance(dependency.get("vulns"), list)
+        )
+        if accepted:
             scanned.add(name)
-        seen.add(name)
+        else:
+            gaps += 1
+        if not isinstance(dependency.get("vulns"), list):
+            continue
+        # Keep rejected-record advisories visible without presenting them as
+        # verified findings. Neither list can override an incomplete audit.
+        advisories = verified_advisories if accepted else unverified_advisories
         for vulnerability in dependency["vulns"]:
             identity = vulnerability.get("id", "") if isinstance(vulnerability, dict) else ""
-            if not re.fullmatch(r"(?:CVE-\d{4}-\d{4,}|GHSA-[a-z0-9-]+|PYSEC-[0-9-]+)", identity):
+            if not isinstance(identity, str) or not re.fullmatch(
+                r"(?:CVE-\d{4}-\d{4,}|GHSA-[a-z0-9-]+|PYSEC-[0-9-]+)", identity
+            ):
                 identity = "unclassified-advisory"
-            vulnerable.append({"package": name, "advisory": identity})
+            advisories.add((name, identity))
     gaps += len(expected.keys() - scanned)
     summary = {
         "dependencies_scanned": len(scanned),
         "audit_gaps": gaps,
-        "vulnerabilities": vulnerable,
+        "vulnerabilities": [
+            {"package": name, "advisory": identity}
+            for name, identity in sorted(verified_advisories)
+        ],
+        "unverified_vulnerabilities": [
+            {"package": name, "advisory": identity}
+            for name, identity in sorted(unverified_advisories)
+        ],
     }
-    return (2 if gaps else 1 if vulnerable else 0), summary
+    return (2 if gaps else 1 if verified_advisories else 0), summary
 
 
 def main() -> int:
