@@ -2,7 +2,7 @@
 
 import time
 from datetime import UTC, datetime, timedelta
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -38,6 +38,7 @@ class AttemptControl:
     """Independent monitor supplies these signals; local tests inject them explicitly."""
 
     def __init__(self, monitor: ContainmentMonitor | None = None):
+        self._monitor_lock = Lock()
         self._last_monitor = UnknownMonitor().snapshot()
         self._monitor_failed = Event()
         self._monitor_identity: tuple[str, str] | None = None
@@ -51,6 +52,12 @@ class AttemptControl:
         return cls(FixtureMonitor(binding))
 
     def monitor_snapshot(self) -> MonitorSnapshot:
+        # The watcher and attempt thread must pin identity and latch failure
+        # against the same serialized snapshot history.
+        with self._monitor_lock:
+            return self._monitor_snapshot_locked()
+
+    def _monitor_snapshot_locked(self) -> MonitorSnapshot:
         try:
             snapshot = self.monitor.snapshot()
             if not isinstance(snapshot, MonitorSnapshot):

@@ -6,6 +6,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event
@@ -259,6 +260,36 @@ class RuntimeTests(unittest.TestCase):
             ),
         ):
             self.assertFalse(self.control.monitor_snapshot().healthy)
+        self.assertFalse(self.control.monitor_snapshot().healthy)
+
+    def test_concurrent_snapshots_pin_first_generation_and_latch_change(self):
+        first_entered, release_first = Event(), Event()
+        calls = []
+
+        def changing_source():
+            generation = "first-generation" if not calls else "replacement-generation"
+            calls.append(generation)
+            if generation == "first-generation":
+                first_entered.set()
+                if not release_first.wait(2):
+                    raise RuntimeError("synthetic-snapshot-timeout")
+            return MonitorSnapshot("healthy", "local-fixture-monitor", generation)
+
+        with patch.object(self.control.monitor, "snapshot", side_effect=changing_source):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                first = pool.submit(self.control.monitor_snapshot)
+                self.assertTrue(first_entered.wait(1))
+                others = [pool.submit(self.control.monitor_snapshot) for _ in range(7)]
+                release_first.set()
+                snapshots = [first.result(timeout=2)] + [
+                    future.result(timeout=2) for future in others
+                ]
+        self.assertTrue(snapshots[0].healthy)
+        self.assertEqual(snapshots[0].generation, "first-generation")
+        self.assertTrue(all(not snapshot.healthy for snapshot in snapshots[1:]))
+        self.assertEqual(
+            self.control._monitor_identity, ("local-fixture-monitor", "first-generation")
+        )
         self.assertFalse(self.control.monitor_snapshot().healthy)
 
     def test_healthy_real_http_and_signed_terminal_record(self):

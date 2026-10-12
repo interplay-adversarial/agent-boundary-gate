@@ -39,7 +39,9 @@ design, not silent eviction of required proof.
 
 Unknown health, expiry, adapter errors, authenticated loss and source generation
 changes stop replay and withhold approval. Loss cannot be healed within an attempt.
-Verified incidents remain latched even when persistence fails, preserving incident
+The watcher and attempt thread serialize controller snapshot bookkeeping, including
+identity/generation pinning and failure latching. Verified incidents remain latched
+even when persistence fails, preserving incident
 precedence. The watcher cancels local bounded processes, but cannot force a blocked
 plugin call to return. The lease mechanism provides a separate recovery path.
 
