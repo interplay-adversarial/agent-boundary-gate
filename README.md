@@ -127,6 +127,9 @@ remote collectors, restricted RustFS/MLflow storage and EvalHub integration rema
 qualification work. See [ADR-0001](docs/adr/0001-rig-topology.md) and the
 [live-rig handoff](docs/live-rig-handoff.md).
 
+See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for acceptance
+criteria, implementation status and qualification blockers.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
