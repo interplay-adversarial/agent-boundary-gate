@@ -185,7 +185,7 @@ qualification and separately authorized disposable latency experiments remain
 pending. The report cannot authorize attempts or releases; signed wire contracts
 and lifecycle admission are unchanged.
 
-Local validation: all 214 unit/integration tests and all five pre-commit hooks
+Local validation: all 216 unit/integration tests and all five pre-commit hooks
 pass, including Ruff, the locked dependency CVE audit and publication privacy.
 The installed CLI is exercised against a synthetic pinned executable that accepts
 only the two exact read commands. Tests cover replacement identity, inactive or
@@ -197,3 +197,7 @@ snapshot rather than reopening the original executable path after checking it.
 Tests replace the original immediately before actual launches and between queries,
 verify private snapshot permissions and removal, and sanitize snapshot failures.
 The controller identity and binary's shared libraries remain trusted.
+Input reads explicitly use close-on-exec, retain final-component symlink rejection
+when making paths absolute, and close descriptors if wrapping fails. A regression
+replaces the opened pathname with a FIFO while a hard link remains: checking and
+reading the same original descriptor stays regular and returns the original bytes.

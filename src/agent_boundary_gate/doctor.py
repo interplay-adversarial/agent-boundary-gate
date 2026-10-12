@@ -19,8 +19,15 @@ from agent_boundary_gate.receipts import LeaseBinding
 
 def read_regular_input(path: Path, *, limit: int) -> bytes:
     """Reject symlinks/devices/FIFOs and bound private input allocation."""
-    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
-    with os.fdopen(fd, "rb") as stream:
+    # Capture the current directory without resolving away a final symlink.
+    # CLOEXEC is explicit even though Python's os.open already defaults to it.
+    fd = os.open(path.absolute(), os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        stream = os.fdopen(fd, "rb")
+    except BaseException:
+        os.close(fd)
+        raise
+    with stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise ValueError("invalid-doctor-input")
         raw = stream.read(limit + 1)

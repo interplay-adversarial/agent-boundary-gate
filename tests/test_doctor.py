@@ -214,6 +214,34 @@ class DoctorTests(unittest.TestCase):
             with self.subTest(path=path.name), self.assertRaises((OSError, ValueError)):
                 read_regular_input(path, limit=1)
 
+    def test_open_descriptor_remains_regular_after_path_becomes_fifo(self):
+        expected = self.executable.read_bytes()
+        original_fstat = os.fstat
+        hardlink = self.executable.with_name("hardlink")
+        os.link(self.executable, hardlink)
+
+        def replace_path(fd):
+            self.assertFalse(os.get_inheritable(fd))
+            self.executable.unlink()
+            os.mkfifo(self.executable)
+            return original_fstat(fd)
+
+        with patch("agent_boundary_gate.doctor.os.fstat", side_effect=replace_path):
+            raw = read_regular_input(self.executable, limit=1024)
+        self.assertEqual(raw, expected)
+        self.assertEqual(hardlink.read_bytes(), expected)
+
+    def test_fdopen_failure_closes_the_opened_descriptor(self):
+        with (
+            patch("agent_boundary_gate.doctor.os.fdopen", side_effect=OSError("synthetic")),
+            patch("agent_boundary_gate.doctor.os.close", wraps=os.close) as close,
+        ):
+            with self.assertRaises(OSError):
+                read_regular_input(self.executable, limit=1024)
+        close.assert_called_once()
+        with self.assertRaises(OSError):
+            os.fstat(close.call_args.args[0])
+
     def test_cli_prints_only_sanitized_report_and_exit_status(self):
         lease_file = self.executable.with_name("lease.json")
         lease_file.write_text(self.lease.model_dump_json())
