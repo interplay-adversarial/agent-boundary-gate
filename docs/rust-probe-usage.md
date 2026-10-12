@@ -56,6 +56,9 @@ It writes an **unsigned** `gate-http-probe.provenance.json` beside the binary wi
 protocol/source/binary digests, package/compiler versions, target and source commit.
 A dirty checkout reports `source_commit: null` plus the actual source digest;
 it cannot imply that its bytes match the parent commit.
+Build/check failures exit 2 with a fixed phase-specific reason, such as
+`rust-probe-format-failed` or `rust-probe-unit-tests-timeout`. Raw compiler output,
+paths and exception details are excluded; input/artifact errors use a generic code.
 
 This is build metadata, not authenticated supply-chain provenance. Supply expected
 digests independently from trusted release configuration. Builds are not yet

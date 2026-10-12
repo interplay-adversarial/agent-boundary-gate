@@ -227,7 +227,7 @@ supported `OpenShellBackend` runtime selector. Compiler/stdlib, build/audit tool
 and runtime-image CVEs need separate SEC-03 coverage. Signed schemas and release
 eligibility remain unchanged.
 
-Local validation of this increment: 229 Python unit/integration tests pass with
+Local validation of this increment: 231 Python unit/integration tests pass with
 one Linux-static resource test exercised in both hosted architecture jobs; four
 Rust unit tests and all seven pre-commit hooks pass. The 106-file exported source
 tree passes publication privacy and redacted Gitleaks scans. The native development
@@ -239,3 +239,6 @@ to raw bytes and inspect byte-preserving/UTF-16 text views, without dropping
 invalid UTF-8 bytes. Regressions cover invalid boundaries, both UTF-16 endian
 orders and either byte alignment. Only fixed errors are exported, never matched
 private data. This updates build validation without changing the probe baseline.
+Build failures also export allowlisted phase-specific reasons for formatting,
+Clippy, unit tests, compilation and tooling/source-state checks. Raw command
+output, exception details and paths remain excluded from diagnostics.

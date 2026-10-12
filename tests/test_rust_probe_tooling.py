@@ -1,6 +1,9 @@
+import contextlib
+import io
 import json
 import struct
 import subprocess
+import sys
 import unittest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
@@ -10,6 +13,47 @@ from scripts import rust_probe_build as build
 
 
 class RustToolingTests(unittest.TestCase):
+    def test_build_command_failures_are_phase_scoped_and_sanitized(self):
+        for result, phase, reason in (
+            (
+                subprocess.CompletedProcess([], 1, b"synthetic-private-value", b""),
+                "unit-tests",
+                "failed",
+            ),
+            (subprocess.CompletedProcess([], 0, b"x" * 33, b""), "build", "output-limit"),
+            (OSError("synthetic-private-value"), "format", "start-failed"),
+            (subprocess.TimeoutExpired(["synthetic-private-value"], 1), "clippy", "timeout"),
+        ):
+            kwargs = (
+                {"side_effect": result}
+                if isinstance(result, Exception)
+                else {"return_value": result}
+            )
+            with (
+                self.subTest(phase=phase),
+                patch.object(build.subprocess, "run", **kwargs),
+                self.assertRaises(ValueError) as caught,
+            ):
+                build.command(["cargo"], phase=phase, limit=32)
+            self.assertEqual(str(caught.exception), f"rust-probe-{phase}-{reason}")
+            self.assertNotIn("synthetic-private-value", str(caught.exception))
+
+    def test_build_cli_exports_only_allowlisted_failure_reasons(self):
+        for error, expected in (
+            (ValueError("rust-probe-format-failed"), "rust-probe-format-failed"),
+            (ValueError("synthetic-private-value"), "rust-probe-input-or-artifact-invalid"),
+        ):
+            output = io.StringIO()
+            with (
+                patch.object(sys, "argv", ["builder", "--check"]),
+                patch.object(build, "build", side_effect=error),
+                contextlib.redirect_stdout(output),
+            ):
+                self.assertEqual(build.main(), 2)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["reason"], expected)
+            self.assertNotIn("synthetic-private-value", output.getvalue())
+
     def test_dependencies_and_foreign_lock_entries_require_review(self):
         manifest = {"package": {"name": "gate-http-probe", "version": "0.1.0"}}
         lock = {"package": [{"name": "gate-http-probe", "version": "0.1.0"}]}

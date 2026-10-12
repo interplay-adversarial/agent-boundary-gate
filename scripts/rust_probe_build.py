@@ -24,10 +24,29 @@ SOURCE_FILES = (
 )
 
 
-def command(argv: list[str], *, env=None, limit=1024 * 1024) -> bytes:
-    result = subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, timeout=180)
-    if result.returncode or len(result.stdout) > limit or len(result.stderr) > limit:
-        raise ValueError("rust-probe-command-failed")
+PHASES = frozenset(
+    {"command", "toolchain", "format", "clippy", "unit-tests", "build", "source-state"}
+)
+COMMAND_REASONS = frozenset(
+    f"rust-probe-{phase}-{failure}"
+    for phase in PHASES
+    for failure in ("failed", "timeout", "start-failed", "output-limit")
+)
+
+
+def command(argv: list[str], *, env=None, limit=1024 * 1024, phase="command") -> bytes:
+    if phase not in PHASES:
+        raise ValueError("rust-probe-input-invalid")
+    try:
+        result = subprocess.run(argv, cwd=ROOT, env=env, capture_output=True, timeout=180)
+    except OSError:
+        raise ValueError(f"rust-probe-{phase}-start-failed") from None
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"rust-probe-{phase}-timeout") from None
+    if result.returncode:
+        raise ValueError(f"rust-probe-{phase}-failed")
+    if len(result.stdout) > limit or len(result.stderr) > limit:
+        raise ValueError(f"rust-probe-{phase}-output-limit")
     return result.stdout
 
 
@@ -97,7 +116,7 @@ def build(*, target: str | None = None, check: bool = False) -> dict:
     lock = tomllib.loads((PROBE / "Cargo.lock").read_text())
     validate_dependency_scope(manifest, lock)
     expected = tomllib.loads((PROBE / "rust-toolchain.toml").read_text())["toolchain"]["channel"]
-    compiler = command(["rustc", "-vV"], limit=4096).decode()
+    compiler = command(["rustc", "-vV"], limit=4096, phase="toolchain").decode()
     fields = dict(line.split(": ", 1) for line in compiler.splitlines() if ": " in line)
     if fields.get("release") != expected:
         raise ValueError("rust-probe-toolchain-pin-mismatch")
@@ -106,7 +125,7 @@ def build(*, target: str | None = None, check: bool = False) -> dict:
     host = fields["host"]
     if not re.fullmatch(r"[a-z0-9_-]{1,100}", host):
         raise ValueError("rust-probe-toolchain-invalid")
-    cargo = command(["cargo", "--version"], limit=4096).decode().split()
+    cargo = command(["cargo", "--version"], limit=4096, phase="toolchain").decode().split()
     if len(cargo) < 2 or cargo[1] != expected:
         raise ValueError("rust-probe-toolchain-pin-mismatch")
     if target is not None and target not in TARGETS:
@@ -129,15 +148,22 @@ def build(*, target: str | None = None, check: bool = False) -> dict:
     target_args = ["--target", target] if target else []
     if check:
         command(
-            ["cargo", "fmt", "--manifest-path", str(PROBE / "Cargo.toml"), "--", "--check"], env=env
+            ["cargo", "fmt", "--manifest-path", str(PROBE / "Cargo.toml"), "--", "--check"],
+            env=env,
+            phase="format",
         )
         command(
             ["cargo", "clippy", *args, *target_args, "--all-targets", "--", "-D", "warnings"],
             env=env,
+            phase="clippy",
         )
-        command(["cargo", "test", *args, *target_args, "--all-targets"], env=env)
+        command(
+            ["cargo", "test", *args, *target_args, "--all-targets"], env=env, phase="unit-tests"
+        )
     command(
-        ["cargo", "build", *args, *target_args, "--release", "--bin", "gate-http-probe"], env=env
+        ["cargo", "build", *args, *target_args, "--release", "--bin", "gate-http-probe"],
+        env=env,
+        phase="build",
     )
     folder = PROBE / "target" / target / "release" if target else PROBE / "target/release"
     raw = (folder / "gate-http-probe").read_bytes()
@@ -155,8 +181,10 @@ def build(*, target: str | None = None, check: bool = False) -> dict:
     for name in SOURCE_FILES:
         data = (PROBE / name).read_bytes()
         source.update(name.encode() + b"\0" + len(data).to_bytes(8, "big") + data)
-    dirty = bool(command(["git", "status", "--porcelain", "--untracked-files=normal"]))
-    commit = command(["git", "rev-parse", "HEAD"]).decode().strip()
+    dirty = bool(
+        command(["git", "status", "--porcelain", "--untracked-files=normal"], phase="source-state")
+    )
+    commit = command(["git", "rev-parse", "HEAD"], phase="source-state").decode().strip()
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("rust-probe-source-state-invalid")
     report = {
@@ -190,8 +218,19 @@ def main() -> int:
     try:
         print(json.dumps(build(target=args.target, check=args.check), indent=2))
         return 0
-    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
-        print(json.dumps({"error": "rust-probe-build-or-check-failed", "release_eligible": False}))
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+        reason = (
+            str(error) if str(error) in COMMAND_REASONS else "rust-probe-input-or-artifact-invalid"
+        )
+        print(
+            json.dumps(
+                {
+                    "error": "rust-probe-build-or-check-failed",
+                    "reason": reason,
+                    "release_eligible": False,
+                }
+            )
+        )
         return 2
 
 
