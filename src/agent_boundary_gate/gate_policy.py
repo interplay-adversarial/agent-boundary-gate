@@ -8,6 +8,7 @@ from datetime import datetime
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from agent_boundary_gate.auth import authenticate, digest
+from agent_boundary_gate.backends import BACKEND_DIAGNOSTIC_REASONS
 from agent_boundary_gate.contracts import (
     Decision,
     Dispatch,
@@ -210,6 +211,10 @@ def evaluate(
         if result.run_status != RunStatus.COMPLETE:
             incomplete = True
             reasons.add("run-not-complete")
+        backend_failures = BACKEND_DIAGNOSTIC_REASONS.intersection(result.run_status_reasons)
+        if backend_failures:
+            incomplete = True
+            reasons.update(backend_failures)
         if result.cleanup_status != "destroyed":
             incomplete = True
             reasons.add("cleanup-not-confirmed")
