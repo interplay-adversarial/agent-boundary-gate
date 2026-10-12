@@ -216,8 +216,9 @@ timeout/error semantics, build metadata and remaining distribution/trust require
 Formatting, Clippy, Rust unit tests, shared receiver conformance, artifact privacy
 and a pinned RustSec lockfile CVE hook run in pre-commit and PR validation. Native
 Linux musl jobs build/test both architectures, inspect static linkage and retain
-experimental binary/manifest artifacts. Hosted architecture results remain pending
-until the workflow runs; cross-compilation does not establish runtime support.
+experimental binary/manifest artifacts. Native x86_64 and aarch64 musl build,
+static-linkage, conformance and resource-fault jobs passed on PR #13; this is
+development conformance, not live OpenShell qualification.
 
 This is partial COMPAT-04/DEV-01 coverage. Hostname/DNS support, authenticated
 artifact delivery, reproducible build-image/linker pins, signed provenance and
@@ -227,8 +228,8 @@ and runtime-image CVEs need separate SEC-03 coverage. Signed schemas and release
 eligibility remain unchanged.
 
 Local validation of this increment: 227 Python unit/integration tests pass with
-one Linux-static resource test reserved for the hosted architecture jobs; four
+one Linux-static resource test exercised in both hosted architecture jobs; four
 Rust unit tests and all seven pre-commit hooks pass. The 106-file exported source
 tree passes publication privacy and redacted Gitleaks scans. The native development
-binary also passes artifact privacy. Linux architecture execution/linkage results
-remain pending hosted CI.
+binary also passes artifact privacy. Both native Linux architecture jobs pass,
+including static ELF inspection and the descriptor-exhaustion regression.
