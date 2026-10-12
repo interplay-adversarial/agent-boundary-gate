@@ -15,9 +15,9 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | SEC-02 | P2, first implementation | Continuous security checks | Daily and manual audits, Python 3.12/3.13 PR validation, weekly uv/Actions update proposals and a stable aggregate check; automation becomes active after merge. | Merged in PR #2; hosted Python 3.12/3.13 checks pass; first scheduled runs/update proposals not yet observed |
 | SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Planned |
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
-| LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment implemented; live deployment and orphan-cell qualification pending |
+| LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; live deployment and orphan-cell qualification pending |
 | QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
-| EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Planned |
+| EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
 | PORT-01 | P3 | Second real agent adapter | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned; agent selection pending |
@@ -102,4 +102,41 @@ remain pending. Terminal re-verification of referenced proof remains EVID-01.
 Local validation: all 166 unit/integration tests and all five pre-commit hooks
 pass, including online locked dependency auditing. Staged privacy auditing reports
 no findings. Archived terminal and lifecycle receipt schemas remain unchanged.
-Hosted validation is pending for this increment.
+Hosted Python 3.12/3.13 validation passed before PR #9 merged.
+
+## Stored-evidence and library usage increment
+
+As a prerequisite for live qualification, EVID-01 now adds bounded private-file
+retrieval with exact digest verification. `evaluate(..., evidence_store=store)`
+requires the persisted manifest, observed effect artifacts, source artifacts and
+nested monitor heartbeat artifacts. Required loss withholds pass, optional loss
+degrades diagnostics, and signed violations/incidents retain their precedence.
+Loopback evaluation enables this check; the CLI accepts `--evidence-directory`.
+Existing callers without a store retain terminal-contract-only evaluation.
+
+The [library guide](library-usage.md) explains usable APIs, trusted verification
+inputs, storage limits and live integration prerequisites. Runnable offline and
+loopback examples are covered by integration tests and Ruff in pre-commit/CI.
+
+This increment checks availability/integrity of controller-signed references,
+not independent observer semantics, monitor coverage or broker issuer signatures.
+It does not complete EVID-01 or QUAL-01. Live qualification still needs an
+operator-selected disposable environment, pinned runtime stack, authenticated
+service transports and independent deployment/fault tests. Archived wire schemas
+and release eligibility remain unchanged.
+
+Local validation: all 190 tests pass against the installed package, including
+the runnable examples and CLI artifact-loss regression. All five pre-commit hooks
+pass. The exported 90-file source tree passes privacy auditing and a redacted
+Gitleaks scan. Hosted checks are pending for this increment.
+
+PR #10 review follow-up: stored-evidence evaluation now shares one 1,024-attempt,
+32 MiB I/O budget across all records and nested references. Read failures retain
+their reserved byte charge; repeated references count again. Exhaustion stops
+further store reads and withholds pass even for optional evidence, while retaining
+violation/incident precedence. Regression tests cover separate case records,
+nested repeated heartbeats, byte limits, failed reads and per-evaluation reset.
+Effect references remain mandatory outcome proof, including when the same bytes
+also serve an optional diagnostic source. A waived-violation regression confirms
+that missing effect proof yields inconclusive with the finding, waiver and raw
+aggregate retained; optional source designation cannot waive that requirement.

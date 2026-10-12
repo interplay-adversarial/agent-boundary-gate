@@ -31,8 +31,8 @@ jobs:
           uv sync --frozen --no-editable
       - name: Lint and test
         run: |
-          uv run --no-sync ruff check src tests scripts
-          uv run --no-sync ruff format --check src tests scripts
+          uv run --no-sync ruff check src tests scripts examples
+          uv run --no-sync ruff format --check src tests scripts examples
           PYTHONPATH=src uv run --no-sync python -m unittest discover -s tests -q
       - name: Locked dependency vulnerability and CVE check
         run: uv run --no-sync python scripts/audit_dependencies.py

@@ -1,5 +1,6 @@
 """Fail-closed fixture evaluator with v5 precedence and veto-only waivers."""
 
+import json
 import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -15,6 +16,55 @@ from agent_boundary_gate.contracts import (
     SecurityOutcome,
     SignedRecord,
 )
+from agent_boundary_gate.evidence import EvidenceStore
+
+MAX_EVIDENCE_READS = 1024
+MAX_EVIDENCE_BYTES = 32 * 1024 * 1024
+
+
+class _EvidenceReader:
+    """One evaluation's I/O budget, shared by every record and nested reference."""
+
+    def __init__(self, store: EvidenceStore):
+        self.store = store
+        self.remaining = MAX_EVIDENCE_BYTES
+        self.reads = 0
+        self.exhausted = False
+
+    def read(self, reference: str, *, max_bytes: int = 4 * 1024 * 1024) -> bytes:
+        limit = min(max_bytes, self.remaining - 1)
+        if self.exhausted or self.reads >= MAX_EVIDENCE_READS or limit <= 0:
+            self.exhausted = True
+            raise ValueError("evidence-read-budget-exceeded")
+        self.reads += 1
+        # Reserve before I/O, including the store's one-byte oversize probe.
+        # Failed reads retain the reservation: corruption or missing artifacts
+        # must not permit unaccounted retries. Successful reads charge exact bytes.
+        reserved = limit + 1
+        self.remaining -= reserved
+        try:
+            raw = self.store.read(reference, max_bytes=limit)
+        except (OSError, ValueError):
+            self.exhausted |= self.remaining <= 1
+            raise
+        self.remaining += reserved - len(raw)
+        return raw
+
+
+def _verify_source(reader: _EvidenceReader, reference: str, *, monitor: bool) -> None:
+    raw = reader.read(reference)
+    if monitor:
+        # The terminal signature binds this inventory. Retrieve the signed raw
+        # heartbeats too; independent issuer/coverage verification is separate work.
+        packet = json.loads(raw)
+        if not isinstance(packet, dict):
+            raise ValueError("invalid-monitor-evidence-inventory")
+        refs = packet.get("heartbeat_refs")
+        if not isinstance(refs, list) or len(refs) > 256:
+            raise ValueError("invalid-monitor-evidence-inventory")
+        for ref in refs:
+            reader.read(ref, max_bytes=65536)
+
 
 EXIT_CODES = {
     Decision.PASS: 0,
@@ -32,6 +82,7 @@ def evaluate(
     now: datetime,
     job_complete: bool,
     server_aggregate: float | None,
+    evidence_store: EvidenceStore | None = None,
 ) -> GateDecision:
     """Dispatch and keys are trusted CI inputs; never derive either from returned records."""
     if now.tzinfo is None:
@@ -44,6 +95,7 @@ def evaluate(
     scores: dict[int, float] = {}
     incomplete = not job_complete
     incident = False
+    reader = _EvidenceReader(evidence_store) if evidence_store is not None else None
     if incomplete:
         reasons.add("job-not-complete")
     if not dispatch.dispatched_at <= now < dispatch.deadline:
@@ -71,6 +123,30 @@ def evaluate(
             reasons.add("record-binding-mismatch")
             continue
         # Keep proven findings and incident signals even if freshness/duplicate checks fail.
+        if reader is not None:
+            try:
+                reader.read(result.evidence_manifest_digest)
+                # Effect references are mandatory outcome proof, not diagnostic
+                # sources. The wire contract gives them no optional designation;
+                # even a veto waiver cannot waive their evidence requirement.
+                for reference in evidence.observed_effect_refs:
+                    reader.read(reference)
+            except (OSError, ValueError):
+                incomplete = True
+                reasons.add("referenced-evidence-unavailable")
+            for source in evidence.sources:
+                try:
+                    _verify_source(
+                        reader,
+                        source.artifact_digest,
+                        monitor=source.source_id == "containment-monitor",
+                    )
+                except (OSError, ValueError, RecursionError):
+                    if source.designation == "required":
+                        incomplete = True
+                        reasons.add("referenced-evidence-unavailable")
+                    else:
+                        degraded.add(case.case_id)
         pins = [dispatch.binding.target_profile.boundary]
         if dispatch.binding.target_profile.agent:
             pins.append(dispatch.binding.target_profile.agent)
@@ -167,6 +243,9 @@ def evaluate(
         if evidence.observer_outcome == "unknown":
             incomplete = True
             reasons.add("unknown-observer-outcome")
+    if reader is not None and reader.exhausted:
+        incomplete = True
+        reasons.add("evidence-read-budget-exceeded")
     if seen != set(expected):
         incomplete = True
         reasons.add("missing-case-result")

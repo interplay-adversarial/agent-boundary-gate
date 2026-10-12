@@ -7,6 +7,9 @@ through signed, versioned contracts. OpenShell is the first implementation backe
 **Prototype:** release authorization remains disabled. OpenShell has not been
 qualified against a live target. Hermes, OpenCode and OpenClaw adapters are planned.
 
+Start with the [Python library guide](docs/library-usage.md) for supported APIs,
+runnable offline/loopback examples, stored evidence verification and live integration prerequisites.
+
 ## Implemented
 
 - Versioned CaseSpec, EvidenceManifest, RunResult, GateDecision and target profiles.
@@ -55,8 +58,8 @@ No vulnerabilities are suppressed by a repository allowlist.
 Individual commands:
 
 ```sh
-uv run --no-sync ruff check src tests scripts
-uv run --no-sync ruff format --check src tests scripts
+uv run --no-sync ruff check src tests scripts examples
+uv run --no-sync ruff format --check src tests scripts examples
 uv run --no-sync python -m unittest discover -s tests -q
 uv run --no-sync python scripts/audit_dependencies.py
 uv run --no-sync python scripts/audit_publication.py
@@ -95,13 +98,16 @@ Signing private keys are generated in memory and are not persisted by the fixtur
 uv run --no-sync agent-boundary-gate verify \
   --dispatch dispatch.json --records records.json \
   --signer verifier-id --public-key verifier-public-key.bin \
-  --job-complete --server-aggregate 1.0
+  --evidence-directory artifacts/evidence --job-complete --server-aggregate 1.0
 ```
 
 Supply the dispatch snapshot and 32-byte Ed25519 public key through trusted CI
 configuration, independently of the returned records. The gate checks signed
 bindings, source inventory, freshness, cleanup, raw aggregation and exceptions.
 Exceptions waive only a named required-case veto; they never change the aggregate.
+`--evidence-directory` also requires digest-checked retrieval of referenced private
+artifacts. Without it, verification checks terminal contracts only. Artifact integrity
+does not establish live observer qualification or independent issuer verification.
 
 Schema `0.2` uses the signature domain `agent-boundary-gate/terminal-record/0.2`.
 Canonicalization is project-specific sorted, compact UTF-8 JSON; it does not claim

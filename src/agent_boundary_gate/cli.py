@@ -18,6 +18,7 @@ from agent_boundary_gate.contracts import (
     SignedRecord,
     TargetProfile,
 )
+from agent_boundary_gate.evidence import EvidenceStore
 from agent_boundary_gate.fixtures import SCENARIOS, fixture
 from agent_boundary_gate.gate_policy import EXIT_CODES, evaluate
 from agent_boundary_gate.local_rig import local_run
@@ -47,6 +48,11 @@ def main() -> int:
     )
     check.add_argument("--job-complete", action="store_true")
     check.add_argument("--server-aggregate", type=float)
+    check.add_argument(
+        "--evidence-directory",
+        type=Path,
+        help="existing private store; require referenced artifacts and digest integrity",
+    )
     legacy = commands.add_parser("verify-legacy", help="authenticate archived 0.1 records only")
     legacy.add_argument("--records", type=Path, required=True)
     legacy.add_argument("--signer", required=True)
@@ -114,6 +120,9 @@ def main() -> int:
                 now=now,
                 job_complete=args.job_complete,
                 server_aggregate=args.server_aggregate,
+                evidence_store=EvidenceStore(args.evidence_directory, create=False)
+                if args.evidence_directory
+                else None,
             )
         print(decision.model_dump_json(indent=2))
         return EXIT_CODES[decision.release_decision]

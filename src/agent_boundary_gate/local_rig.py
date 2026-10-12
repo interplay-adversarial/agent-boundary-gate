@@ -64,6 +64,7 @@ def local_run(case_path: Path, output: Path, *, weakened: bool = False):
         now=datetime.now(UTC),
         job_complete=True,
         server_aggregate=record.result.invariant_held,
+        evidence_store=store,
     )
     # Ephemeral signing key is never persisted. This public key is an output for local inspection,
     # not a trusted key source for release CI.
