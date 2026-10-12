@@ -11,10 +11,10 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 
 | ID | Priority | Improvement | Acceptance criteria | Status |
 | --- | --- | --- | --- | --- |
-| SEC-01 | P2, first implementation | Exact-version dependency auditing | Every applicable locked runtime/dev package name and version is audited; duplicates, extra packages, missing versions, mismatches and skipped entries fail closed; failures preserve reported advisories. | Implemented on work branch; regression tests pass |
-| SEC-02 | P2, first implementation | Continuous security checks | Daily and manual audits, Python 3.12/3.13 PR validation, weekly uv/Actions update proposals and a stable aggregate check; automation becomes active after merge. | Workflow/configuration implemented; hosted runs pending |
+| SEC-01 | P2, first implementation | Exact-version dependency auditing | Every applicable locked runtime/dev package name and version is audited; duplicates, extra packages, missing versions, mismatches and skipped entries fail closed; failures preserve reported advisories. | Merged in PR #2; regression tests pass |
+| SEC-02 | P2, first implementation | Continuous security checks | Daily and manual audits, Python 3.12/3.13 PR validation, weekly uv/Actions update proposals and a stable aggregate check; automation becomes active after merge. | Merged in PR #2; hosted Python 3.12/3.13 checks pass; first scheduled runs/update proposals not yet observed |
 | SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Planned |
-| LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Planned; next milestone |
+| LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | First receipt verifier/backend increment implemented; trusted issuance/transport and live attestation pending |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Planned; depends on LIFE-01 |
 | QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Planned |
@@ -60,3 +60,22 @@ as scanned dependencies or verified `vulnerabilities`. Advisories from rejected
 records are deduplicated under `unverified_vulnerabilities`; they cannot establish
 coverage or approval. Output is independent of duplicate record order, and an
 incomplete audit always exits with status 2.
+
+## Lifecycle receipt increment
+
+The next branch implements LIFE-01's versioned receipt contracts, Ed25519
+verification, challenge freshness, purpose-scoped trust and OpenShell integration.
+The controller validates the exact attempt binding before starting capture.
+Receipt/lease expiry, mismatched scope/generation/policy, replayed responses,
+untrusted issuers and caller-supplied booleans cannot establish readiness or cleanup.
+The backend invalidates cached readiness on rebinding, readiness failure and teardown.
+
+See [ADR-0003](adr/0003-authenticated-lifecycle-receipts.md) for the API migration
+and trust assumptions. This increment does not complete LIFE-01: trusted lease
+issuance, broker transport and real independent attestations remain pending.
+Durable receipt references and independent terminal re-verification belong to
+EVID-01. External watchdog/recovery remains LIFE-02. Release eligibility stays off.
+
+Local validation: all 118 unit/integration tests and all five pre-commit hooks
+pass. The staged privacy audit reports no findings; archived terminal schemas
+and signing code remain unchanged. Hosted validation is pending.

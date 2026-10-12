@@ -128,6 +128,7 @@ def run_attempt(
         )
         if not set(case.required_capabilities) <= capabilities:
             raise UnsupportedCapability("required-capability-unsupported")
+        driver.require_binding(dispatch.binding)
         observer.start()
         if not control.monitor_healthy.is_set() or control.incident.is_set():
             raise AttemptStopped("containment-stop")

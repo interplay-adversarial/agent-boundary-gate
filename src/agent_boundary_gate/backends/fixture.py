@@ -5,7 +5,7 @@ from threading import Event
 
 from agent_boundary_gate.backends import Readiness, UnsupportedCapability
 from agent_boundary_gate.backends.openshell import PROBE
-from agent_boundary_gate.contracts import ComponentIdentity, HttpGetAction, ReplayAction
+from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
 from agent_boundary_gate.process import bounded_process
 
 
@@ -17,6 +17,11 @@ class LoopbackBackend:
         self.policy_digest = policy_digest
         self.weakened = weakened
         self.destroyed = False
+
+    def require_binding(self, binding: Binding) -> None:
+        # Fixture validation only; there is no authenticated provisioning lease.
+        if binding.effective_policy_digest != self.policy_digest:
+            raise UnsupportedCapability("fixture-policy-binding-mismatch")
 
     def readiness(self, *, deadline: float, cancelled: Event) -> Readiness:
         identity = ComponentIdentity(

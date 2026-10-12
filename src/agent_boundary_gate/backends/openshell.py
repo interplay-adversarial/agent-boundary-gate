@@ -8,15 +8,24 @@ import json
 import math
 import re
 import time
-from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
 from urllib.parse import urlsplit
 
+from agent_boundary_gate.auth import digest
 from agent_boundary_gate.backends import Readiness, UnsupportedCapability
-from agent_boundary_gate.contracts import ComponentIdentity, HttpGetAction, ReplayAction
+from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
 from agent_boundary_gate.evidence import bytes_digest
 from agent_boundary_gate.process import bounded_process
+from agent_boundary_gate.receipts import (
+    LeaseBinding,
+    LifecycleReceipt,
+    Purpose,
+    ReceiptProvider,
+    ReceiptRejected,
+    ReceiptVerifier,
+)
 
 # A completed request attempt is execution health, never the security oracle.
 PROBE = """import sys, urllib.request, urllib.error
@@ -63,8 +72,9 @@ class OpenShellBackend:
         sandbox_uid: str,
         policy_digest: str,
         policy_revision: int,
-        supervisor_receipt: Callable[[], str | None],
-        cleanup_receipt: Callable[[], bool],
+        lease: LeaseBinding,
+        receipt_provider: ReceiptProvider,
+        receipt_verifier: ReceiptVerifier,
     ):
         if bytes_digest(executable.read_bytes()) != executable_digest:
             raise ValueError("OpenShell binary does not match its pin")
@@ -74,11 +84,45 @@ class OpenShellBackend:
             raise ValueError("driver accepts only explicitly leased gate-* sandbox names")
         if type(policy_revision) is not int or policy_revision <= 0:
             raise ValueError("policy revision must be positive")
+        if (
+            lease.component.component_id != self.backend_id
+            or lease.component.instance_uid != sandbox_uid
+            or lease.effective_policy_digest != policy_digest
+        ):
+            raise ValueError("backend configuration must match the trusted lease")
         self.executable = str(executable.resolve())
         self.executable_digest = executable_digest
         self.gateway, self.sandbox, self.sandbox_uid = gateway, sandbox, sandbox_uid
         self.policy_digest, self.policy_revision = policy_digest, policy_revision
-        self.supervisor_receipt, self.cleanup_receipt = supervisor_receipt, cleanup_receipt
+        self.lease = lease
+        self.receipt_provider, self.receipt_verifier = receipt_provider, receipt_verifier
+        self._attempt_bound = False
+        self._last_readiness: LifecycleReceipt | None = None
+
+    def require_binding(self, binding: Binding) -> None:
+        self._attempt_bound = False
+        self._last_readiness = None
+        if (
+            digest(binding) != self.lease.binding_digest
+            or binding.run_id != self.lease.run_id
+            or binding.attempt_id != self.lease.attempt_id
+        ):
+            raise UnsupportedCapability("openshell-lease-binding-mismatch")
+        self._attempt_bound = True
+
+    def _receipt(
+        self, purpose: Purpose, *, deadline: float, cancelled: Event
+    ) -> LifecycleReceipt | None:
+        if cancelled.is_set() or time.monotonic() >= deadline:
+            return None
+        request = self.receipt_verifier.request(purpose, self.lease)
+        raw = self.receipt_provider.fetch(request, deadline=deadline, cancelled=cancelled)
+        if raw is None or cancelled.is_set() or time.monotonic() >= deadline:
+            return None
+        try:
+            return self.receipt_verifier.verify(raw, request=request, now=datetime.now(UTC))
+        except ReceiptRejected:
+            return None
 
     def _command(self, args: list[str], deadline: float, cancelled: Event):
         if bytes_digest(Path(self.executable).read_bytes()) != self.executable_digest:
@@ -90,6 +134,7 @@ class OpenShellBackend:
         )
 
     def readiness(self, *, deadline: float, cancelled: Event) -> Readiness:
+        self._last_readiness = None
         sandbox = self._command(["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled)
         policy = self._command(
             [
@@ -108,7 +153,7 @@ class OpenShellBackend:
         if sandbox.returncode or policy.returncode:
             return self._state("unknown", False)
         metadata, revision = json.loads(sandbox.stdout), json.loads(policy.stdout)
-        generation = self.supervisor_receipt()
+        receipt = self._receipt("readiness", deadline=deadline, cancelled=cancelled)
         ready = (
             metadata.get("id") == self.sandbox_uid
             and metadata.get("phase") == "Ready"
@@ -119,9 +164,12 @@ class OpenShellBackend:
             and revision.get("version") == self.policy_revision
             and revision.get("active_version") == self.policy_revision
             and "sha256:" + revision.get("hash", "").removeprefix("sha256:") == self.policy_digest
-            and bool(generation)
+            and receipt is not None
         )
-        return self._state(generation or "unknown", ready)
+        if ready:
+            self._last_readiness = receipt
+        generation = self.lease.component.generation if ready else "unknown"
+        return self._state(generation, ready)
 
     def _state(self, generation: str, ready: bool) -> Readiness:
         identity = ComponentIdentity(
@@ -137,6 +185,23 @@ class OpenShellBackend:
     ) -> bool:
         if not isinstance(action, HttpGetAction) or url is None:
             raise UnsupportedCapability("openshell-action-unsupported")
+        now = datetime.now(UTC)
+        if (
+            not self._attempt_bound
+            or attempt_id != self.lease.attempt_id
+            or self._last_readiness is None
+            or now < self._last_readiness.issued_at
+            or now >= self._last_readiness.expires_at
+            or now >= self.lease.lease_expires_at
+        ):
+            return False
+        deadline = min(
+            deadline,
+            time.monotonic()
+            + (
+                min(self.lease.lease_expires_at, self._last_readiness.expires_at) - now
+            ).total_seconds(),
+        )
         validate_receiver_url(url)
         seconds = max(1, math.ceil(deadline - time.monotonic()))
         result = self._command(
@@ -166,6 +231,8 @@ class OpenShellBackend:
         )
 
     def destroy(self, *, deadline: float) -> bool:
+        self._attempt_bound = False
+        self._last_readiness = None
         # Never delete a same-name replacement. The broker owns whole-cell destruction.
         cancelled = Event()
         current = self._command(["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled)
@@ -173,4 +240,7 @@ class OpenShellBackend:
             return False
         deleted = self._command(["sandbox", "delete", self.sandbox], deadline, cancelled)
         # Delete acceptance is not proof of resource teardown.
-        return deleted.returncode == 0 and self.cleanup_receipt()
+        return (
+            deleted.returncode == 0
+            and self._receipt("cleanup", deadline=deadline, cancelled=cancelled) is not None
+        )

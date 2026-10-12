@@ -12,9 +12,10 @@ from threading import Event
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from receipt_support import FakeReceiptBroker, lease_and_binding
 
 from agent_boundary_gate.auth import authenticate, digest
-from agent_boundary_gate.backends import Readiness
+from agent_boundary_gate.backends import Readiness, UnsupportedCapability
 from agent_boundary_gate.backends.fixture import LoopbackBackend
 from agent_boundary_gate.backends.openshell import OpenShellBackend, validate_receiver_url
 from agent_boundary_gate.case_registry import load_case
@@ -68,6 +69,20 @@ class RuntimeTests(unittest.TestCase):
             job_complete=True,
             server_aggregate=record.result.invariant_held,
         )
+
+    def test_lease_binding_mismatch_stops_before_observer_and_replay(self):
+        with (
+            patch.object(self.driver, "require_binding", side_effect=UnsupportedCapability()),
+            patch.object(self.driver, "replay") as replay,
+            patch.object(self.capture, "start") as start,
+        ):
+            record = self.attempt()
+        self.assertEqual(record.result.run_status, "unsupported-detector")
+        self.assertIsNone(record.result.invariant_held)
+        self.assertFalse(start.called)
+        self.assertFalse(replay.called)
+        self.assertTrue(self.driver.destroyed)
+        self.assertFalse(self.decision(record).release_eligible)
 
     def test_healthy_real_http_and_signed_terminal_record(self):
         record = self.attempt()
@@ -339,19 +354,24 @@ class RuntimeTests(unittest.TestCase):
 class DirectDriverTests(unittest.TestCase):
     def driver(self, generation="supervisor-1", cleanup=False):
         path = Path(sys.executable)
+        lease, _ = lease_and_binding()
+        broker = FakeReceiptBroker(generation=generation, cleanup=cleanup)
         return OpenShellBackend(
             executable=path,
             executable_digest=bytes_digest(path.read_bytes()),
             gateway="rig",
             sandbox="gate-attempt-1",
             sandbox_uid="sandbox-1",
-            policy_digest="sha256:" + "a" * 64,
+            policy_digest=lease.effective_policy_digest,
             policy_revision=3,
-            supervisor_receipt=lambda: generation,
-            cleanup_receipt=lambda: cleanup,
+            lease=lease,
+            receipt_provider=broker,
+            receipt_verifier=broker.verifier,
         )
 
     def responses(self, *, status="loaded", hash_value="a" * 64, active_version=3, uid="sandbox-1"):
+        if hash_value == "a" * 64:
+            hash_value = lease_and_binding()[0].effective_policy_digest.removeprefix("sha256:")
         return [
             ProcessResult(0, json.dumps({"id": uid, "phase": "Ready"}).encode()),
             ProcessResult(
@@ -408,7 +428,187 @@ class DirectDriverTests(unittest.TestCase):
             self.assertFalse(driver.destroy(deadline=time.monotonic() + 1))
             self.assertEqual(command.call_count, 1)
 
+    def test_signed_cleanup_receipt_confirms_teardown(self):
+        driver = self.driver(cleanup=True)
+        replies = [ProcessResult(0, b'{"id":"sandbox-1"}'), ProcessResult(0, b"")]
+        with patch.object(driver, "_command", side_effect=replies):
+            self.assertTrue(driver.destroy(deadline=time.monotonic() + 1))
+        self.assertEqual(driver.receipt_provider.requests[-1].purpose, "cleanup")
+
+    def test_changed_generation_and_replayed_receipt_are_rejected(self):
+        driver = self.driver(generation="other-generation")
+        with patch.object(driver, "_command", side_effect=self.responses()):
+            self.assertFalse(
+                driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+            )
+        driver = self.driver()
+        original_fetch = driver.receipt_provider.fetch
+        cached = []
+
+        def replayed(request, **kwargs):
+            if not cached:
+                cached.append(original_fetch(request, **kwargs))
+            return cached[0]
+
+        with patch.object(driver.receipt_provider, "fetch", side_effect=replayed):
+            with patch.object(driver, "_command", side_effect=self.responses()):
+                self.assertTrue(
+                    driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                )
+            with patch.object(driver, "_command", side_effect=self.responses()):
+                self.assertFalse(
+                    driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                )
+
+    def test_wrong_trust_anchor_and_legacy_boolean_receipt_are_rejected(self):
+        for response in (True, b"{}"):
+            driver = self.driver(cleanup=True)
+            with patch.object(driver.receipt_provider, "fetch", return_value=response):
+                with patch.object(driver, "_command", side_effect=self.responses()):
+                    self.assertFalse(
+                        driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                    )
+                replies = [ProcessResult(0, b'{"id":"sandbox-1"}'), ProcessResult(0, b"")]
+                with patch.object(driver, "_command", side_effect=replies):
+                    self.assertFalse(driver.destroy(deadline=time.monotonic() + 1))
+        driver = self.driver()
+        driver.receipt_provider.key = Ed25519PrivateKey.generate()
+        with patch.object(driver, "_command", side_effect=self.responses()):
+            self.assertFalse(
+                driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+            )
+
+    def test_receipt_fetch_honors_cancellation_and_elapsed_deadline(self):
+        driver = self.driver()
+        cancelled = Event()
+        cancelled.set()
+        with patch.object(driver.receipt_provider, "fetch") as fetch:
+            self.assertIsNone(
+                driver._receipt("readiness", deadline=time.monotonic() + 1, cancelled=cancelled)
+            )
+            self.assertFalse(fetch.called)
+        cancelled.clear()
+        with patch("agent_boundary_gate.backends.openshell.time.monotonic", side_effect=[1.0, 2.0]):
+            self.assertIsNone(driver._receipt("readiness", deadline=1.5, cancelled=cancelled))
+        original_fetch = driver.receipt_provider.fetch
+
+        def cancel_during_fetch(request, **kwargs):
+            raw = original_fetch(request, **kwargs)
+            cancelled.set()
+            return raw
+
+        with patch.object(driver.receipt_provider, "fetch", side_effect=cancel_during_fetch):
+            self.assertIsNone(
+                driver._receipt("readiness", deadline=time.monotonic() + 1, cancelled=cancelled)
+            )
+
+    def test_dispatch_binding_and_attempt_must_match_before_replay(self):
+        driver = self.driver()
+        _, binding = lease_and_binding()
+        action = load_case(ROOT / "examples/denied-egress-v1.json").actions[0]
+        with patch.object(driver, "_command") as command:
+            self.assertFalse(
+                driver.replay(
+                    action,
+                    "http://receiver:80/probe",
+                    binding.attempt_id,
+                    deadline=time.monotonic() + 1,
+                    cancelled=Event(),
+                )
+            )
+            self.assertFalse(command.called)
+        driver.require_binding(binding)
+        with patch.object(driver, "_command", side_effect=self.responses()):
+            self.assertTrue(
+                driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+            )
+        with patch.object(
+            driver,
+            "_command",
+            return_value=ProcessResult(
+                0, ("agent-boundary-gate-probe-complete:" + binding.attempt_id).encode()
+            ),
+        ):
+            self.assertTrue(
+                driver.replay(
+                    action,
+                    "http://receiver:80/probe",
+                    binding.attempt_id,
+                    deadline=time.monotonic() + 1,
+                    cancelled=Event(),
+                )
+            )
+        with patch.object(driver, "_command") as command:
+            self.assertFalse(
+                driver.replay(
+                    action,
+                    "http://receiver:80/probe",
+                    "other-attempt",
+                    deadline=time.monotonic() + 1,
+                    cancelled=Event(),
+                )
+            )
+            self.assertFalse(command.called)
+        with self.assertRaises(UnsupportedCapability):
+            driver.require_binding(
+                binding.model_copy(update={"suite_digest": "sha256:" + "b" * 64})
+            )
+        self.assertFalse(driver._attempt_bound)
+
+    def test_expired_receipt_blocks_replay_without_command(self):
+        driver = self.driver()
+        _, binding = lease_and_binding()
+        driver.require_binding(binding)
+        with patch.object(driver, "_command", side_effect=self.responses()):
+            self.assertTrue(
+                driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+            )
+        driver._last_readiness = driver._last_readiness.model_copy(
+            update={"expires_at": datetime.now(UTC)}
+        )
+        with patch.object(driver, "_command") as command:
+            self.assertFalse(
+                driver.replay(
+                    load_case(ROOT / "examples/denied-egress-v1.json").actions[0],
+                    "http://receiver:80/probe",
+                    binding.attempt_id,
+                    deadline=time.monotonic() + 1,
+                    cancelled=Event(),
+                )
+            )
+            self.assertFalse(command.called)
+
+    def test_cleanup_and_rebinding_invalidate_cached_readiness(self):
+        for transition in ("cleanup", "rebind"):
+            driver = self.driver(cleanup=True)
+            _, binding = lease_and_binding()
+            driver.require_binding(binding)
+            with patch.object(driver, "_command", side_effect=self.responses()):
+                self.assertTrue(
+                    driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                )
+            if transition == "cleanup":
+                replies = [ProcessResult(0, b'{"id":"sandbox-1"}'), ProcessResult(0, b"")]
+                with patch.object(driver, "_command", side_effect=replies):
+                    self.assertTrue(driver.destroy(deadline=time.monotonic() + 1))
+            else:
+                driver.require_binding(binding)
+            self.assertIsNone(driver._last_readiness)
+            with patch.object(driver, "_command") as command:
+                self.assertFalse(
+                    driver.replay(
+                        load_case(ROOT / "examples/denied-egress-v1.json").actions[0],
+                        "http://receiver:80/probe",
+                        binding.attempt_id,
+                        deadline=time.monotonic() + 1,
+                        cancelled=Event(),
+                    )
+                )
+                self.assertFalse(command.called)
+
     def test_unpinned_binary_rejected(self):
+        lease, _ = lease_and_binding()
+        broker = FakeReceiptBroker()
         with self.assertRaises(ValueError):
             OpenShellBackend(
                 executable=Path(sys.executable),
@@ -418,8 +618,9 @@ class DirectDriverTests(unittest.TestCase):
                 sandbox_uid="sandbox-1",
                 policy_digest="sha256:" + "a" * 64,
                 policy_revision=1,
-                supervisor_receipt=lambda: "generation-1",
-                cleanup_receipt=lambda: True,
+                lease=lease,
+                receipt_provider=broker,
+                receipt_verifier=broker.verifier,
             )
 
     def test_receiver_url_rejects_redirect_style_and_credentials(self):

@@ -8,7 +8,7 @@ Checkpoint: 2026-10-10. Direct driver implemented; live deployment not performed
 OpenShell commit `f745aa4df4b1e63ca362cb4624d3952796a7c31c`. It requires a pinned
 CLI binary digest and an explicitly leased `gate-*` sandbox name. It verifies
 the sandbox UID, `Ready` phase, a `loaded` pinned policy revision, active revision,
-policy hash and an external supervisor-generation receipt. The effective-policy
+policy hash and a signed, challenge-bound external supervisor-generation receipt. The effective-policy
 view alone is insufficient. Generation/readiness is checked after each action.
 
 Requests use the frozen Python HTTP probe with an attempt correlation header,
@@ -20,10 +20,12 @@ Remote execution still depends on the external cell lease and watchdog.
 
 Deletion verifies the leased UID to avoid deleting a replacement. A delete
 acknowledgement cannot establish whole-cell teardown: the driver requires an
-independent cleanup receipt. Receipt hooks currently return caller-supplied
-values; authenticated broker transport, freshness and generation semantics
-must be implemented before live qualification. No provisioning credentials are
-sent to the workload.
+independent, signed whole-cell cleanup receipt. Receipt authentication, freshness,
+lease/attempt/generation binding and purpose-scoped trust are implemented under
+[ADR-0003](adr/0003-authenticated-lifecycle-receipts.md). Trusted lease issuance,
+authenticated broker transport, durable receipt retention and independent teardown
+semantics still need live implementation/qualification. No provisioning credentials
+are sent to the workload.
 
 The probe assumes Python 3 exists in the pinned workload image. That binary
 must be declared in the policy and its allowed receiver control must pass. This
