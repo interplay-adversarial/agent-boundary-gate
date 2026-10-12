@@ -6,7 +6,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.12"
-dependencies = ["pydantic==2.13.5", "cryptography==50.0.1"]
+dependencies = ["pydantic==2.13.5", "cryptography==50.0.2"]
 
 [project.scripts]
 agent-boundary-gate = "agent_boundary_gate.cli:main"
