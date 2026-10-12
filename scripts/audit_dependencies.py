@@ -5,21 +5,54 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 
 
-def summarize(report: object, expected: set[str]) -> tuple[int, dict[str, object]]:
+def locked_dependencies(export: str) -> dict[str, Version]:
+    """Resolve applicable exact pins; reject ambiguous or unpinned audit inputs."""
+    expected: dict[str, Version] = {}
+    for line in export.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        requirement = Requirement(line)
+        if requirement.marker is not None and not requirement.marker.evaluate():
+            continue
+        pins = list(requirement.specifier)
+        if requirement.url or len(pins) != 1 or pins[0].operator != "==":
+            raise ValueError("audit requires exact locked versions")
+        version = Version(pins[0].version)
+        name = canonicalize_name(requirement.name)
+        if name in expected and expected[name] != version:
+            raise ValueError("conflicting applicable locked versions")
+        expected[name] = version
+    if not expected:
+        raise ValueError("empty applicable dependency inventory")
+    return expected
+
+
+def summarize(report: object, expected: dict[str, Version]) -> tuple[int, dict[str, object]]:
     if (
         not isinstance(report, dict)
         or not isinstance(report.get("dependencies"), list)
         or not expected
     ):
         return 2, {"error": "dependency-audit-incomplete"}
-    scanned = set()
-    vulnerable = []
+    # Count names before validating rows: every record for a duplicated package
+    # is untrusted, even if one row has the correct version or occurs first.
+    name_counts = Counter(
+        canonicalize_name(dependency["name"])
+        for dependency in report["dependencies"]
+        if isinstance(dependency, dict) and isinstance(dependency.get("name"), str)
+    )
+    scanned: set[str] = set()
+    verified_advisories: set[tuple[str, str]] = set()
+    unverified_advisories: set[tuple[str, str]] = set()
     gaps = 0
     for dependency in report["dependencies"]:
         if not isinstance(dependency, dict) or not isinstance(dependency.get("name"), str):
@@ -29,22 +62,47 @@ def summarize(report: object, expected: set[str]) -> tuple[int, dict[str, object
         if not re.fullmatch(r"[a-z0-9_.-]+", name):
             gaps += 1
             continue
-        if dependency.get("skip_reason") or not isinstance(dependency.get("vulns"), list):
+        try:
+            version = Version(dependency["version"])
+        except (KeyError, TypeError, InvalidVersion):
+            version = None
+        accepted = (
+            name_counts[name] == 1
+            and name in expected
+            and version == expected[name]
+            and not dependency.get("skip_reason")
+            and isinstance(dependency.get("vulns"), list)
+        )
+        if accepted:
+            scanned.add(name)
+        else:
             gaps += 1
+        if not isinstance(dependency.get("vulns"), list):
             continue
-        scanned.add(name)
+        # Keep rejected-record advisories visible without presenting them as
+        # verified findings. Neither list can override an incomplete audit.
+        advisories = verified_advisories if accepted else unverified_advisories
         for vulnerability in dependency["vulns"]:
             identity = vulnerability.get("id", "") if isinstance(vulnerability, dict) else ""
-            if not re.fullmatch(r"(?:CVE-\d{4}-\d{4,}|GHSA-[a-z0-9-]+|PYSEC-[0-9-]+)", identity):
+            if not isinstance(identity, str) or not re.fullmatch(
+                r"(?:CVE-\d{4}-\d{4,}|GHSA-[a-z0-9-]+|PYSEC-[0-9-]+)", identity
+            ):
                 identity = "unclassified-advisory"
-            vulnerable.append({"package": name, "advisory": identity})
-    gaps += len(expected - scanned)
+            advisories.add((name, identity))
+    gaps += len(expected.keys() - scanned)
     summary = {
         "dependencies_scanned": len(scanned),
         "audit_gaps": gaps,
-        "vulnerabilities": vulnerable,
+        "vulnerabilities": [
+            {"package": name, "advisory": identity}
+            for name, identity in sorted(verified_advisories)
+        ],
+        "unverified_vulnerabilities": [
+            {"package": name, "advisory": identity}
+            for name, identity in sorted(unverified_advisories)
+        ],
     }
-    return (2 if gaps else 1 if vulnerable else 0), summary
+    return (2 if gaps else 1 if verified_advisories else 0), summary
 
 
 def main() -> int:
@@ -57,6 +115,7 @@ def main() -> int:
                     "uv",
                     "export",
                     "--frozen",
+                    "--all-groups",
                     "--no-emit-project",
                     "--no-hashes",
                     "--format",
@@ -69,14 +128,7 @@ def main() -> int:
             if export.returncode:
                 raise ValueError("locked export failed")
             requirements.write_text(export.stdout)
-            expected = set()
-            for line in export.stdout.splitlines():
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                requirement = Requirement(line)
-                if requirement.marker is None or requirement.marker.evaluate():
-                    expected.add(canonicalize_name(requirement.name))
+            expected = locked_dependencies(export.stdout)
             audit = subprocess.run(
                 [
                     sys.executable,
