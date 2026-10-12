@@ -140,6 +140,8 @@ class FixtureMonitor:
 
 
 class MonitorSession:
+    """One attempt's containment coverage; loss/incident are terminal for that attempt."""
+
     def __init__(
         self,
         *,
@@ -221,7 +223,10 @@ class MonitorSession:
                 # A verified incident is latched before storage, so storage loss
                 # cannot erase a proven incident. Health requires durable evidence.
                 self._incident |= heartbeat.state == "incident"
-                self._lost |= heartbeat.state != "healthy"
+                # An authenticated loss means required coverage is missing for
+                # this attempt. Later health cannot reconstruct that evidence
+                # or undo cancelled replay; recovery needs a new attempt/session.
+                self._lost |= heartbeat.state == "lost"
                 if len(self._refs) >= MAX_HEARTBEAT_REFS:
                     self._dropped += 1
                     raise ValueError("heartbeat-evidence-capacity-exceeded")
