@@ -461,6 +461,20 @@ class StagingTests(unittest.TestCase):
         )
         staging.stage(binary=binary, manifest=manifest, pins=pins, destination=self.root / "native")
         self.assertEqual((self.root / "native/gate-http-probe").read_bytes(), binary.read_bytes())
+        from scripts.prepare_owned_image import prepare
+
+        prepare(
+            binary=binary,
+            manifest=manifest,
+            pins=pins,
+            base_image="example/image@sha256:" + "a" * 64,
+            destination=self.root / "native-image",
+        )
+        self.assertEqual(
+            (self.root / "native-image/probe/gate-http-probe").read_bytes(), binary.read_bytes()
+        )
+        self.assertNotIn("RUN ", (self.root / "native-image/Dockerfile").read_text())
+        self.assertNotIn("artifact-pins", (self.root / "native-image/.dockerignore").read_text())
         with self.assertRaises(ValueError):
             staging.stage(
                 binary=binary,

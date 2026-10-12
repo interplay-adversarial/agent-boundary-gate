@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "CaptureRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "purpose": {
+          "const": "receiver-capture",
+          "default": "receiver-capture",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "start",
+            "sample",
+            "drain"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "challenge": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge",
+          "type": "string"
+        },
+        "binding": {
+          "$ref": "#/$defs/LeaseBinding"
+        }
+      },
+      "required": [
+        "operation",
+        "challenge",
+        "binding"
+      ],
+      "title": "CaptureRequest",
+      "type": "object"
+    },
+    "CaptureSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/CaptureRequest"
+        },
+        "signer_identity": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Signer Identity",
+          "type": "string"
+        },
+        "generation": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "started": {
+          "title": "Started",
+          "type": "boolean"
+        },
+        "drained": {
+          "title": "Drained",
+          "type": "boolean"
+        },
+        "allowed_count": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Allowed Count",
+          "type": "integer"
+        },
+        "forbidden_count": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Forbidden Count",
+          "type": "integer"
+        },
+        "dropped_events": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Dropped Events",
+          "type": "integer"
+        },
+        "allowed_url": {
+          "title": "Allowed Url",
+          "type": "string"
+        },
+        "forbidden_url": {
+          "title": "Forbidden Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request",
+        "signer_identity",
+        "generation",
+        "issued_at",
+        "expires_at",
+        "started",
+        "drained",
+        "allowed_count",
+        "forbidden_count",
+        "dropped_events",
+        "allowed_url",
+        "forbidden_url"
+      ],
+      "title": "CaptureSnapshot",
+      "type": "object"
+    },
+    "ComponentIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "component_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Component Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "instance_uid": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Instance Uid",
+          "type": "string"
+        },
+        "generation": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Generation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component_id",
+        "role",
+        "instance_uid",
+        "generation"
+      ],
+      "title": "ComponentIdentity",
+      "type": "object"
+    },
+    "LeaseBinding": {
+      "additionalProperties": false,
+      "description": "Trusted provisioning context, never learned from a returned receipt.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "binding_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Binding Digest",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "lease_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "cell_uid": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Cell Uid",
+          "type": "string"
+        },
+        "component": {
+          "$ref": "#/$defs/ComponentIdentity"
+        },
+        "effective_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Effective Policy Digest",
+          "type": "string"
+        },
+        "lease_expires_at": {
+          "format": "date-time",
+          "title": "Lease Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_digest",
+        "run_id",
+        "attempt_id",
+        "lease_id",
+        "cell_uid",
+        "component",
+        "effective_policy_digest",
+        "lease_expires_at"
+      ],
+      "title": "LeaseBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/CaptureSnapshot"
+    },
+    "algorithm": {
+      "const": "Ed25519",
+      "default": "Ed25519",
+      "title": "Algorithm",
+      "type": "string"
+    },
+    "signature": {
+      "pattern": "^[0-9a-f]{128}$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "snapshot",
+    "signature"
+  ],
+  "title": "SignedCaptureSnapshot",
+  "type": "object"
+}
