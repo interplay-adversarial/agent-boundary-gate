@@ -33,6 +33,10 @@ interpreter fallback: select it in trusted rig configuration, include the select
 in the boundary configuration pin, and allow the chosen executable in the policy.
 Python requires its standard HTTP modules; Perl requires `IO::Socket::IP` and
 `Socket`. Neither probe follows redirects or reads proxy environment settings.
+Receiver URLs use ASCII DNS names or IP literals with an explicit port; use
+punycode for internationalized names. Controls, whitespace and scoped IPv6 zone
+identifiers are rejected. The Perl process independently validates host, port,
+attempt identifier and its one-to-thirty-second timeout before opening a socket.
 Missing interpreters/modules cause a CLI failure; completion is only execution
 health and the independent allowed receiver must still establish the positive control.
 

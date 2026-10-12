@@ -159,7 +159,13 @@ and explicit timing budgets. Defaults and wire schemas remain unchanged. Timeout
 keeps cleanup unconfirmed; signed whole-cell proof, independent positive controls,
 finding/incident precedence and disabled release eligibility remain mandatory.
 
-Local validation: all 199 unit/integration tests, Ruff lint/format and the locked
+Local validation: all 201 unit/integration tests, Ruff lint/format and the locked
 dependency CVE check pass. The probes are tested with correlated receiver events,
 redirects, proxy environment variables and connection rejection; lifecycle tests
 cover sanitized diagnostic propagation, signature rejection and finding retention.
+
+PR #11 review follow-up: the Perl process independently validates all four
+arguments before opening a socket, including header-safe host/attempt characters,
+numeric port bounds and action timeout bounds. Receiver URL validation rejects
+controls before parsing can normalize them away. Regression tests reject malformed
+arguments without connecting or emitting a completion marker.
