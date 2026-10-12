@@ -18,7 +18,7 @@ BACKEND_DIAGNOSTIC_REASONS = frozenset(
         "output-limit",
         "group-cleanup-failed",
     )
-)
+) | {"backend-probe-delivery-rejected"}
 
 
 class BackendFailure(Exception):

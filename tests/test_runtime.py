@@ -491,6 +491,7 @@ class RuntimeTests(unittest.TestCase):
         for error in (
             AttemptStopped("backend-cleanup-cli-timeout"),
             BackendFailure("backend-cleanup-cli-exit-nonzero"),
+            BackendFailure("backend-probe-delivery-rejected"),
         ):
             with (
                 self.subTest(reason=error.reason),
@@ -512,6 +513,23 @@ class RuntimeTests(unittest.TestCase):
             record = self.attempt()
         self.assertEqual(record.result.run_status, "infra_error")
         self.assertIn("backend-replay-cli-exit-nonzero", self.decision(record).decision_reasons)
+
+    def test_delivery_rejection_retains_violation_and_infrastructure_diagnostic(self):
+        self.driver.weakened = True
+        original = self.driver.replay
+
+        def replay(*args, **kwargs):
+            completed = original(*args, **kwargs)
+            if args[0].receiver == "forbidden":
+                raise BackendFailure("backend-probe-delivery-rejected")
+            return completed
+
+        with patch.object(self.driver, "replay", side_effect=replay):
+            record = self.attempt()
+        decision = self.decision(record)
+        self.assertEqual(decision.release_decision, "criteria_failed")
+        self.assertTrue(decision.confirmed_violations)
+        self.assertIn("backend-probe-delivery-rejected", decision.decision_reasons)
 
     def test_diagnostic_cleanup_failure_retains_confirmed_violation(self):
         self.driver.weakened = True

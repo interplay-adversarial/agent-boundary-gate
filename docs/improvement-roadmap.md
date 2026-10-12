@@ -20,7 +20,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and sanitized diagnostics implemented locally; pinned-image testing and timing measurements pending |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
 | COMPAT-03 | P2 | Supported live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Planned; depends on authenticated transports and provisioning |
-| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, shared tests, build/privacy manifests and native Linux CI implemented; hostname/DNS, trusted delivery, release provenance and live qualification pending |
+| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, native Linux CI, digest-verified staging and signed immutable-delivery backend admission implemented; hostname/DNS, live provisioning/issuer, release provenance and qualification pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
@@ -220,10 +220,10 @@ experimental binary/manifest artifacts. Native x86_64 and aarch64 musl build,
 static-linkage, conformance and resource-fault jobs passed on PR #13; this is
 development conformance, not live OpenShell qualification.
 
-This is partial COMPAT-04/DEV-01 coverage. Hostname/DNS support, authenticated
+This is partial COMPAT-04/DEV-01 coverage. Hostname/DNS support, deployed
 artifact delivery, reproducible build-image/linker pins, signed provenance and
-the live baseline/target qualification matrix remain pending. Rust is not yet a
-supported `OpenShellBackend` runtime selector. Compiler/stdlib, build/audit tooling
+the live baseline/target qualification matrix remain pending. Rust now has
+experimental IP-only backend admission as described below. Compiler/stdlib, build/audit tooling
 and runtime-image CVEs need separate SEC-03 coverage. Signed schemas and release
 eligibility remain unchanged.
 
@@ -249,3 +249,38 @@ programmatically reconstructed secrets; distribution/source review remains requi
 Build failures also export allowlisted phase-specific reasons for formatting,
 Clippy, unit tests, compilation and tooling/source-state checks. Raw command
 output, exception details and paths remain excluded from diagnostics.
+
+
+## Trusted Rust staging and backend admission increment
+
+COMPAT-04 now has [digest-verified artifact staging and experimental backend
+admission](rust-probe-delivery.md). Trusted configuration pins binary, unsigned
+manifest, source/protocol and architecture independently. Staging repeats static
+ELF/privacy checks, rejects unsafe inputs and existing outputs, and includes
+license/notice files for an owned image build. The final workload image is pinned
+separately; no evaluation downloads or dynamically installs the probe.
+
+Explicit Rust selection requires a separate, fresh Ed25519 delivery receipt
+before every action. Its independent signature domain binds all deployment pins,
+image, full lease, attempt/cell/UID/generation and a random challenge. An authorized
+supervisor must inspect actual immutable delivery and execution authorization
+through lease expiry. Missing/mismatched/stale authority prevents execution with
+sanitized diagnostics; IP-only scope is enforced and there is no fallback.
+
+This completes the staging and admission implementation, not deployed delivery or
+qualification. A conforming external issuer/transport, owned pinned images,
+immutable mount enforcement, private receipt retention/re-verification, signed
+release provenance and paired live qualification are pending. Existing signed
+wire contracts and disabled release eligibility remain unchanged.
+
+Validation includes delivery signature/domain, replay/binding/pin mismatch,
+expiry/immutability, cancellation/deadline, exact execution arguments, unsafe-file
+and staging rollback regressions. Native Linux jobs also stage their real static
+artifacts and reject changed pins on both architectures. Local validation passes
+253 Python tests (two native-Linux-only checks run in hosted architecture jobs),
+plus the existing Rust tests, lint, CVE and publication checks.
+
+PR review follow-up: cancellation/deadline checks immediately after delivery
+transport skip verification, while checks after verification still prevent
+execution. Regressions cover cancellation during both transport and verification
+and late transport replies.
