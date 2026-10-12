@@ -295,7 +295,15 @@ def run_attempt(
     monitor_healthy = monitor_snapshot.healthy and not monitor_loss_seen.is_set()
     if not monitor_healthy:
         reasons.add("containment-monitor-loss")
-        if status != RunStatus.UNSUPPORTED:
+        # Preserve unsupported admission; monitor loss explains interrupted or
+        # incomplete runtime outcomes without erasing their diagnostic reasons.
+        if status in (
+            RunStatus.COMPLETE,
+            RunStatus.INCOMPLETE,
+            RunStatus.TIMEOUT,
+            RunStatus.CANCELLED,
+            RunStatus.INFRA_ERROR,
+        ):
             status = RunStatus.TELEMETRY_LOSS
     try:
         observation = observer.observe(

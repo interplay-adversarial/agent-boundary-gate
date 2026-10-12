@@ -292,6 +292,20 @@ class RuntimeTests(unittest.TestCase):
         )
         self.assertFalse(self.control.monitor_snapshot().healthy)
 
+    def test_unsupported_case_preserves_status_with_unknown_monitor(self):
+        self.control = AttemptControl()
+        self.case = self.case.model_copy(update={"required_capabilities": ("unimplemented-probe",)})
+        instance = self.dispatch.instances[0].model_copy(
+            update={"case_spec_digest": digest(self.case)}
+        )
+        self.dispatch = self.dispatch.model_copy(update={"instances": (instance,)})
+        record = self.attempt()
+        self.assertEqual(record.result.run_status, "unsupported-detector")
+        self.assertIn("containment-monitor-loss", record.result.run_status_reasons)
+        self.assertIn("adapter-or-capability-unsupported", record.result.run_status_reasons)
+        self.assertIsNone(record.result.invariant_held)
+        self.assertEqual(self.decision(record).release_decision, "inconclusive")
+
     def test_healthy_real_http_and_signed_terminal_record(self):
         record = self.attempt()
         self.assertEqual(self.capture.count("allowed"), 1)
