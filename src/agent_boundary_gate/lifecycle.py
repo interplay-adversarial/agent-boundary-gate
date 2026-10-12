@@ -8,7 +8,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from agent_boundary_gate.agents import AgentAdapter
 from agent_boundary_gate.auth import canonical, digest, sign
-from agent_boundary_gate.backends import BoundaryBackend, Readiness, UnsupportedCapability
+from agent_boundary_gate.backends import (
+    BackendFailure,
+    BoundaryBackend,
+    Readiness,
+    UnsupportedCapability,
+)
 from agent_boundary_gate.case_registry import replay_digest
 from agent_boundary_gate.contracts import (
     CaseSpec,
@@ -262,6 +267,9 @@ def run_attempt(
         reasons.add("interrupted")
         control.cancelled.set()
         status = RunStatus.CANCELLED
+    except BackendFailure as failed:
+        reasons.add(failed.reason)
+        status = RunStatus.INFRA_ERROR
     except Exception:
         reasons.add("driver-or-observer-error")
         status = RunStatus.INFRA_ERROR
@@ -277,6 +285,9 @@ def run_attempt(
                 if driver.destroy(deadline=time.monotonic() + cleanup_budget)
                 else "failed"
             )
+        except (BackendFailure, AttemptStopped) as failed:
+            reasons.add(failed.reason)
+            cleanup = "failed"
         except (Exception, KeyboardInterrupt):
             cleanup = "failed"
         if cleanup != "destroyed":

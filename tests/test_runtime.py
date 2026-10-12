@@ -15,8 +15,8 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from receipt_support import FakeReceiptBroker, lease_and_binding
 
-from agent_boundary_gate.auth import authenticate, digest
-from agent_boundary_gate.backends import Readiness, UnsupportedCapability
+from agent_boundary_gate.auth import authenticate, digest, sign
+from agent_boundary_gate.backends import BackendFailure, Readiness, UnsupportedCapability
 from agent_boundary_gate.backends.fixture import LoopbackBackend
 from agent_boundary_gate.backends.openshell import OpenShellBackend, validate_receiver_url
 from agent_boundary_gate.case_registry import load_case
@@ -487,6 +487,61 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(record.result.cleanup_status, "failed")
         self.assertEqual(self.decision(record).release_decision, "incident")
 
+    def test_cleanup_diagnostics_survive_signed_record_and_gate(self):
+        for error in (
+            AttemptStopped("backend-cleanup-cli-timeout"),
+            BackendFailure("backend-cleanup-cli-exit-nonzero"),
+        ):
+            with (
+                self.subTest(reason=error.reason),
+                patch.object(self.driver, "destroy", side_effect=error),
+            ):
+                record = self.attempt()
+            self.assertIn(error.reason, record.result.run_status_reasons)
+            self.assertEqual(record.result.run_status, "incomplete")
+            decision = self.decision(record)
+            self.assertIn(error.reason, decision.decision_reasons)
+            self.assertIn("cleanup-not-confirmed", decision.decision_reasons)
+            self.assertEqual(decision.release_decision, "inconclusive")
+            self.assertFalse(decision.release_eligible)
+
+    def test_backend_nonzero_is_infrastructure_error_not_cancellation(self):
+        with patch.object(
+            self.driver, "replay", side_effect=BackendFailure("backend-replay-cli-exit-nonzero")
+        ):
+            record = self.attempt()
+        self.assertEqual(record.result.run_status, "infra_error")
+        self.assertIn("backend-replay-cli-exit-nonzero", self.decision(record).decision_reasons)
+
+    def test_diagnostic_cleanup_failure_retains_confirmed_violation(self):
+        self.driver.weakened = True
+        with patch.object(
+            self.driver, "destroy", side_effect=AttemptStopped("backend-cleanup-cli-timeout")
+        ):
+            record = self.attempt()
+        decision = self.decision(record)
+        self.assertEqual(decision.release_decision, "criteria_failed")
+        self.assertTrue(decision.confirmed_violations)
+        self.assertIn("backend-cleanup-cli-timeout", decision.decision_reasons)
+
+    def test_gate_copies_only_authenticated_allowlisted_diagnostics(self):
+        record = self.attempt()
+        result = record.result.model_copy(
+            update={
+                "run_status_reasons": (
+                    "backend-cleanup-cli-timeout",
+                    "operator-private-label",
+                )
+            }
+        )
+        trusted = sign(result, record.evidence, self.key)
+        decision = self.decision(trusted)
+        self.assertIn("backend-cleanup-cli-timeout", decision.decision_reasons)
+        self.assertNotIn("operator-private-label", decision.decision_reasons)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        rejected = trusted.model_copy(update={"signature": "0" * 128})
+        self.assertNotIn("backend-cleanup-cli-timeout", self.decision(rejected).decision_reasons)
+
     def test_expired_dispatch_does_not_replay(self):
         self.dispatch = self.dispatch.model_copy(
             update={"deadline": datetime.now(UTC) - timedelta(seconds=1)}
@@ -574,7 +629,7 @@ class RuntimeTests(unittest.TestCase):
 
 
 class DirectDriverTests(unittest.TestCase):
-    def driver(self, generation="supervisor-1", cleanup=False):
+    def driver(self, generation="supervisor-1", cleanup=False, probe_runtime="python3"):
         path = Path(sys.executable)
         lease, _ = lease_and_binding()
         broker = FakeReceiptBroker(generation=generation, cleanup=cleanup)
@@ -589,7 +644,73 @@ class DirectDriverTests(unittest.TestCase):
             lease=lease,
             receipt_provider=broker,
             receipt_verifier=broker.verifier,
+            probe_runtime=probe_runtime,
         )
+
+    def test_unknown_probe_runtime_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.driver(probe_runtime="sh")
+
+    def test_cli_errors_are_classified_without_private_output(self):
+        driver = self.driver()
+        for phase in ("readiness", "replay", "cleanup"):
+            for error, suffix, exception in (
+                (AttemptStopped("timeout"), "timeout", AttemptStopped),
+                (AttemptStopped("output-limit"), "output-limit", BackendFailure),
+                (
+                    AttemptStopped("process-group-cleanup-not-confirmed"),
+                    "group-cleanup-failed",
+                    BackendFailure,
+                ),
+                (OSError("private configuration"), "start-failed", BackendFailure),
+            ):
+                with (
+                    self.subTest(phase=phase, suffix=suffix),
+                    patch(
+                        "agent_boundary_gate.backends.openshell.bounded_process", side_effect=error
+                    ),
+                    self.assertRaises(exception) as caught,
+                ):
+                    driver._command([], time.monotonic() + 1, Event(), phase=phase)
+                self.assertEqual(str(caught.exception), f"backend-{phase}-cli-{suffix}")
+            with (
+                patch(
+                    "agent_boundary_gate.backends.openshell.bounded_process",
+                    return_value=ProcessResult(127, b"private child output"),
+                ),
+                self.assertRaises(BackendFailure) as caught,
+            ):
+                driver._command([], time.monotonic() + 1, Event(), phase=phase)
+            self.assertEqual(str(caught.exception), f"backend-{phase}-cli-exit-nonzero")
+
+    def test_perl_replay_uses_fixed_argv_and_correlated_completion(self):
+        driver = self.driver(probe_runtime="perl")
+        _, binding = lease_and_binding()
+        driver.require_binding(binding)
+        with patch.object(driver, "_command", side_effect=self.responses()):
+            self.assertTrue(
+                driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+            )
+        action = load_case(ROOT / "examples/denied-egress-v1.json").actions[0]
+        with patch.object(
+            driver,
+            "_command",
+            return_value=ProcessResult(
+                0, ("agent-boundary-gate-probe-complete:" + binding.attempt_id).encode()
+            ),
+        ) as command:
+            self.assertTrue(
+                driver.replay(
+                    action,
+                    "http://receiver:80/probe",
+                    binding.attempt_id,
+                    deadline=time.monotonic() + 1,
+                    cancelled=Event(),
+                )
+            )
+        argv = command.call_args.args[0]
+        self.assertEqual(argv[argv.index("--") + 1], "perl")
+        self.assertEqual(argv[-4:-1], ["receiver", "80", binding.attempt_id])
 
     def responses(self, *, status="loaded", hash_value="a" * 64, active_version=3, uid="sandbox-1"):
         if hash_value == "a" * 64:

@@ -17,6 +17,10 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; live deployment and orphan-cell qualification pending |
 | QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
+| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and sanitized diagnostics implemented locally; pinned-image testing and timing measurements pending |
+| COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Planned; read-only checks first, no implicit deletion |
+| COMPAT-03 | P2 | Supported live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Planned; depends on authenticated transports and provisioning |
+| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | [Exploration recorded](rust-probe-exploration.md); implementation and artifact distribution pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
@@ -128,7 +132,7 @@ and release eligibility remain unchanged.
 Local validation: all 190 tests pass against the installed package, including
 the runnable examples and CLI artifact-loss regression. All five pre-commit hooks
 pass. The exported 90-file source tree passes privacy auditing and a redacted
-Gitleaks scan. Hosted checks are pending for this increment.
+Gitleaks scan. Hosted Python 3.12/3.13 checks passed before PR #10 merged.
 
 PR #10 review follow-up: stored-evidence evaluation now shares one 1,024-attempt,
 32 MiB I/O budget across all records and nested references. Read failures retain
@@ -140,3 +144,29 @@ Effect references remain mandatory outcome proof, including when the same bytes
 also serve an optional diagnostic source. A waived-violation regression confirms
 that missing effect proof yields inconclusive with the finding, waiver and raw
 aggregate retained; optional source designation cannot waive that requirement.
+
+## Live compatibility feedback
+
+An operator-supplied OpenShell 0.1.3 test used synthetic lifecycle receipts and
+identified a missing Python interpreter in the stock image, a two-revision policy
+creation sequence, and one approximately thirty-second deletion. These findings
+inform COMPAT-01/02/03; they do not complete QUAL-01. No deployment identifiers,
+endpoints, inventories or raw captures from that report belong in this repository.
+
+The current increment supplies explicit Python/Perl probe selection, direct HTTP
+without proxy/redirect behavior, and phase-scoped CLI failure reasons retained in
+signed results and gate decisions. Documentation explains active revision discovery
+and explicit timing budgets. Defaults and wire schemas remain unchanged. Timeout
+keeps cleanup unconfirmed; signed whole-cell proof, independent positive controls,
+finding/incident precedence and disabled release eligibility remain mandatory.
+
+Local validation: all 201 unit/integration tests, Ruff lint/format and the locked
+dependency CVE check pass. The probes are tested with correlated receiver events,
+redirects, proxy environment variables and connection rejection; lifecycle tests
+cover sanitized diagnostic propagation, signature rejection and finding retention.
+
+PR #11 review follow-up: the Perl process independently validates all four
+arguments before opening a socket, including header-safe host/attempt characters,
+numeric port bounds and action timeout bounds. Receiver URL validation rejects
+controls before parsing can normalize them away. Regression tests reject malformed
+arguments without connecting or emitting a completion marker.

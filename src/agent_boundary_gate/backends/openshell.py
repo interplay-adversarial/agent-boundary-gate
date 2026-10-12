@@ -11,13 +11,14 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
+from typing import Literal
 from urllib.parse import urlsplit
 
 from agent_boundary_gate.auth import digest
-from agent_boundary_gate.backends import Readiness, UnsupportedCapability
+from agent_boundary_gate.backends import BackendFailure, Readiness, UnsupportedCapability
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
 from agent_boundary_gate.evidence import bytes_digest
-from agent_boundary_gate.process import bounded_process
+from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import (
     LeaseBinding,
     LifecycleReceipt,
@@ -34,7 +35,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 request = urllib.request.Request(sys.argv[1], headers={'X-Gate-Attempt': sys.argv[2]})
 try:
-    opener = urllib.request.build_opener(NoRedirect())
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     with opener.open(request, timeout=float(sys.argv[3])) as response:
         response.read(1)
 except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
@@ -42,12 +43,49 @@ except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
 print('agent-boundary-gate-probe-complete:' + sys.argv[2])
 """
 
+# A fixed direct HTTP request: no proxy environment, redirects, shell interpolation,
+# response buffering or target-supplied executable code. IO::Socket::IP is required.
+PERL_PROBE = r"""use strict;
+use warnings;
+use IO::Socket::IP;
+use Socket qw(SOCK_STREAM);
+my ($host, $port, $attempt, $seconds) = @ARGV;
+die "invalid-probe-input\n" unless @ARGV == 4
+    && defined($host) && $host =~ /\A[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}\z/
+    && defined($port) && $port =~ /\A[0-9]{1,5}\z/ && $port > 0 && $port <= 65535
+    && defined($attempt) && $attempt =~ /\A[a-zA-Z0-9][a-zA-Z0-9_.:\/-]{0,127}\z/
+    && defined($seconds) && $seconds =~ /\A[0-9]{1,2}\z/ && $seconds > 0 && $seconds <= 30;
+local $SIG{ALRM} = sub { die "request-timeout\n" };
+local $SIG{PIPE} = 'IGNORE';
+eval {
+    alarm($seconds);
+    my $socket = IO::Socket::IP->new(
+        PeerHost => $host, PeerPort => $port, Type => SOCK_STREAM, Timeout => $seconds
+    );
+    if ($socket) {
+        $socket->autoflush(1);
+        my $authority = $host =~ /:/ ? "[$host]:$port" : "$host:$port";
+        print $socket "GET /probe HTTP/1.1\r\nHost: $authority\r\n"
+            . "X-Gate-Attempt: $attempt\r\nConnection: close\r\n\r\n";
+        read($socket, my $byte, 1);
+        close($socket);
+    }
+};
+alarm(0);
+print "agent-boundary-gate-probe-complete:$attempt\n";
+"""
+
 
 def validate_receiver_url(url: str) -> None:
+    # Reject controls before urlsplit can normalize them away. The fixed probes
+    # accept ASCII DNS names/IPv4/IPv6 literals, without scoped IPv6 zone identifiers.
+    if any(ord(char) <= 32 or ord(char) >= 127 for char in url):
+        raise ValueError("receiver URL contains unsupported characters")
     value = urlsplit(url)
     if (
         value.scheme != "http"
         or not value.hostname
+        or not re.fullmatch(r"[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}", value.hostname)
         or value.username
         or value.password
         or value.path != "/probe"
@@ -75,7 +113,10 @@ class OpenShellBackend:
         lease: LeaseBinding,
         receipt_provider: ReceiptProvider,
         receipt_verifier: ReceiptVerifier,
+        probe_runtime: Literal["python3", "perl"] = "python3",
     ):
+        if probe_runtime not in ("python3", "perl"):
+            raise ValueError("unsupported probe runtime")
         if bytes_digest(executable.read_bytes()) != executable_digest:
             raise ValueError("OpenShell binary does not match its pin")
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}", gateway):
@@ -96,6 +137,7 @@ class OpenShellBackend:
         self.policy_digest, self.policy_revision = policy_digest, policy_revision
         self.lease = lease
         self.receipt_provider, self.receipt_verifier = receipt_provider, receipt_verifier
+        self.probe_runtime = probe_runtime
         self._attempt_bound = False
         self._last_readiness: LifecycleReceipt | None = None
 
@@ -124,18 +166,38 @@ class OpenShellBackend:
         except ReceiptRejected:
             return None
 
-    def _command(self, args: list[str], deadline: float, cancelled: Event):
+    def _command(self, args: list[str], deadline: float, cancelled: Event, *, phase: str):
         if bytes_digest(Path(self.executable).read_bytes()) != self.executable_digest:
             raise ValueError("OpenShell binary changed after validation")
-        return bounded_process(
-            [self.executable, "--gateway", self.gateway, *args],
-            deadline=deadline,
-            cancelled=cancelled,
-        )
+        try:
+            result = bounded_process(
+                [self.executable, "--gateway", self.gateway, *args],
+                deadline=deadline,
+                cancelled=cancelled,
+            )
+        except AttemptStopped as stopped:
+            if stopped.reason == "cancelled":
+                raise
+            failure = {
+                "timeout": "timeout",
+                "output-limit": "output-limit",
+                "process-group-cleanup-not-confirmed": "group-cleanup-failed",
+            }[stopped.reason]
+            reason = f"backend-{phase}-cli-{failure}"
+            if failure == "timeout":
+                raise AttemptStopped(reason) from None
+            raise BackendFailure(reason) from None
+        except OSError:
+            raise BackendFailure(f"backend-{phase}-cli-start-failed") from None
+        if result.returncode:
+            raise BackendFailure(f"backend-{phase}-cli-exit-nonzero")
+        return result
 
     def readiness(self, *, deadline: float, cancelled: Event) -> Readiness:
         self._last_readiness = None
-        sandbox = self._command(["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled)
+        sandbox = self._command(
+            ["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled, phase="readiness"
+        )
         policy = self._command(
             [
                 "policy",
@@ -149,6 +211,7 @@ class OpenShellBackend:
             ],
             deadline,
             cancelled,
+            phase="readiness",
         )
         if sandbox.returncode or policy.returncode:
             return self._state("unknown", False)
@@ -204,6 +267,20 @@ class OpenShellBackend:
         )
         validate_receiver_url(url)
         seconds = max(1, math.ceil(deadline - time.monotonic()))
+        if self.probe_runtime == "python3":
+            probe = ["python3", "-c", PROBE, url, attempt_id, str(action.timeout_seconds)]
+        else:
+            receiver = urlsplit(url)
+            probe = [
+                "perl",
+                "-e",
+                PERL_PROBE,
+                "--",
+                receiver.hostname,
+                str(receiver.port),
+                attempt_id,
+                str(max(1, math.ceil(action.timeout_seconds))),
+            ]
         result = self._command(
             [
                 "sandbox",
@@ -214,15 +291,11 @@ class OpenShellBackend:
                 "--timeout",
                 str(seconds),
                 "--",
-                "python3",
-                "-c",
-                PROBE,
-                url,
-                attempt_id,
-                str(action.timeout_seconds),
+                *probe,
             ],
             deadline,
             cancelled,
+            phase="replay",
         )
         return (
             result.returncode == 0
@@ -235,10 +308,14 @@ class OpenShellBackend:
         self._last_readiness = None
         # Never delete a same-name replacement. The broker owns whole-cell destruction.
         cancelled = Event()
-        current = self._command(["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled)
+        current = self._command(
+            ["sandbox", "get", self.sandbox, "-o", "json"], deadline, cancelled, phase="cleanup"
+        )
         if current.returncode or json.loads(current.stdout).get("id") != self.sandbox_uid:
             return False
-        deleted = self._command(["sandbox", "delete", self.sandbox], deadline, cancelled)
+        deleted = self._command(
+            ["sandbox", "delete", self.sandbox], deadline, cancelled, phase="cleanup"
+        )
         # Delete acceptance is not proof of resource teardown.
         return (
             deleted.returncode == 0

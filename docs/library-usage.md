@@ -17,6 +17,15 @@ Hermes, OpenCode and OpenClaw adapters are planned. Typed tool-request contracts
 do not imply an implemented agent adapter. Check support with
 `agent-boundary-gate adapters`.
 
+For a custom OpenShell integration, choose `probe_runtime="python3"` or `"perl"`
+in the backend constructor. The default requires Python in the sandbox; Perl
+requires `IO::Socket::IP` and `Socket`. Pin the selected runtime and its policy
+configuration. Set `run_attempt(..., readiness_budget=15.0, cleanup_budget=45.0)`
+explicitly if those bounds fit measured rig latency; these are starting examples,
+not qualified defaults. Both remain bounded at sixty seconds, and readiness
+cannot outlive dispatch. See the [live-rig handoff](live-rig-handoff.md) for active
+policy revision discovery, sanitized diagnostics, and timing/trust requirements.
+
 ## Install from source
 
 Requires Python 3.12+. From a checkout:
