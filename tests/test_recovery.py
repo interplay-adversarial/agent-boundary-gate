@@ -349,6 +349,33 @@ os._exit(0)
         self.assertFalse(controller.failed.is_set())
         self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "pending")
 
+    def test_sqlite_contention_during_stop_is_bounded_and_reports_failure(self):
+        controller = ControllerLease(
+            self.journal,
+            self.lease,
+            heartbeat_ttl=1,
+            heartbeat_interval=0.01,
+            clock=lambda: self.now,
+        )
+        controller.start(self.binding)
+        self.addCleanup(controller.stop)
+        refresh_entered = Event()
+        original = self.journal.heartbeat
+
+        def blocked_refresh(*args, **kwargs):
+            refresh_entered.set()
+            return original(*args, **kwargs)
+
+        # Deliberately hold a private authority transaction across shutdown.
+        # Even this unsupported call order must terminate at the SQLite timeout.
+        with self.journal._transaction():
+            with patch.object(self.journal, "heartbeat", side_effect=blocked_refresh):
+                self.assertTrue(refresh_entered.wait(2))
+                controller.stop()
+        self.assertTrue(controller.failed.is_set())
+        self.assertFalse(controller._thread.is_alive())
+        self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "pending")
+
     def test_stopped_worker_does_not_claim_cleanup(self):
         self.register()
         self.advance(10)

@@ -56,7 +56,11 @@ Existing signed schemas, examples and signature domains are unchanged.
 The directory is mode `0700`, the database is a regular file mode `0600`, symlinks
 are rejected, and writes use explicit immediate transactions with full synchronous
 commit. Each operation uses its own connection for cross-thread/process access.
-The journal and sidecars are ignored by Git and rejected by publication auditing.
+Public journal operations commit and close their transactions before returning.
+SQLite lock waits are bounded to one second. Controller shutdown releases its
+lifecycle lock before joining the refresh thread, with a two-second join bound;
+contention/timeouts latch failure rather than acknowledging cleanup. The journal
+and sidecars are ignored by Git and rejected by publication auditing.
 No key material or deployment credentials belong in the journal.
 
 The controller starts its `ControllerLease` before observation/replay. Controller
