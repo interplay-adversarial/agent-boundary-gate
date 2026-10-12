@@ -227,7 +227,7 @@ supported `OpenShellBackend` runtime selector. Compiler/stdlib, build/audit tool
 and runtime-image CVEs need separate SEC-03 coverage. Signed schemas and release
 eligibility remain unchanged.
 
-Local validation of this increment: 232 Python unit/integration tests pass with
+Local validation of this increment: 233 Python unit/integration tests pass with
 one Linux-static resource test exercised in both hosted architecture jobs; four
 Rust unit tests and all seven pre-commit hooks pass. The 106-file exported source
 tree passes publication privacy and redacted Gitleaks scans. The native development
@@ -241,6 +241,9 @@ orders and either byte alignment. Only fixed errors are exported, never matched
 private data. This updates build validation without changing the probe baseline.
 A conservative ASCII projection also flags known path/key patterns interrupted
 by nonprintable/binary bytes, including a mid-string UTF-16 alignment shift.
+An explicit regression also splits known paths/tokens into single-character
+fragments with NUL or invalid-byte padding: the projection rejects both cases
+even though every individual decoded fragment is shorter than five characters.
 Privacy checks cover these patterns/encodings, not arbitrary encrypted or
 programmatically reconstructed secrets; distribution/source review remains required.
 Build failures also export allowlisted phase-specific reasons for formatting,

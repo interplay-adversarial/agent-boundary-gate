@@ -135,6 +135,16 @@ class RustToolingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 build.artifact_privacy(raw[:33] + b"\xff" + raw[33:])
 
+    def test_binary_privacy_detects_sensitive_patterns_split_into_single_characters(self):
+        values = (
+            b"gh" + b"p_" + b"x" * 40,
+            b"/" + b"Users/" + b"synthetic-operator/private-build/",
+        )
+        for value in values:
+            for separator in (b"\x00", b"\xff"):
+                with self.subTest(separator=separator), self.assertRaises(ValueError):
+                    build.artifact_privacy(separator.join(bytes([byte]) for byte in value))
+
     def report(self):
         return {
             "database": {
