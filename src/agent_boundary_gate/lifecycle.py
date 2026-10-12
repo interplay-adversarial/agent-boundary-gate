@@ -22,18 +22,61 @@ from agent_boundary_gate.contracts import (
     ToolRequestAction,
 )
 from agent_boundary_gate.evidence import EvidenceStore
+from agent_boundary_gate.monitor import (
+    ContainmentMonitor,
+    FixtureMonitor,
+    MonitorSession,
+    MonitorSnapshot,
+    UnknownMonitor,
+)
 from agent_boundary_gate.observers import Observation, Observer
 from agent_boundary_gate.process import AttemptStopped
+from agent_boundary_gate.recovery import ControllerLease
 
 
 class AttemptControl:
     """Independent monitor supplies these signals; local tests inject them explicitly."""
 
-    def __init__(self):
+    def __init__(self, monitor: ContainmentMonitor | None = None):
+        self._last_monitor = UnknownMonitor().snapshot()
+        self._monitor_failed = Event()
+        self._monitor_identity: tuple[str, str] | None = None
         self.cancelled = Event()
-        self.monitor_healthy = Event()
-        self.monitor_healthy.set()
+        self.monitor = monitor if monitor is not None else UnknownMonitor()
         self.incident = Event()
+
+    @classmethod
+    def for_fixture(cls, binding) -> "AttemptControl":
+        """Opt into synthetic monitor health for local fixtures only."""
+        return cls(FixtureMonitor(binding))
+
+    def monitor_snapshot(self) -> MonitorSnapshot:
+        try:
+            snapshot = self.monitor.snapshot()
+            if not isinstance(snapshot, MonitorSnapshot):
+                raise ValueError("invalid-monitor-snapshot")
+        except Exception:
+            self._monitor_failed.set()
+            snapshot = self._last_monitor
+        if snapshot.healthy:
+            identity = (snapshot.identity, snapshot.generation)
+            if self._monitor_identity is None:
+                self._monitor_identity = identity
+            elif identity != self._monitor_identity:
+                self._monitor_failed.set()
+        if self._monitor_failed.is_set():
+            snapshot = MonitorSnapshot(
+                "incident" if snapshot.incident else "lost",
+                snapshot.identity,
+                snapshot.generation,
+                snapshot.incident,
+                snapshot.heartbeat_refs,
+                snapshot.dropped_events,
+            )
+        self._last_monitor = snapshot
+        if snapshot.incident:
+            self.incident.set()
+        return snapshot
 
 
 def run_attempt(
@@ -47,6 +90,7 @@ def run_attempt(
     control: AttemptControl,
     *,
     agent: AgentAdapter | None = None,
+    recovery: ControllerLease | None = None,
     readiness_budget: float = 5.0,
     cleanup_budget: float = 5.0,
 ) -> SignedRecord:
@@ -77,14 +121,19 @@ def run_attempt(
     cleanup = "unknown"
     watch_done = Event()
     monitor_loss_seen = Event()
-    monitor_ready_at_start = control.monitor_healthy.is_set()
+    monitor_ready_at_start = False
 
     def watch() -> None:
         while not watch_done.wait(0.01):
-            if not control.monitor_healthy.is_set():
+            snapshot = control.monitor_snapshot()
+            if not snapshot.healthy:
                 monitor_loss_seen.set()
-            if control.incident.is_set() or not control.monitor_healthy.is_set():
+            if recovery is not None and recovery.failed.is_set():
                 control.cancelled.set()
+            if control.incident.is_set() or not snapshot.healthy:
+                control.cancelled.set()
+            if control.cancelled.is_set() and recovery is not None:
+                recovery.quiesce()
 
     profile = dispatch.binding.target_profile
 
@@ -129,8 +178,21 @@ def run_attempt(
         if not set(case.required_capabilities) <= capabilities:
             raise UnsupportedCapability("required-capability-unsupported")
         driver.require_binding(dispatch.binding)
+        if driver.lease is not None and (recovery is None or recovery.lease != driver.lease):
+            raise UnsupportedCapability("independent-recovery-lease-unavailable")
+        if recovery is not None:
+            recovery.start(dispatch.binding)
+        if driver.lease is not None and (
+            not isinstance(control.monitor, MonitorSession) or control.monitor.lease != driver.lease
+        ):
+            raise UnsupportedCapability("authenticated-monitor-lease-unavailable")
+        if not control.monitor.require_binding(dispatch.binding):
+            raise AttemptStopped("containment-monitor-binding-unavailable")
+        monitor_ready_at_start = control.monitor_snapshot().healthy
+        if not monitor_ready_at_start:
+            raise AttemptStopped("containment-monitor-not-ready")
         observer.start()
-        if not control.monitor_healthy.is_set() or control.incident.is_set():
+        if not control.monitor_snapshot().healthy or control.incident.is_set():
             raise AttemptStopped("containment-stop")
         if datetime.now(UTC) < dispatch.dispatched_at:
             raise AttemptStopped("dispatch-not-started")
@@ -150,8 +212,9 @@ def run_attempt(
         for action in case.actions:
             if (
                 control.cancelled.is_set()
-                or not control.monitor_healthy.is_set()
+                or not control.monitor_snapshot().healthy
                 or control.incident.is_set()
+                or (recovery is not None and recovery.failed.is_set())
             ):
                 raise AttemptStopped(
                     "containment-stop" if control.incident.is_set() else "cancelled"
@@ -213,18 +276,27 @@ def run_attempt(
             reasons.add("cleanup-not-confirmed")
             if status == RunStatus.COMPLETE:
                 status = RunStatus.INCOMPLETE
+        if recovery is not None:
+            recovery.stop()
+            if recovery.failed.is_set():
+                reasons.add("controller-lease-lost")
+                if status == RunStatus.COMPLETE:
+                    status = RunStatus.INCOMPLETE
         watch_done.set()
         watcher.join(timeout=2)
-    monitor_healthy = control.monitor_healthy.is_set() and not monitor_loss_seen.is_set()
+    monitor_snapshot = control.monitor_snapshot()
+    monitor_healthy = monitor_snapshot.healthy and not monitor_loss_seen.is_set()
     if not monitor_healthy:
         reasons.add("containment-monitor-loss")
-        status = RunStatus.TELEMETRY_LOSS
+        if status != RunStatus.UNSUPPORTED:
+            status = RunStatus.TELEMETRY_LOSS
     try:
         observation = observer.observe(
             execution_valid=replay_completed
             and ready.ready
             and monitor_healthy
             and not control.incident.is_set()
+            and (recovery is None or not recovery.failed.is_set())
         )
     except Exception:
         observation = Observation("unknown", "unknown", (), (), False)
@@ -239,7 +311,11 @@ def run_attempt(
                 "attempt_id": dispatch.binding.attempt_id,
                 "healthy": monitor_healthy,
                 "incident": control.incident.is_set(),
-                "source": "local-fixture-monitor",
+                "source": monitor_snapshot.identity,
+                "generation": monitor_snapshot.generation,
+                "state": monitor_snapshot.state,
+                "heartbeat_refs": monitor_snapshot.heartbeat_refs,
+                "dropped_events": monitor_snapshot.dropped_events,
             }
         )
     except (OSError, ValueError):
@@ -254,14 +330,14 @@ def run_attempt(
         sources += (
             SourceEvidence(
                 source_id="containment-monitor",
-                identity="local-fixture-monitor",
-                generation=dispatch.binding.attempt_id,
+                identity=monitor_snapshot.identity,
+                generation=monitor_snapshot.generation,
                 designation="required"
                 if "containment-monitor" in case.required_sources
                 else "corroborating",
                 ready_before_replay=monitor_ready_at_start,
                 drained=monitor_healthy and "evidence-store-error" not in reasons,
-                dropped_events=0,
+                dropped_events=monitor_snapshot.dropped_events,
                 truncated=not monitor_healthy or "evidence-store-error" in reasons,
                 artifact_digest=monitor_ref,
             ),

@@ -45,7 +45,19 @@ PATTERNS = {
 }
 URL = re.compile(r"https?://[^\s<>\"'`]+")
 PRIVATE_PARTS = {".venv", "artifacts", ".aws", ".kube", ".private", "secrets", "results", "output"}
-PRIVATE_SUFFIXES = {".key", ".pem", ".pub", ".p12", ".pfx", ".keystore", ".bin", ".log", ".jsonl"}
+PRIVATE_SUFFIXES = {
+    ".key",
+    ".pem",
+    ".pub",
+    ".p12",
+    ".pfx",
+    ".keystore",
+    ".bin",
+    ".log",
+    ".jsonl",
+    ".db",
+    ".sqlite3",
+}
 
 
 def audit_blob(path: str, data: bytes, denied_tokens: tuple[str, ...] = ()) -> list[Finding]:
@@ -54,6 +66,7 @@ def audit_blob(path: str, data: bytes, denied_tokens: tuple[str, ...] = ()) -> l
     if (
         set(file.parts) & PRIVATE_PARTS
         or file.suffix.lower() in PRIVATE_SUFFIXES
+        or any(marker in file.name for marker in (".sqlite3-", ".db-"))
         or file.name.startswith((".env", "kubeconfig", "credentials", "id_rsa", "id_ed25519"))
     ):
         findings.append(Finding(path, 0, "private-or-credential-file"))

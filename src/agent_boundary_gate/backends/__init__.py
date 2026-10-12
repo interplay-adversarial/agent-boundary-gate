@@ -5,6 +5,7 @@ from threading import Event
 from typing import Protocol
 
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, ReplayAction
+from agent_boundary_gate.receipts import LeaseBinding
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class Readiness:
 class BoundaryBackend(Protocol):
     backend_id: str
     capabilities: frozenset[str]
+    lease: LeaseBinding | None
 
     def require_binding(self, binding: Binding) -> None: ...
 

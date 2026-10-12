@@ -35,7 +35,7 @@ has not been empirically validated on a live target.
 
 `local-run` exercises actual HTTP observation and signed-record persistence with
 an explicitly simulated policy and monitor. Receivers bind `127.0.0.1` and are
-not remote rig services. The lifecycle is a local reference implementation, not
+not remote rig services. The lifecycle and recovery components are local reference implementations, not
 a ready-to-deploy remote rig controller. Signing keys, monitor events and workload
 processes share a local development host; this does not demonstrate tamper resistance.
 
@@ -69,5 +69,10 @@ credentials, endpoint inventory or operator-specific environment configuration.
    Contrib adapter and demonstrate the complete EvalHub/CI path.
 
 This work follows [ADR-0001](adr/0001-rig-topology.md). M0/M1 still require live
-proofs. The local watchdog thread cancels processes promptly; it cannot reconcile
-controller death.
+proofs. The controller-local watcher cancels bounded processes; it cannot reconcile
+controller death. A durable journal and separately hostable recovery worker now
+recover registered leases after controller/worker exit in synthetic tests. See
+[ADR-0004](adr/0004-monitor-and-lease-recovery.md). Actual whole-cell teardown,
+independent deployment/permissions and pre-registration allocation recovery remain
+unproven. Authenticated monitor sessions start unknown until a signed healthy
+handshake; loopback opts explicitly into simulated monitor health.

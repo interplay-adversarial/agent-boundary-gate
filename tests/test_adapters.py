@@ -57,7 +57,7 @@ class AdapterTests(unittest.TestCase):
             self.store,
             self.key,
             "adapter-test",
-            AttemptControl(),
+            AttemptControl.for_fixture(self.dispatch.binding),
             agent=agent,
         )
 

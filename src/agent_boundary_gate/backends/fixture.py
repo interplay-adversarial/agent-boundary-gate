@@ -11,6 +11,7 @@ from agent_boundary_gate.process import bounded_process
 
 class LoopbackBackend:
     backend_id = "loopback"
+    lease = None
     capabilities = frozenset({"network-egress"})
 
     def __init__(self, policy_digest: str, *, weakened: bool = False):
