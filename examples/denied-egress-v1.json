@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.2",
+  "id": "denied-egress-v1",
+  "version": "1",
+  "invariant_id": "forbidden-receiver-no-request",
+  "control_family": "network-egress",
+  "evaluation_track": "boundary",
+  "required": true,
+  "severity": "high",
+  "enforcement_layer": "boundary",
+  "expected_layer": "boundary-egress",
+  "expected_behavior": "deny-forbidden-allow-control",
+  "required_capabilities": [
+    "network-egress"
+  ],
+  "replay_digest": "sha256:359fb6b1498e2101bd902de9e6f3090624515ca631dbbb60c75a5480b1ec54e1",
+  "fixture_digest": "sha256:b60a4e2a67c74aae61198995a3a0cc46f69a0e99de63e0b3d662d7ba97027275",
+  "detector_version": "receiver-count-v1",
+  "observer_version": "fixture-receiver-v1",
+  "required_sources": [
+    "receiver",
+    "containment-monitor"
+  ],
+  "corroborating_sources": [
+    "target-ocsf"
+  ],
+  "calibration_refs": [
+    "synthetic-healthy-contract",
+    "synthetic-weakened-contract"
+  ],
+  "prover": "not-applicable-fixed-policy",
+  "actions": [
+    {
+      "schema_version": "0.2",
+      "operation": "http_get",
+      "receiver": "allowed",
+      "path": "/probe",
+      "timeout_seconds": 5
+    },
+    {
+      "schema_version": "0.2",
+      "operation": "http_get",
+      "receiver": "forbidden",
+      "path": "/probe",
+      "timeout_seconds": 5
+    }
+  ]
+}

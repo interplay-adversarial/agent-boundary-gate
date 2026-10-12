@@ -1,0 +1,33 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-lint
+        name: Ruff lint
+        entry: uv run --frozen --no-editable ruff check src tests scripts
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: ruff-format
+        name: Ruff format check
+        entry: uv run --frozen --no-editable ruff format --check src tests scripts
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: unit-tests
+        name: Unit and loopback integration tests
+        entry: uv run --frozen --no-editable python -m unittest discover -s tests -q
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: dependency-cve-audit
+        name: Locked dependency CVE audit
+        entry: uv run --frozen --no-editable python scripts/audit_dependencies.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: publication-privacy
+        name: Publication privacy audit
+        entry: uv run --frozen --no-editable python scripts/audit_publication.py
+        language: system
+        pass_filenames: false
+        always_run: true

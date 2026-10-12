@@ -1,0 +1,33 @@
+[project]
+name = "agent-boundary-gate"
+version = "0.2.0"
+description = "Evidence-based gate for agent controls and runtime boundaries"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12"
+dependencies = ["pydantic==2.13.5", "cryptography==50.0.1"]
+
+[project.scripts]
+agent-boundary-gate = "agent_boundary_gate.cli:main"
+
+[project.urls]
+Repository = "https://github.com/interplay-adversarial/agent-boundary-gate"
+Issues = "https://github.com/interplay-adversarial/agent-boundary-gate/issues"
+
+[dependency-groups]
+dev = ["ruff==0.16.4", "pre-commit==4.6.2", "pip-audit==2.10.1"]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_boundary_gate"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

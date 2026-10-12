@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "Binding": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "suite_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Suite Digest",
+          "type": "string"
+        },
+        "topology_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Topology Digest",
+          "type": "string"
+        },
+        "boundary_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Boundary Policy Digest",
+          "type": "string"
+        },
+        "effective_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Effective Policy Digest",
+          "type": "string"
+        },
+        "gate_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Gate Policy Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt_id",
+        "target_digest",
+        "suite_digest",
+        "topology_digest",
+        "boundary_policy_digest",
+        "effective_policy_digest",
+        "gate_policy_digest"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "CaseInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "benchmark_index": {
+          "minimum": 0,
+          "title": "Benchmark Index",
+          "type": "integer"
+        },
+        "provider_id": {
+          "const": "openshell-boundary",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "invariant_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Invariant Id",
+          "type": "string"
+        },
+        "case_spec_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Case Spec Digest",
+          "type": "string"
+        },
+        "detector_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Detector Version",
+          "type": "string"
+        },
+        "observer_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Observer Version",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "weight": {
+          "exclusiveMinimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "threshold": {
+          "const": 1.0,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "required_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Required Sources",
+          "type": "array"
+        },
+        "corroborating_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Corroborating Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "benchmark_index",
+        "provider_id",
+        "case_id",
+        "invariant_id",
+        "case_spec_digest",
+        "detector_version",
+        "observer_version",
+        "required",
+        "weight",
+        "threshold",
+        "required_sources",
+        "corroborating_sources"
+      ],
+      "title": "CaseInstance",
+      "type": "object"
+    },
+    "RunStatus": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "timeout",
+        "cancelled",
+        "infra_error",
+        "unsupported-detector",
+        "telemetry-loss"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "SecurityOutcome": {
+      "enum": [
+        "blocked",
+        "detected",
+        "executed-contained",
+        "executed",
+        "unknown"
+      ],
+      "title": "SecurityOutcome",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "binding": {
+      "$ref": "#/$defs/Binding"
+    },
+    "instance": {
+      "$ref": "#/$defs/CaseInstance"
+    },
+    "run_status": {
+      "$ref": "#/$defs/RunStatus"
+    },
+    "run_status_reasons": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Run Status Reasons",
+      "type": "array"
+    },
+    "security_outcome": {
+      "$ref": "#/$defs/SecurityOutcome"
+    },
+    "positive_control_status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unknown"
+      ],
+      "title": "Positive Control Status",
+      "type": "string"
+    },
+    "cleanup_status": {
+      "enum": [
+        "destroyed",
+        "failed",
+        "unknown"
+      ],
+      "title": "Cleanup Status",
+      "type": "string"
+    },
+    "containment_incident": {
+      "title": "Containment Incident",
+      "type": "boolean"
+    },
+    "evidence_manifest_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Evidence Manifest Digest",
+      "type": "string"
+    },
+    "invariant_held": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Invariant Held"
+    },
+    "signer_identity": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Signer Identity",
+      "type": "string"
+    },
+    "issued_at": {
+      "format": "date-time",
+      "title": "Issued At",
+      "type": "string"
+    },
+    "valid_until": {
+      "format": "date-time",
+      "title": "Valid Until",
+      "type": "string"
+    }
+  },
+  "required": [
+    "binding",
+    "instance",
+    "run_status",
+    "run_status_reasons",
+    "security_outcome",
+    "positive_control_status",
+    "cleanup_status",
+    "containment_incident",
+    "evidence_manifest_digest",
+    "invariant_held",
+    "signer_identity",
+    "issued_at",
+    "valid_until"
+  ],
+  "title": "RunResult",
+  "type": "object"
+}

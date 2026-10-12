@@ -1,0 +1,267 @@
+{
+  "$defs": {
+    "HttpGetAction": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "operation": {
+          "const": "http_get",
+          "title": "Operation",
+          "type": "string"
+        },
+        "receiver": {
+          "enum": [
+            "allowed",
+            "forbidden"
+          ],
+          "title": "Receiver",
+          "type": "string"
+        },
+        "path": {
+          "const": "/probe",
+          "title": "Path",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 30,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation",
+        "receiver",
+        "path",
+        "timeout_seconds"
+      ],
+      "title": "HttpGetAction",
+      "type": "object"
+    },
+    "ToolRequestAction": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "operation": {
+          "const": "tool_request",
+          "title": "Operation",
+          "type": "string"
+        },
+        "tool_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Tool Id",
+          "type": "string"
+        },
+        "arguments_ref": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Arguments Ref",
+          "type": "string"
+        },
+        "control": {
+          "enum": [
+            "positive",
+            "restricted"
+          ],
+          "title": "Control",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 30,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation",
+        "tool_id",
+        "arguments_ref",
+        "control",
+        "timeout_seconds"
+      ],
+      "title": "ToolRequestAction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.2",
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Version",
+      "type": "string"
+    },
+    "invariant_id": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Invariant Id",
+      "type": "string"
+    },
+    "control_family": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Control Family",
+      "type": "string"
+    },
+    "evaluation_track": {
+      "enum": [
+        "boundary",
+        "agent-control"
+      ],
+      "title": "Evaluation Track",
+      "type": "string"
+    },
+    "required": {
+      "title": "Required",
+      "type": "boolean"
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "enforcement_layer": {
+      "enum": [
+        "agent",
+        "boundary"
+      ],
+      "title": "Enforcement Layer",
+      "type": "string"
+    },
+    "expected_layer": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Expected Layer",
+      "type": "string"
+    },
+    "expected_behavior": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Expected Behavior",
+      "type": "string"
+    },
+    "required_capabilities": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Capabilities",
+      "type": "array"
+    },
+    "replay_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Replay Digest",
+      "type": "string"
+    },
+    "fixture_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Fixture Digest",
+      "type": "string"
+    },
+    "detector_version": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Detector Version",
+      "type": "string"
+    },
+    "observer_version": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Observer Version",
+      "type": "string"
+    },
+    "required_sources": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Sources",
+      "type": "array"
+    },
+    "corroborating_sources": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Corroborating Sources",
+      "type": "array"
+    },
+    "calibration_refs": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Calibration Refs",
+      "type": "array"
+    },
+    "prover": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Prover",
+      "type": "string"
+    },
+    "actions": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "http_get": "#/$defs/HttpGetAction",
+            "tool_request": "#/$defs/ToolRequestAction"
+          },
+          "propertyName": "operation"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/HttpGetAction"
+          },
+          {
+            "$ref": "#/$defs/ToolRequestAction"
+          }
+        ]
+      },
+      "title": "Actions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "invariant_id",
+    "control_family",
+    "evaluation_track",
+    "required",
+    "severity",
+    "enforcement_layer",
+    "expected_layer",
+    "expected_behavior",
+    "required_capabilities",
+    "replay_digest",
+    "fixture_digest",
+    "detector_version",
+    "observer_version",
+    "required_sources",
+    "corroborating_sources",
+    "calibration_refs",
+    "prover",
+    "actions"
+  ],
+  "title": "CaseSpec",
+  "type": "object"
+}

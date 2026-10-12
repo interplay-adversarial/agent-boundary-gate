@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "ComponentPin": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "artifact_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Artifact Digest",
+          "type": "string"
+        },
+        "configuration_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Configuration Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "artifact_digest",
+        "configuration_digest"
+      ],
+      "title": "ComponentPin",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.2",
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "boundary": {
+      "$ref": "#/$defs/ComponentPin"
+    },
+    "agent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ComponentPin"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "boundary"
+  ],
+  "title": "TargetProfile",
+  "type": "object"
+}

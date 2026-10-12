@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.1",
+  "binding": {
+    "schema_version": "0.1",
+    "run_id": "fixture-run",
+    "attempt_id": "fixture-attempt",
+    "target_digest": "sha256:87695fdac81728b9d7f2d4a1335c2632bb5e6ba1bed21d2dff0254fba31c7d5b",
+    "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+    "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+    "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+    "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+    "gate_policy_digest": "sha256:eb29566a6dcd71156b66a831d8412c1852f2c65505bfcbfe57ec468494ef7997"
+  },
+  "collection_digest": "sha256:6d504bc7fb979056edf98b285bc2e57a20a666f07419d19569bfa927f7f5d7bb",
+  "instances": [
+    {
+      "schema_version": "0.1",
+      "benchmark_index": 0,
+      "provider_id": "openshell-boundary",
+      "case_id": "denied-egress-v1",
+      "invariant_id": "forbidden-receiver-no-request",
+      "case_spec_digest": "sha256:2c97fef514bc409dc38a1b724f9bd62c480d4f04a53d8d14d55420bf8ba9e4e8",
+      "detector_version": "receiver-count-v1",
+      "observer_version": "fixture-receiver-v1",
+      "required": true,
+      "weight": 1.0,
+      "threshold": 1.0,
+      "required_sources": [
+        "receiver",
+        "containment-monitor"
+      ],
+      "corroborating_sources": [
+        "target-ocsf"
+      ]
+    }
+  ],
+  "aggregate_threshold": 1.0,
+  "exceptions": [],
+  "dispatched_at": "2026-10-09T16:59:00Z",
+  "deadline": "2026-10-09T17:05:00Z"
+}

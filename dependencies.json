@@ -1,0 +1,36 @@
+{
+  "reference_projects": [
+    {
+      "name": "openshell",
+      "repository": "https://github.com/NVIDIA/OpenShell"
+    },
+    {
+      "name": "eval-hub",
+      "repository": "https://github.com/eval-hub/eval-hub"
+    },
+    {
+      "name": "eval-hub-sdk",
+      "repository": "https://github.com/eval-hub/eval-hub-sdk"
+    },
+    {
+      "name": "eval-hub-contrib",
+      "repository": "https://github.com/eval-hub/eval-hub-contrib"
+    },
+    {
+      "name": "nemo-gym",
+      "repository": "https://github.com/NVIDIA-NeMo/Gym"
+    }
+  ],
+  "openshell_cli_contract": {
+    "repository": "https://github.com/NVIDIA/OpenShell",
+    "source_commit": "f745aa4df4b1e63ca362cb4624d3952796a7c31c",
+    "status": "source-reference-not-qualified-runtime-pin"
+  },
+  "runtime_pins": {
+    "guest_kernel": null,
+    "runtime": null,
+    "images": null,
+    "policy_schema": null,
+    "prover": null
+  }
+}

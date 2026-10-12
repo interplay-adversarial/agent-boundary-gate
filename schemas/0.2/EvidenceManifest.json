@@ -1,0 +1,420 @@
+{
+  "$defs": {
+    "Binding": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "suite_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Suite Digest",
+          "type": "string"
+        },
+        "topology_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Topology Digest",
+          "type": "string"
+        },
+        "boundary_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Boundary Policy Digest",
+          "type": "string"
+        },
+        "effective_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Effective Policy Digest",
+          "type": "string"
+        },
+        "gate_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Gate Policy Digest",
+          "type": "string"
+        },
+        "target_profile": {
+          "$ref": "#/$defs/TargetProfile"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt_id",
+        "target_digest",
+        "suite_digest",
+        "topology_digest",
+        "boundary_policy_digest",
+        "effective_policy_digest",
+        "gate_policy_digest",
+        "target_profile"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "CaseInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "benchmark_index": {
+          "minimum": 0,
+          "title": "Benchmark Index",
+          "type": "integer"
+        },
+        "provider_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "invariant_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Invariant Id",
+          "type": "string"
+        },
+        "case_spec_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Case Spec Digest",
+          "type": "string"
+        },
+        "detector_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Detector Version",
+          "type": "string"
+        },
+        "observer_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Observer Version",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "weight": {
+          "exclusiveMinimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "threshold": {
+          "const": 1.0,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "required_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Required Sources",
+          "type": "array"
+        },
+        "corroborating_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Corroborating Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "benchmark_index",
+        "provider_id",
+        "case_id",
+        "invariant_id",
+        "case_spec_digest",
+        "detector_version",
+        "observer_version",
+        "required",
+        "weight",
+        "threshold",
+        "required_sources",
+        "corroborating_sources"
+      ],
+      "title": "CaseInstance",
+      "type": "object"
+    },
+    "ComponentIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "component_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Component Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "instance_uid": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Instance Uid",
+          "type": "string"
+        },
+        "generation": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Generation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "component_id",
+        "role",
+        "instance_uid",
+        "generation"
+      ],
+      "title": "ComponentIdentity",
+      "type": "object"
+    },
+    "ComponentPin": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "artifact_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Artifact Digest",
+          "type": "string"
+        },
+        "configuration_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Configuration Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "artifact_digest",
+        "configuration_digest"
+      ],
+      "title": "ComponentPin",
+      "type": "object"
+    },
+    "SourceEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "identity": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Identity",
+          "type": "string"
+        },
+        "generation": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "designation": {
+          "enum": [
+            "required",
+            "corroborating"
+          ],
+          "title": "Designation",
+          "type": "string"
+        },
+        "ready_before_replay": {
+          "title": "Ready Before Replay",
+          "type": "boolean"
+        },
+        "drained": {
+          "title": "Drained",
+          "type": "boolean"
+        },
+        "dropped_events": {
+          "minimum": 0,
+          "title": "Dropped Events",
+          "type": "integer"
+        },
+        "truncated": {
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "artifact_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Artifact Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "identity",
+        "generation",
+        "designation",
+        "ready_before_replay",
+        "drained",
+        "dropped_events",
+        "truncated",
+        "artifact_digest"
+      ],
+      "title": "SourceEvidence",
+      "type": "object"
+    },
+    "TargetProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "boundary": {
+          "$ref": "#/$defs/ComponentPin"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentPin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "boundary"
+      ],
+      "title": "TargetProfile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.2",
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "binding": {
+      "$ref": "#/$defs/Binding"
+    },
+    "expected_instances": {
+      "items": {
+        "$ref": "#/$defs/CaseInstance"
+      },
+      "title": "Expected Instances",
+      "type": "array"
+    },
+    "instance": {
+      "$ref": "#/$defs/CaseInstance"
+    },
+    "components": {
+      "items": {
+        "$ref": "#/$defs/ComponentIdentity"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceEvidence"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "observer_outcome": {
+      "enum": [
+        "held",
+        "violation",
+        "unknown"
+      ],
+      "title": "Observer Outcome",
+      "type": "string"
+    },
+    "observed_effect_refs": {
+      "items": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "title": "Observed Effect Refs",
+      "type": "array"
+    },
+    "policy_ready_before_replay": {
+      "title": "Policy Ready Before Replay",
+      "type": "boolean"
+    },
+    "containment_monitor_healthy": {
+      "title": "Containment Monitor Healthy",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "binding",
+    "expected_instances",
+    "instance",
+    "components",
+    "sources",
+    "observer_outcome",
+    "observed_effect_refs",
+    "policy_ready_before_replay",
+    "containment_monitor_healthy"
+  ],
+  "title": "EvidenceManifest",
+  "type": "object"
+}

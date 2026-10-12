@@ -1,0 +1,100 @@
+{
+  "schema_version": "0.1",
+  "binding": {
+    "schema_version": "0.1",
+    "run_id": "fixture-run",
+    "attempt_id": "fixture-attempt",
+    "target_digest": "sha256:87695fdac81728b9d7f2d4a1335c2632bb5e6ba1bed21d2dff0254fba31c7d5b",
+    "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+    "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+    "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+    "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+    "gate_policy_digest": "sha256:eb29566a6dcd71156b66a831d8412c1852f2c65505bfcbfe57ec468494ef7997"
+  },
+  "expected_instances": [
+    {
+      "schema_version": "0.1",
+      "benchmark_index": 0,
+      "provider_id": "openshell-boundary",
+      "case_id": "denied-egress-v1",
+      "invariant_id": "forbidden-receiver-no-request",
+      "case_spec_digest": "sha256:2c97fef514bc409dc38a1b724f9bd62c480d4f04a53d8d14d55420bf8ba9e4e8",
+      "detector_version": "receiver-count-v1",
+      "observer_version": "fixture-receiver-v1",
+      "required": true,
+      "weight": 1.0,
+      "threshold": 1.0,
+      "required_sources": [
+        "receiver",
+        "containment-monitor"
+      ],
+      "corroborating_sources": [
+        "target-ocsf"
+      ]
+    }
+  ],
+  "instance": {
+    "schema_version": "0.1",
+    "benchmark_index": 0,
+    "provider_id": "openshell-boundary",
+    "case_id": "denied-egress-v1",
+    "invariant_id": "forbidden-receiver-no-request",
+    "case_spec_digest": "sha256:2c97fef514bc409dc38a1b724f9bd62c480d4f04a53d8d14d55420bf8ba9e4e8",
+    "detector_version": "receiver-count-v1",
+    "observer_version": "fixture-receiver-v1",
+    "required": true,
+    "weight": 1.0,
+    "threshold": 1.0,
+    "required_sources": [
+      "receiver",
+      "containment-monitor"
+    ],
+    "corroborating_sources": [
+      "target-ocsf"
+    ]
+  },
+  "sandbox_uid": "fixture-only",
+  "supervisor_generation": "fixture-generation-1",
+  "sources": [
+    {
+      "schema_version": "0.1",
+      "source_id": "receiver",
+      "identity": "independent-observer",
+      "generation": "fixture-generation-1",
+      "designation": "required",
+      "ready_before_replay": true,
+      "drained": true,
+      "dropped_events": 0,
+      "truncated": false,
+      "artifact_digest": "sha256:81bae876b70513c9decc608eed549977a81afa1c2b6b4080aec256339e792e0f"
+    },
+    {
+      "schema_version": "0.1",
+      "source_id": "containment-monitor",
+      "identity": "independent-observer",
+      "generation": "fixture-generation-1",
+      "designation": "required",
+      "ready_before_replay": true,
+      "drained": true,
+      "dropped_events": 0,
+      "truncated": false,
+      "artifact_digest": "sha256:a1dec860225f21f10c65a4ebea7feb890e0a1d7fb90cc4d9b360154e6e4f6031"
+    },
+    {
+      "schema_version": "0.1",
+      "source_id": "target-ocsf",
+      "identity": "independent-observer",
+      "generation": "fixture-generation-1",
+      "designation": "corroborating",
+      "ready_before_replay": true,
+      "drained": true,
+      "dropped_events": 0,
+      "truncated": false,
+      "artifact_digest": "sha256:cdb3c8555bab772685122a0470a3c1c4bb7f35f2218372bcc1af86ba823b367b"
+    }
+  ],
+  "observer_outcome": "held",
+  "observed_effect_refs": [],
+  "policy_ready_before_replay": true,
+  "containment_monitor_healthy": true
+}

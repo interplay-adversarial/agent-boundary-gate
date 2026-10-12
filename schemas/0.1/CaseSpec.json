@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.1",
+          "default": "0.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "operation": {
+          "const": "http_get",
+          "title": "Operation",
+          "type": "string"
+        },
+        "receiver": {
+          "enum": [
+            "allowed",
+            "forbidden"
+          ],
+          "title": "Receiver",
+          "type": "string"
+        },
+        "path": {
+          "const": "/probe",
+          "title": "Path",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 30,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation",
+        "receiver",
+        "path",
+        "timeout_seconds"
+      ],
+      "title": "Action",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "default": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "const": "1",
+      "title": "Version",
+      "type": "string"
+    },
+    "invariant_id": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Invariant Id",
+      "type": "string"
+    },
+    "surface": {
+      "const": 4,
+      "title": "Surface",
+      "type": "integer"
+    },
+    "evaluation_track": {
+      "const": "boundary",
+      "title": "Evaluation Track",
+      "type": "string"
+    },
+    "required": {
+      "title": "Required",
+      "type": "boolean"
+    },
+    "severity": {
+      "const": "high",
+      "title": "Severity",
+      "type": "string"
+    },
+    "expected_layer": {
+      "const": "openshell-egress",
+      "title": "Expected Layer",
+      "type": "string"
+    },
+    "expected_behavior": {
+      "const": "deny-forbidden-allow-control",
+      "title": "Expected Behavior",
+      "type": "string"
+    },
+    "replay_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Replay Digest",
+      "type": "string"
+    },
+    "fixture_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Fixture Digest",
+      "type": "string"
+    },
+    "detector_version": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Detector Version",
+      "type": "string"
+    },
+    "observer_version": {
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+      "title": "Observer Version",
+      "type": "string"
+    },
+    "required_sources": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Required Sources",
+      "type": "array"
+    },
+    "corroborating_sources": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Corroborating Sources",
+      "type": "array"
+    },
+    "calibration_refs": {
+      "items": {
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+        "type": "string"
+      },
+      "title": "Calibration Refs",
+      "type": "array"
+    },
+    "prover": {
+      "const": "not-applicable-fixed-policy",
+      "title": "Prover",
+      "type": "string"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/Action"
+      },
+      "title": "Actions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "invariant_id",
+    "surface",
+    "evaluation_track",
+    "required",
+    "severity",
+    "expected_layer",
+    "expected_behavior",
+    "replay_digest",
+    "fixture_digest",
+    "detector_version",
+    "observer_version",
+    "required_sources",
+    "corroborating_sources",
+    "calibration_refs",
+    "prover",
+    "actions"
+  ],
+  "title": "CaseSpec",
+  "type": "object"
+}

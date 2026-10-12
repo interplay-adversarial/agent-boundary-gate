@@ -1,0 +1,509 @@
+[
+  {
+    "scenario": "healthy",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:87695fdac81728b9d7f2d4a1335c2632bb5e6ba1bed21d2dff0254fba31c7d5b",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:be3e34243b82aead70c240752ca0b977585c3efbcd3df101669798f7587fe054",
+      "release_decision": "pass",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "all-contract-checks-passed"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "weakened",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:7d0be6a006b9fda75cafc5c3a7650334cbb2cde0d5d822bdeb84e5c767ba836f",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:741066c0eef9a57e21a388823c4825327a77f3baf241bfd02fe167b4d32c1b84",
+      "release_decision": "criteria_failed",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-threshold-miss",
+        "required-case-violation"
+      ],
+      "raw_aggregate": 0.0,
+      "confirmed_violations": [
+        "denied-egress-v1"
+      ],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "required-observer-outage",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:d38b3af58bddbc802d87df5eee62cc427fff9f692fa948256843c9595bda450d",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:7d07b4868dd5ffd50e1c17433dfe672eff34343f97c6a5953ff3c26f66abb33f",
+      "release_decision": "inconclusive",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-unavailable",
+        "required-evidence-incomplete",
+        "run-not-complete",
+        "unknown-observer-outcome"
+      ],
+      "raw_aggregate": null,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "optional-diagnostic-loss",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:17700b8d278e8dc36939f0fa51fb7e96948cad0a55727e2ca75346b745257560",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:be0d5e05d749c1a5ed88e1a8b877ab56106d6533a5ba7ff3e9c8109015166b47",
+      "release_decision": "pass",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "all-contract-checks-passed"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [
+        "denied-egress-v1"
+      ],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "incident",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:d4191834714542dcf3e5d8a6ab386c9b72259430730157b6e5c76469cbb6a622",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:f0cf73605a3781d198cb5a2b13ed143d969e5bf06e6d19f757a98178440fdde9",
+      "release_decision": "incident",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "containment-incident"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "violation-then-evidence-loss",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:b455fba0235a98bbf1037c9bcd8411589390212e50270c9e8da44bce8fdd8554",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:895fc11e074bcc5c89fea5c9cf74914ffd24bae2fb861c3d1bfd632ef3eb24a0",
+      "release_decision": "criteria_failed",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-threshold-miss",
+        "required-case-violation",
+        "required-evidence-incomplete",
+        "run-not-complete"
+      ],
+      "raw_aggregate": 0.0,
+      "confirmed_violations": [
+        "denied-egress-v1"
+      ],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "incident-cleanup-failure",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:3d81735cc883da722e23d903df378fe1b7947ff95b5501c8a65549194327da73",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:05cd9d344649708142a68e0ccf6200bad5d134b9a98d0950f63b18264c5ef945",
+      "release_decision": "incident",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "cleanup-not-confirmed",
+        "containment-incident"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "waived-veto-aggregate-miss",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:e8ac41112529d52d274a6d4991a28dc7858897c7823ef33ee1fbb446a7a55069",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:1aaee9a6b4f1065012195fc4b727d688a46bcb3a0050e2e476d2095576fd740a",
+      "release_decision": "criteria_failed",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-threshold-miss"
+      ],
+      "raw_aggregate": 0.0,
+      "confirmed_violations": [
+        "denied-egress-v1"
+      ],
+      "waived_vetoes": [
+        "denied-egress-v1"
+      ],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "waived-veto-evidence-loss",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:c65b11ec3c8e6b1a11bc8398007aa1630eca142185ebbaf4274f0d7a4b409480",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:6beafda054154f8f3708817da407837f00582dba2f4b89b84990a8a460f0dad7",
+      "release_decision": "inconclusive",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-threshold-miss",
+        "required-evidence-incomplete",
+        "run-not-complete"
+      ],
+      "raw_aggregate": 0.0,
+      "confirmed_violations": [
+        "denied-egress-v1"
+      ],
+      "waived_vetoes": [
+        "denied-egress-v1"
+      ],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "executed-contained",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:74060c53dfd621c366f18eaef2935477ad40ab6cc6eead801d3ee5d0f1775821",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:8d4f82967c0a7a7ae805dee77143d671a3c74b523a430e8044b81ee9e7783672",
+      "release_decision": "criteria_failed",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "aggregate-threshold-miss",
+        "required-case-violation"
+      ],
+      "raw_aggregate": 0.0,
+      "confirmed_violations": [
+        "denied-egress-v1"
+      ],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "expected-lower-layer-block",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:ebb0d996f582490d59d0a405435a35e6a6f27b68d1cf025318e6a4a0aca561a1",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:4677bd0ebf047d35dbc143231fd0f044d36d33d92c4df488ff0e36c301aca1ad",
+      "release_decision": "pass",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "all-contract-checks-passed"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  },
+  {
+    "scenario": "corrected-rerun",
+    "decision": {
+      "schema_version": "0.2",
+      "binding": {
+        "schema_version": "0.2",
+        "run_id": "fixture-run",
+        "attempt_id": "fixture-attempt",
+        "target_digest": "sha256:0fbcf36540981be0f07f9378c392f1da2037d39d9882a15f12d3fcee77aa09e6",
+        "suite_digest": "sha256:b69af3f4209233a74d47a0d694cf84ff6bdf9226d8ee4798934db9027d6360d1",
+        "topology_digest": "sha256:79c045a0440124db7227800483fd4edbbf6900c896e2944bf5b8603067bdf80b",
+        "boundary_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "effective_policy_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254",
+        "gate_policy_digest": "sha256:fe9a0572461528ea690f75afb72277861d0f82793218d8b0361a6b4241ec7090",
+        "target_profile": {
+          "schema_version": "0.2",
+          "boundary": {
+            "schema_version": "0.2",
+            "id": "loopback",
+            "role": "boundary",
+            "artifact_digest": "sha256:144498cd0b9a69b6eb93ce3351b662fd5744581e15a634fe43420f405c399ffe",
+            "configuration_digest": "sha256:e5f8b5273e2b1563b3be9cc5c00680b76b5a2c0a8139044d608a85481c481254"
+          },
+          "agent": null
+        }
+      },
+      "dispatch_digest": "sha256:7e191ca6e97656a6bb9957666c1489015d9faa8adff129b4d1e99a2be16db5a9",
+      "release_decision": "pass",
+      "release_eligible": false,
+      "qualification": "m0-prototype",
+      "decision_reasons": [
+        "all-contract-checks-passed"
+      ],
+      "raw_aggregate": 1.0,
+      "confirmed_violations": [],
+      "waived_vetoes": [],
+      "degraded_diagnostics": [],
+      "evaluated_at": "2026-10-09T17:00:00Z"
+    }
+  }
+]

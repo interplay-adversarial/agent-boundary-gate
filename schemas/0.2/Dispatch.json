@@ -1,0 +1,374 @@
+{
+  "$defs": {
+    "Binding": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Attempt Id",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "suite_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Suite Digest",
+          "type": "string"
+        },
+        "topology_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Topology Digest",
+          "type": "string"
+        },
+        "boundary_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Boundary Policy Digest",
+          "type": "string"
+        },
+        "effective_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Effective Policy Digest",
+          "type": "string"
+        },
+        "gate_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Gate Policy Digest",
+          "type": "string"
+        },
+        "target_profile": {
+          "$ref": "#/$defs/TargetProfile"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt_id",
+        "target_digest",
+        "suite_digest",
+        "topology_digest",
+        "boundary_policy_digest",
+        "effective_policy_digest",
+        "gate_policy_digest",
+        "target_profile"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "CaseInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "benchmark_index": {
+          "minimum": 0,
+          "title": "Benchmark Index",
+          "type": "integer"
+        },
+        "provider_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "invariant_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Invariant Id",
+          "type": "string"
+        },
+        "case_spec_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Case Spec Digest",
+          "type": "string"
+        },
+        "detector_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Detector Version",
+          "type": "string"
+        },
+        "observer_version": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Observer Version",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "weight": {
+          "exclusiveMinimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "threshold": {
+          "const": 1.0,
+          "title": "Threshold",
+          "type": "number"
+        },
+        "required_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Required Sources",
+          "type": "array"
+        },
+        "corroborating_sources": {
+          "items": {
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Corroborating Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "benchmark_index",
+        "provider_id",
+        "case_id",
+        "invariant_id",
+        "case_spec_digest",
+        "detector_version",
+        "observer_version",
+        "required",
+        "weight",
+        "threshold",
+        "required_sources",
+        "corroborating_sources"
+      ],
+      "title": "CaseInstance",
+      "type": "object"
+    },
+    "ComponentPin": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "agent",
+            "boundary"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "artifact_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Artifact Digest",
+          "type": "string"
+        },
+        "configuration_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Configuration Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "artifact_digest",
+        "configuration_digest"
+      ],
+      "title": "ComponentPin",
+      "type": "object"
+    },
+    "ExceptionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "case_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "invariant_id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Invariant Id",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "boundary_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Boundary Policy Digest",
+          "type": "string"
+        },
+        "approver": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Approver",
+          "type": "string"
+        },
+        "justification_ref": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}$",
+          "title": "Justification Ref",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "effect": {
+          "const": "waive-required-veto",
+          "title": "Effect",
+          "type": "string"
+        },
+        "aggregate_effect": {
+          "const": "none",
+          "title": "Aggregate Effect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "case_id",
+        "invariant_id",
+        "target_digest",
+        "boundary_policy_digest",
+        "approver",
+        "justification_ref",
+        "issued_at",
+        "expires_at",
+        "effect",
+        "aggregate_effect"
+      ],
+      "title": "ExceptionRecord",
+      "type": "object"
+    },
+    "TargetProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "0.2",
+          "default": "0.2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "boundary": {
+          "$ref": "#/$defs/ComponentPin"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentPin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "boundary"
+      ],
+      "title": "TargetProfile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.2",
+      "default": "0.2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "binding": {
+      "$ref": "#/$defs/Binding"
+    },
+    "collection_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Collection Digest",
+      "type": "string"
+    },
+    "instances": {
+      "items": {
+        "$ref": "#/$defs/CaseInstance"
+      },
+      "title": "Instances",
+      "type": "array"
+    },
+    "aggregate_threshold": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Aggregate Threshold",
+      "type": "number"
+    },
+    "exceptions": {
+      "items": {
+        "$ref": "#/$defs/ExceptionRecord"
+      },
+      "title": "Exceptions",
+      "type": "array"
+    },
+    "dispatched_at": {
+      "format": "date-time",
+      "title": "Dispatched At",
+      "type": "string"
+    },
+    "deadline": {
+      "format": "date-time",
+      "title": "Deadline",
+      "type": "string"
+    }
+  },
+  "required": [
+    "binding",
+    "collection_digest",
+    "instances",
+    "aggregate_threshold",
+    "exceptions",
+    "dispatched_at",
+    "deadline"
+  ],
+  "title": "Dispatch",
+  "type": "object"
+}

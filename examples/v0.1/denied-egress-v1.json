@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1",
+  "id": "denied-egress-v1",
+  "version": "1",
+  "invariant_id": "forbidden-receiver-no-request",
+  "surface": 4,
+  "evaluation_track": "boundary",
+  "required": true,
+  "severity": "high",
+  "expected_layer": "openshell-egress",
+  "expected_behavior": "deny-forbidden-allow-control",
+  "replay_digest": "sha256:23d95e79d74cd83935765e3ecbe196f86218012ef0d7a650df3f71cf5eac8e3c",
+  "fixture_digest": "sha256:b60a4e2a67c74aae61198995a3a0cc46f69a0e99de63e0b3d662d7ba97027275",
+  "detector_version": "receiver-count-v1",
+  "observer_version": "fixture-receiver-v1",
+  "required_sources": [
+    "receiver",
+    "containment-monitor"
+  ],
+  "corroborating_sources": [
+    "target-ocsf"
+  ],
+  "calibration_refs": [
+    "synthetic-healthy-contract",
+    "synthetic-weakened-contract"
+  ],
+  "prover": "not-applicable-fixed-policy",
+  "actions": [
+    {
+      "schema_version": "0.1",
+      "operation": "http_get",
+      "receiver": "allowed",
+      "path": "/probe",
+      "timeout_seconds": 5
+    },
+    {
+      "schema_version": "0.1",
+      "operation": "http_get",
+      "receiver": "forbidden",
+      "path": "/probe",
+      "timeout_seconds": 5
+    }
+  ]
+}
