@@ -22,6 +22,7 @@ PUBLIC_HOSTS = {
     "pypi.org",
     "files.pythonhosted.org",
     "www.apache.org",
+    "doc.rust-lang.org",
     "apache.org",
     "localhost",
     "127.0.0.1",

@@ -47,6 +47,17 @@ its modules, executable policy, and behavior in a pinned live image still requir
 qualification. The compatibility test used synthetic broker receipts, so it does
 not establish supervisor-generation or whole-cell cleanup authority.
 
+Perl is provided to exercise that image without installing Python or rebuilding
+the workload image just for the probe. This keeps the tested image closer to the
+selected runtime artifact and avoids adding an interpreter solely for the test.
+Python remains the default for images that provide it. Choose explicitly and
+verify prerequisites in the pinned image; both probes send the same fixed request
+and independent receiver evidence determines the security outcome.
+
+A [standalone Rust probe exploration](rust-probe-exploration.md) records a possible
+interpreter-free follow-up, including deadline, DNS, artifact and policy requirements.
+No Rust probe is shipped yet.
+
 ## Active policy revision and timing
 
 The same compatibility test observed two revisions after `sandbox create --policy`:
