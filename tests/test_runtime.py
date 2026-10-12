@@ -6,6 +6,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event
@@ -24,6 +25,12 @@ from agent_boundary_gate.fixtures import fixture
 from agent_boundary_gate.gate_policy import evaluate
 from agent_boundary_gate.lifecycle import AttemptControl, run_attempt
 from agent_boundary_gate.local_rig import local_run
+from agent_boundary_gate.monitor import (
+    MonitorHeartbeat,
+    MonitorSession,
+    MonitorSnapshot,
+    sign_heartbeat,
+)
 from agent_boundary_gate.observers.denied_egress import DeniedEgressObserver
 from agent_boundary_gate.process import AttemptStopped, ProcessResult, bounded_process
 
@@ -42,7 +49,7 @@ class RuntimeTests(unittest.TestCase):
             update={"case_spec_digest": digest(self.case)}
         )
         self.dispatch = self.dispatch.model_copy(update={"instances": (instance,)})
-        self.control = AttemptControl()
+        self.control = AttemptControl.for_fixture(self.dispatch.binding)
         self.key = Ed25519PrivateKey.generate()
         self.driver = LoopbackBackend(self.dispatch.binding.effective_policy_digest)
         self.capture = DeniedEgressObserver(self.dispatch.binding.attempt_id, self.store)
@@ -84,6 +91,221 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(self.driver.destroyed)
         self.assertFalse(self.decision(record).release_eligible)
 
+    def authenticated_monitor(self):
+        lease, _ = lease_and_binding()
+        lease = lease.model_copy(
+            update={
+                "binding_digest": digest(self.dispatch.binding),
+                "run_id": self.dispatch.binding.run_id,
+                "attempt_id": self.dispatch.binding.attempt_id,
+                "effective_policy_digest": self.dispatch.binding.effective_policy_digest,
+                "component": lease.component.model_copy(update={"component_id": "loopback"}),
+            }
+        )
+        ticks = [100.0]
+        key = Ed25519PrivateKey.generate()
+        monitor = MonitorSession(
+            lease=lease,
+            identity="synthetic-runtime-monitor",
+            generation="monitor-generation-1",
+            trusted_keys={"synthetic-runtime-monitor": key.public_key()},
+            store=self.store,
+            monotonic=lambda: ticks[0],
+        )
+        now = datetime.now(UTC)
+        heartbeat = MonitorHeartbeat(
+            request=monitor.request(),
+            signer_identity="synthetic-runtime-monitor",
+            generation="monitor-generation-1",
+            sequence=1,
+            state="healthy",
+            issued_at=now,
+            expires_at=now + timedelta(seconds=5),
+        )
+        self.assertTrue(
+            monitor.accept(sign_heartbeat(heartbeat, key).model_dump_json().encode(), now=now)
+        )
+        return monitor, ticks
+
+    def test_unknown_monitor_stops_before_capture_and_replay(self):
+        self.control = AttemptControl()
+        with (
+            patch.object(self.capture, "start") as start,
+            patch.object(self.driver, "replay") as replay,
+        ):
+            record = self.attempt()
+        self.assertFalse(start.called)
+        self.assertFalse(replay.called)
+        self.assertTrue(self.driver.destroyed)
+        self.assertEqual(record.result.run_status, "telemetry-loss")
+        self.assertIsNone(record.result.invariant_held)
+        self.assertEqual(self.decision(record).release_decision, "inconclusive")
+
+    def test_authenticated_monitor_source_and_durable_refs_are_recorded(self):
+        monitor, _ = self.authenticated_monitor()
+        self.control = AttemptControl(monitor)
+        record = self.attempt()
+        source = next(
+            source
+            for source in record.evidence.sources
+            if source.source_id == "containment-monitor"
+        )
+        self.assertEqual(source.identity, "synthetic-runtime-monitor")
+        self.assertEqual(source.generation, "monitor-generation-1")
+        self.assertTrue(source.ready_before_replay)
+        packet = self.store.root / (source.artifact_digest.removeprefix("sha256:") + ".json")
+        self.assertEqual(len(json.loads(packet.read_text())["heartbeat_refs"]), 1)
+        self.assertEqual(self.decision(record).release_decision, "pass")
+        self.assertFalse(self.decision(record).release_eligible)
+
+    def test_heartbeat_expiry_preserves_proven_violation(self):
+        monitor, ticks = self.authenticated_monitor()
+        self.control = AttemptControl(monitor)
+        self.driver.weakened = True
+        original = self.driver.replay
+
+        def expire_after_effect(action, *args, **kwargs):
+            completed = original(action, *args, **kwargs)
+            if action.receiver == "forbidden":
+                ticks[0] += 5
+            return completed
+
+        with patch.object(self.driver, "replay", side_effect=expire_after_effect):
+            record = self.attempt()
+        self.assertEqual(record.result.run_status, "telemetry-loss")
+        self.assertEqual(record.result.invariant_held, 0.0)
+        self.assertTrue(record.evidence.observed_effect_refs)
+
+    def test_monitor_adapter_exception_is_latched_and_signed_incomplete(self):
+        with patch.object(
+            self.control.monitor, "snapshot", side_effect=OSError("synthetic-monitor-loss")
+        ):
+            record = self.attempt()
+        self.assertEqual(record.result.run_status, "telemetry-loss")
+        self.assertIsNone(record.result.invariant_held)
+        self.assertFalse(record.evidence.containment_monitor_healthy)
+
+    def test_controller_lease_failure_stops_next_action_and_quiesces(self):
+        class Registration:
+            failed = Event()
+            stopped = False
+            quiesced = False
+
+            def start(self, binding):
+                pass
+
+            def quiesce(self):
+                self.quiesced = True
+
+            def stop(self):
+                self.stopped = True
+
+        registration = Registration()
+        original = self.driver.replay
+        calls = []
+
+        def fail_after_control(action, *args, **kwargs):
+            calls.append(action.receiver)
+            completed = original(action, *args, **kwargs)
+            registration.failed.set()
+            return completed
+
+        with patch.object(self.driver, "replay", side_effect=fail_after_control):
+            record = self.attempt(recovery=registration)
+        self.assertEqual(calls, ["allowed"])
+        self.assertTrue(registration.stopped)
+        self.assertIn("controller-lease-lost", record.result.run_status_reasons)
+        self.assertIsNone(record.result.invariant_held)
+        self.assertEqual(self.decision(record).release_decision, "inconclusive")
+
+    def test_leased_backend_requires_matching_recovery_and_authenticated_monitor(self):
+        monitor, _ = self.authenticated_monitor()
+        self.control = AttemptControl(monitor)
+        self.driver.lease = monitor.lease
+        with patch.object(self.driver, "replay") as replay:
+            record = self.attempt()
+        self.assertEqual(record.result.run_status, "unsupported-detector")
+        self.assertFalse(replay.called)
+        self.assertIsNone(record.result.invariant_held)
+
+        class Registration:
+            lease = monitor.lease
+            failed = Event()
+            started = False
+
+            def start(self, binding):
+                self.started = True
+
+            def stop(self):
+                pass
+
+            def quiesce(self):
+                pass
+
+        registration = Registration()
+        self.control = AttemptControl.for_fixture(self.dispatch.binding)
+        with patch.object(self.capture, "start") as start:
+            record = self.attempt(recovery=registration)
+        self.assertTrue(registration.started)
+        self.assertFalse(start.called)
+        self.assertEqual(record.result.run_status, "unsupported-detector")
+
+    def test_monitor_generation_change_cannot_restore_health(self):
+        self.assertTrue(self.control.monitor_snapshot().healthy)
+        with patch.object(
+            self.control.monitor,
+            "snapshot",
+            return_value=MonitorSnapshot(
+                "healthy", "local-fixture-monitor", "replacement-generation"
+            ),
+        ):
+            self.assertFalse(self.control.monitor_snapshot().healthy)
+        self.assertFalse(self.control.monitor_snapshot().healthy)
+
+    def test_concurrent_snapshots_pin_first_generation_and_latch_change(self):
+        first_entered, release_first = Event(), Event()
+        calls = []
+
+        def changing_source():
+            generation = "first-generation" if not calls else "replacement-generation"
+            calls.append(generation)
+            if generation == "first-generation":
+                first_entered.set()
+                if not release_first.wait(2):
+                    raise RuntimeError("synthetic-snapshot-timeout")
+            return MonitorSnapshot("healthy", "local-fixture-monitor", generation)
+
+        with patch.object(self.control.monitor, "snapshot", side_effect=changing_source):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                first = pool.submit(self.control.monitor_snapshot)
+                self.assertTrue(first_entered.wait(1))
+                others = [pool.submit(self.control.monitor_snapshot) for _ in range(7)]
+                release_first.set()
+                snapshots = [first.result(timeout=2)] + [
+                    future.result(timeout=2) for future in others
+                ]
+        self.assertTrue(snapshots[0].healthy)
+        self.assertEqual(snapshots[0].generation, "first-generation")
+        self.assertTrue(all(not snapshot.healthy for snapshot in snapshots[1:]))
+        self.assertEqual(
+            self.control._monitor_identity, ("local-fixture-monitor", "first-generation")
+        )
+        self.assertFalse(self.control.monitor_snapshot().healthy)
+
+    def test_unsupported_case_preserves_status_with_unknown_monitor(self):
+        self.control = AttemptControl()
+        self.case = self.case.model_copy(update={"required_capabilities": ("unimplemented-probe",)})
+        instance = self.dispatch.instances[0].model_copy(
+            update={"case_spec_digest": digest(self.case)}
+        )
+        self.dispatch = self.dispatch.model_copy(update={"instances": (instance,)})
+        record = self.attempt()
+        self.assertEqual(record.result.run_status, "unsupported-detector")
+        self.assertIn("containment-monitor-loss", record.result.run_status_reasons)
+        self.assertIn("adapter-or-capability-unsupported", record.result.run_status_reasons)
+        self.assertIsNone(record.result.invariant_held)
+        self.assertEqual(self.decision(record).release_decision, "inconclusive")
+
     def test_healthy_real_http_and_signed_terminal_record(self):
         record = self.attempt()
         self.assertEqual(self.capture.count("allowed"), 1)
@@ -119,7 +341,7 @@ class RuntimeTests(unittest.TestCase):
         def replay(action, url, attempt_id, **kwargs):
             actions.append(action.receiver)
             result = original(action, url, attempt_id, **kwargs)
-            self.control.incident.set()
+            self.control.monitor.mark_incident()
             return result
 
         self.driver.replay = replay
@@ -129,7 +351,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(self.driver.destroyed)
 
     def test_monitor_loss_stops_without_claiming_incident(self):
-        self.control.monitor_healthy.clear()
+        self.control.monitor.mark_lost()
         record = self.attempt()
         self.assertEqual(record.result.run_status, "telemetry-loss")
         self.assertFalse(record.result.containment_incident)
@@ -143,7 +365,7 @@ class RuntimeTests(unittest.TestCase):
         def replay(action, url, attempt_id, **kwargs):
             result = original(action, url, attempt_id, **kwargs)
             if action.receiver == "forbidden":
-                self.control.monitor_healthy.clear()
+                self.control.monitor.mark_lost()
             return result
 
         self.driver.replay = replay
@@ -259,7 +481,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.decision(record).release_decision, "inconclusive")
 
     def test_incident_plus_cleanup_failure_remains_hard_stop(self):
-        self.control.incident.set()
+        self.control.monitor.mark_incident()
         self.driver.destroy = lambda **kwargs: False
         record = self.attempt()
         self.assertEqual(record.result.cleanup_status, "failed")

@@ -17,6 +17,8 @@ qualified against a live target. Hermes, OpenCode and OpenClaw adapters are plan
 - Bounded execution, cancellation, teardown receipts and terminal records.
 - An OpenShell CLI backend and a loopback simulation backend.
 - Challenge-bound signed broker receipts with scoped trust and lease/attempt checks.
+- Unknown-by-default monitoring, signed heartbeat freshness and latched loss/incidents.
+- A private durable lease journal and restartable cleanup recovery worker.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -123,13 +125,15 @@ examples/         synthetic contract examples
 
 [Dependency references](dependencies.json) contain only public upstream URLs and
 the OpenShell source contract reference. They are not qualified runtime pins.
-Whole-target containment, live broker transport, an independent watchdog,
+Whole-target containment, live broker/monitor transports, an independently deployed watchdog,
 remote collectors, restricted RustFS/MLflow storage and EvalHub integration remain
 qualification work. See [ADR-0001](docs/adr/0001-rig-topology.md) and the
 [live-rig handoff](docs/live-rig-handoff.md).
 
 The [lifecycle receipt ADR](docs/adr/0003-authenticated-lifecycle-receipts.md) documents
 the broker protocol, backend API migration and remaining trust/transport work.
+The [monitor/recovery ADR](docs/adr/0004-monitor-and-lease-recovery.md) documents
+explicit monitor admission, lease recovery and deployment limits.
 
 See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for acceptance
 criteria, implementation status and qualification blockers.

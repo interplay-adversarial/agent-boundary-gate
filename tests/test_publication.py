@@ -48,6 +48,13 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(findings[0].rule, "operator-denylist")
         self.assertNotIn("fixture-private-name", json.dumps(findings[0]._asdict()))
 
+    def test_private_recovery_journals_and_sidecars_are_rejected(self):
+        for name in ("leases.sqlite3", "leases.sqlite3-journal", "leases.db", "leases.db-wal"):
+            findings = AUDIT.audit_blob(name, b"synthetic-private-journal")
+            self.assertTrue(
+                any(finding.rule == "private-or-credential-file" for finding in findings)
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

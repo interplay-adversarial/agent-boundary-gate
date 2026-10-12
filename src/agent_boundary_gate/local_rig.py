@@ -48,7 +48,14 @@ def local_run(case_path: Path, output: Path, *, weakened: bool = False):
     driver = LoopbackBackend(binding.effective_policy_digest, weakened=weakened)
     capture = DeniedEgressObserver(binding.attempt_id, store)
     record = run_attempt(
-        dispatch, case, driver, capture, store, key, "local-verifier", AttemptControl()
+        dispatch,
+        case,
+        driver,
+        capture,
+        store,
+        key,
+        "local-verifier",
+        AttemptControl.for_fixture(binding),
     )
     decision = evaluate(
         dispatch,

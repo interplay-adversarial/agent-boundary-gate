@@ -14,8 +14,8 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | SEC-01 | P2, first implementation | Exact-version dependency auditing | Every applicable locked runtime/dev package name and version is audited; duplicates, extra packages, missing versions, mismatches and skipped entries fail closed; failures preserve reported advisories. | Merged in PR #2; regression tests pass |
 | SEC-02 | P2, first implementation | Continuous security checks | Daily and manual audits, Python 3.12/3.13 PR validation, weekly uv/Actions update proposals and a stable aggregate check; automation becomes active after merge. | Merged in PR #2; hosted Python 3.12/3.13 checks pass; first scheduled runs/update proposals not yet observed |
 | SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Planned |
-| LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | First receipt verifier/backend increment implemented; trusted issuance/transport and live attestation pending |
-| LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Planned; depends on LIFE-01 |
+| LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
+| LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment implemented; live deployment and orphan-cell qualification pending |
 | QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Planned |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
@@ -63,7 +63,7 @@ incomplete audit always exits with status 2.
 
 ## Lifecycle receipt increment
 
-The next branch implements LIFE-01's versioned receipt contracts, Ed25519
+PR #8 implements LIFE-01's versioned receipt contracts, Ed25519
 verification, challenge freshness, purpose-scoped trust and OpenShell integration.
 The controller validates the exact attempt binding before starting capture.
 Receipt/lease expiry, mismatched scope/generation/policy, replayed responses,
@@ -78,4 +78,28 @@ EVID-01. External watchdog/recovery remains LIFE-02. Release eligibility stays o
 
 Local validation: all 118 unit/integration tests and all five pre-commit hooks
 pass. The staged privacy audit reports no findings; archived terminal schemas
-and signing code remain unchanged. Hosted validation is pending.
+and signing code remain unchanged. Hosted Python 3.12/3.13 validation passed before merge.
+
+## Monitor and recovery increment
+
+LIFE-02 now has unknown-by-default admission, independently signed challenge-bound
+monitor heartbeats, durable heartbeat references and latched loss/incidents. Leased
+backends require matching authenticated monitor and recovery contexts. Controller
+liveness is registered before replay and stops renewing on cancellation/failure.
+
+A private transactional lease journal and separately hostable worker reconcile
+missed controller heartbeats, lease expiry and interrupted worker claims. Cleanup
+requires fresh signed whole-cell proof, persisted before confirmation. Tests cover
+an abruptly exiting controller subprocess, concurrent claims, worker restart,
+stale ownership, clock regression, retries and storage/deadline failures. Journal
+files/sidecars are ignored and rejected by publication auditing.
+
+See [ADR-0004](adr/0004-monitor-and-lease-recovery.md). This is a prototype increment,
+not live qualification. Authenticated service transports, deployment/identity
+separation, provisioning-allocation intents and real orphan-cell fault injection
+remain pending. Terminal re-verification of referenced proof remains EVID-01.
+
+Local validation: all 166 unit/integration tests and all five pre-commit hooks
+pass, including online locked dependency auditing. Staged privacy auditing reports
+no findings. Archived terminal and lifecycle receipt schemas remain unchanged.
+Hosted validation is pending for this increment.
