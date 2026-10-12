@@ -10,7 +10,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from scripts.audit_publication import audit_blob
+from scripts.audit_publication import PATTERNS, audit_blob
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBE = ROOT / "probes/http"
@@ -75,9 +75,21 @@ def inspect_static_elf(raw: bytes, target: str) -> None:
 
 def artifact_privacy(raw: bytes) -> None:
     # Deliberately do not export matched strings or binary data.
-    text = raw.decode("utf-8", errors="ignore").encode()
-    if audit_blob("probe-strings.txt", text):
-        raise ValueError("rust-probe-artifact-privacy-failed")
+    for pattern in PATTERNS.values():
+        byte_pattern = re.compile(pattern.pattern.encode("ascii"), pattern.flags & ~re.UNICODE)
+        if byte_pattern.search(raw):
+            raise ValueError("rust-probe-artifact-privacy-failed")
+    # Latin-1 preserves every byte. UTF-16 views cover either endian/alignment;
+    # replacement characters retain invalid boundaries instead of deleting them.
+    views = [raw.decode("latin-1"), raw.decode("utf-8", errors="replace")]
+    for encoding in ("utf-16-le", "utf-16-be"):
+        views.extend(raw[offset:].decode(encoding, errors="replace") for offset in (0, 1))
+    for view in views:
+        # NUL/control bytes separate binary strings; don't merge adjacent strings
+        # into a fictitious URL hostname when applying the text publication rules.
+        text = "\n".join(re.findall(r"[\x20-\x7e]{5,}", view)).encode()
+        if audit_blob("probe-strings.txt", text):
+            raise ValueError("rust-probe-artifact-privacy-failed")
 
 
 def build(*, target: str | None = None, check: bool = False) -> dict:

@@ -63,6 +63,26 @@ class RustToolingTests(unittest.TestCase):
         self.assertNotIn("synthetic-operator", str(caught.exception))
         build.artifact_privacy(b"\xff\x00/agent-boundary-gate/probes/http/src/main.rs")
 
+    def test_binary_privacy_scans_utf16_both_endians_and_alignments(self):
+        sensitive = "/" + "Users/" + "synthetic-operator/private-build/"
+        token = "gh" + "p_" + "x" * 40
+        for value in (sensitive, token):
+            for encoding in ("utf-16-le", "utf-16-be"):
+                for prefix in (b"", b"\xff"):
+                    with (
+                        self.subTest(encoding=encoding, alignment=len(prefix)),
+                        self.assertRaises(ValueError) as caught,
+                    ):
+                        build.artifact_privacy(prefix + value.encode(encoding) + b"\x00\x00\xff")
+                    self.assertNotIn("synthetic-operator", str(caught.exception))
+
+    def test_binary_privacy_keeps_invalid_utf8_boundaries_and_raw_patterns(self):
+        token = b"gh" + b"p_" + b"x" * 40
+        with self.assertRaises(ValueError):
+            build.artifact_privacy(b"\x00\xff" + token + b"\xfe\x00")
+        # Invalid bytes must not be discarded to fabricate a sensitive token.
+        build.artifact_privacy(b"ghp_" + b"x" * 20 + b"\xff" + b"x" * 20)
+
     def report(self):
         return {
             "database": {
