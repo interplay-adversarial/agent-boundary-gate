@@ -23,6 +23,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - Unknown-by-default monitoring, signed heartbeat freshness and latched loss/incidents.
 - A private durable lease journal and restartable cleanup recovery worker.
 - A [read-only OpenShell compatibility doctor](docs/compatibility-doctor.md) with sanitized reports.
+- An [independently versioned experimental Rust HTTP probe](docs/rust-probe-usage.md),
+  with shared Python/Perl/Rust conformance and no OpenShell runtime dependency.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -30,10 +32,13 @@ architecture and criteria for extracting independently maintained adapters.
 
 ## Develop and validate
 
-Requires Python 3.12+ and [uv](https://github.com/astral-sh/uv).
+Requires Python 3.12+, [uv](https://github.com/astral-sh/uv), and Rust/Cargo 1.98.1
+with rustfmt and Clippy for source development. Python library consumers do not
+need Rust to use the existing APIs. Install the pinned Rust CVE auditor:
 
 ```sh
 uv sync --frozen --no-editable
+cargo install cargo-audit --version 0.22.2 --locked
 uv run --no-sync pre-commit install
 uv run --no-sync agent-boundary-gate adapters
 uv run --no-sync agent-boundary-gate demo --scenario healthy
@@ -43,6 +48,8 @@ The pre-commit hooks and pull-request checks run:
 
 - Unit and loopback integration tests.
 - Ruff lint and formatting checks.
+- Rust fmt, Clippy, unit tests, shared probe conformance and binary privacy checks.
+- A pinned Cargo/RustSec lockfile CVE audit; compiler/stdlib and images need separate coverage.
 - A pip-audit CVE check for all applicable locked runtime and development dependencies.
 - Publication privacy checks. PR checks also scan Git history with Gitleaks.
 

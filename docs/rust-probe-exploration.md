@@ -1,13 +1,14 @@
 # Standalone Rust HTTP probe exploration
 
-Status: proposed follow-up, 2026-10-12. No Rust executable or live qualification
-is delivered by this exploration. Python remains the default; Perl supports
+Status: IP-literal prototype implemented, 2026-10-12. This document retains the
+exploration and remaining requirements; see the [usage guide](rust-probe-usage.md)
+for the implementation. No live qualification is delivered. Python remains the default; Perl supports
 images that lack Python but provide its required modules. See the
 [live-rig handoff](live-rig-handoff.md) for that compatibility rationale.
 
 ## Proposed scope
 
-A small Cargo package under `probes/http/` could provide a dedicated executable
+A small Cargo package under `probes/http/` now provides a dedicated executable
 without a Python or Perl runtime prerequisite. Keep its source in this repository
 and select it explicitly in the OpenShell backend after conformance testing.
 Distribution into a pinned workload image and executable policy authorization

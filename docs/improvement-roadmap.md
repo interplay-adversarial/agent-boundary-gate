@@ -20,7 +20,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and sanitized diagnostics implemented locally; pinned-image testing and timing measurements pending |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
 | COMPAT-03 | P2 | Supported live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Planned; depends on authenticated transports and provisioning |
-| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | [Exploration recorded](rust-probe-exploration.md); implementation and artifact distribution pending |
+| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, shared tests, build/privacy manifests and native Linux CI implemented; hostname/DNS, trusted delivery, release provenance and live qualification pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
@@ -201,3 +201,51 @@ Input reads explicitly use close-on-exec, retain final-component symlink rejecti
 when making paths absolute, and close descriptors if wrapping fails. A regression
 replaces the opened pathname with a FIFO while a hard link remains: checking and
 reading the same original descriptor stays regular and returns the original bytes.
+
+## Independent Rust probe increment
+
+COMPAT-04 introduces `gate-http-probe` 0.1.0 and the experimental IP-literal
+HTTP probe protocol 1.0. It has no third-party runtime crates or OpenShell
+dependency. Python/Perl frozen actions move unchanged to a vendor-neutral module.
+[ADR-0005](adr/0005-independent-evaluation-baselines.md) records the independently
+versioned baseline/artifact decision and separates target upgrades from baseline
+promotion. Source remains in this repo with its own Cargo package and binary lifecycle.
+
+The [usage guide](rust-probe-usage.md) covers the usable standalone CLI, validation,
+timeout/error semantics, build metadata and remaining distribution/trust requirements.
+Formatting, Clippy, Rust unit tests, shared receiver conformance, artifact privacy
+and a pinned RustSec lockfile CVE hook run in pre-commit and PR validation. Native
+Linux musl jobs build/test both architectures, inspect static linkage and retain
+experimental binary/manifest artifacts. Native x86_64 and aarch64 musl build,
+static-linkage, conformance and resource-fault jobs passed on PR #13; this is
+development conformance, not live OpenShell qualification.
+
+This is partial COMPAT-04/DEV-01 coverage. Hostname/DNS support, authenticated
+artifact delivery, reproducible build-image/linker pins, signed provenance and
+the live baseline/target qualification matrix remain pending. Rust is not yet a
+supported `OpenShellBackend` runtime selector. Compiler/stdlib, build/audit tooling
+and runtime-image CVEs need separate SEC-03 coverage. Signed schemas and release
+eligibility remain unchanged.
+
+Local validation of this increment: 233 Python unit/integration tests pass with
+one Linux-static resource test exercised in both hosted architecture jobs; four
+Rust unit tests and all seven pre-commit hooks pass. The 106-file exported source
+tree passes publication privacy and redacted Gitleaks scans. The native development
+binary also passes artifact privacy. Both native Linux architecture jobs pass,
+including static ELF inspection and the descriptor-exhaustion regression.
+
+PR #13 review follow-up: binary privacy checks apply publication patterns directly
+to raw bytes and inspect byte-preserving/UTF-16 text views, without dropping
+invalid UTF-8 bytes. Regressions cover invalid boundaries, both UTF-16 endian
+orders and either byte alignment. Only fixed errors are exported, never matched
+private data. This updates build validation without changing the probe baseline.
+A conservative ASCII projection also flags known path/key patterns interrupted
+by nonprintable/binary bytes, including a mid-string UTF-16 alignment shift.
+An explicit regression also splits known paths/tokens into single-character
+fragments with NUL or invalid-byte padding: the projection rejects both cases
+even though every individual decoded fragment is shorter than five characters.
+Privacy checks cover these patterns/encodings, not arbitrary encrypted or
+programmatically reconstructed secrets; distribution/source review remains required.
+Build failures also export allowlisted phase-specific reasons for formatting,
+Clippy, unit tests, compilation and tooling/source-state checks. Raw command
+output, exception details and paths remain excluded from diagnostics.

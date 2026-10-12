@@ -29,13 +29,19 @@ jobs:
         run: |
           python -m pip install uv==0.12.17
           uv sync --frozen --no-editable
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.1
+          cargo install cargo-audit --version 0.22.2 --locked
       - name: Lint and test
         run: |
           uv run --no-sync ruff check src tests scripts examples
           uv run --no-sync ruff format --check src tests scripts examples
+          uv run --no-sync python -m scripts.rust_probe_build --check
           PYTHONPATH=src uv run --no-sync python -m unittest discover -s tests -q
       - name: Locked dependency vulnerability and CVE check
         run: uv run --no-sync python scripts/audit_dependencies.py
+      - name: Rust probe locked dependency vulnerability check
+        run: uv run --no-sync python -m scripts.audit_rust_probe
       - name: Publication privacy audit
         run: python scripts/audit_publication.py
       - name: Gitleaks secret scan
@@ -55,14 +61,62 @@ jobs:
           tar -xzf "$audit_dir/gitleaks_8.30.1_linux_x64.tar.gz" -C "$audit_dir" gitleaks
           "$audit_dir/gitleaks" git . --redact=100 --no-banner
 
+  rust-platforms:
+    name: Rust probe (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+    env:
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+      GATE_RUST_PROBE_BINARY: probes/http/target/${{ matrix.target }}/release/gate-http-probe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned compiler and native musl linker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools perl libio-socket-ip-perl
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy --target '${{ matrix.target }}'
+          rustup default 1.98.1
+          python -m pip install uv==0.12.17
+          uv sync --frozen --no-editable
+      - name: Build, inspect static linkage and audit binary privacy
+        run: uv run --no-sync python -m scripts.rust_probe_build --check --target '${{ matrix.target }}'
+      - name: Execute shared probe conformance on the native architecture
+        run: uv run --no-sync python -m unittest discover -s tests -p test_probe_conformance.py -v
+      - name: Retain experimental binary and unsigned build manifest
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: experimental-http-probe-0.1.0-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            probes/http/target/${{ matrix.target }}/release/gate-http-probe
+            probes/http/target/${{ matrix.target }}/release/gate-http-probe.provenance.json
+            probes/http/target/${{ matrix.target }}/release/LICENSE
+            probes/http/target/${{ matrix.target }}/release/NOTICE
+          if-no-files-found: error
+          retention-days: 7
+
   required-checks:
     name: Required checks
     runs-on: ubuntu-latest
     timeout-minutes: 2
     if: always()
-    needs: validate
+    needs: [validate, rust-platforms]
     steps:
       - name: Require every validation matrix entry to pass
         env:
           VALIDATION_RESULT: ${{ needs.validate.result }}
-        run: test "$VALIDATION_RESULT" = success
+          RUST_RESULT: ${{ needs.rust-platforms.result }}
+        run: |
+          test "$VALIDATION_RESULT" = success
+          test "$RUST_RESULT" = success

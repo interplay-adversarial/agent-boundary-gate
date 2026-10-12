@@ -19,6 +19,18 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: rust-probe-checks
+        name: Rust probe format, Clippy, tests and artifact privacy
+        entry: uv run --frozen --no-editable python -m scripts.rust_probe_build --check
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: rust-probe-cve-audit
+        name: Rust probe locked dependency CVE audit
+        entry: uv run --frozen --no-editable python -m scripts.audit_rust_probe
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: dependency-cve-audit
         name: Locked dependency CVE audit
         entry: uv run --frozen --no-editable python scripts/audit_dependencies.py
