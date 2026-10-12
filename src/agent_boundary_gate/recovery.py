@@ -322,6 +322,8 @@ class ControllerLease:
         if self._stop.is_set():
             self.failed.set()
             raise ValueError("controller lease stopped during startup")
+        # Publish and start under the same lifecycle lock used by stop; stop
+        # cannot observe None after this transition or an unstarted thread.
         self._thread = Thread(target=self._refresh, name="controller-lease-heartbeat")
         self._thread.start()
 
@@ -342,6 +344,8 @@ class ControllerLease:
         self._stop.set()
 
     def stop(self) -> None:
+        # Signal first, then wait for any startup transition to finish. A later
+        # start sees the stop signal and refuses to create a heartbeat thread.
         self.quiesce()
         with self._lifecycle_lock:
             thread = self._thread

@@ -376,6 +376,32 @@ os._exit(0)
         self.assertFalse(controller._thread.is_alive())
         self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "pending")
 
+    def test_stop_during_blocked_start_prevents_late_heartbeat_thread(self):
+        controller = ControllerLease(self.journal, self.lease, clock=lambda: self.now)
+        self.addCleanup(controller.stop)
+        registering, release_registration = Event(), Event()
+        original = self.journal.register
+
+        def blocked_register(*args, **kwargs):
+            registering.set()
+            if not release_registration.wait(2):
+                raise RuntimeError("synthetic-registration-timeout")
+            return original(*args, **kwargs)
+
+        with patch.object(self.journal, "register", side_effect=blocked_register):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                starting = pool.submit(controller.start, self.binding)
+                self.assertTrue(registering.wait(1))
+                stopping = pool.submit(controller.stop)
+                self.assertTrue(controller._stop.wait(1))
+                release_registration.set()
+                with self.assertRaises(ValueError):
+                    starting.result(timeout=2)
+                stopping.result(timeout=2)
+        self.assertIsNone(controller._thread)
+        self.assertTrue(controller.failed.is_set())
+        self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "pending")
+
     def test_stopped_worker_does_not_claim_cleanup(self):
         self.register()
         self.advance(10)
