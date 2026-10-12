@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 from typing import Literal, Protocol
 
 from agent_boundary_gate.auth import digest
@@ -294,10 +294,15 @@ class ControllerLease:
             raise ValueError("controller heartbeat interval must allow refresh margin")
         self.journal, self.lease, self.clock = journal, lease, clock
         self.heartbeat_ttl, self.interval = heartbeat_ttl, heartbeat_interval
+        self._lifecycle_lock = Lock()
         self.failed, self._stop = Event(), Event()
         self._thread: Thread | None = None
 
     def start(self, binding: Binding) -> None:
+        with self._lifecycle_lock:
+            self._start_locked(binding)
+
+    def _start_locked(self, binding: Binding) -> None:
         if self._thread is not None or self._stop.is_set():
             raise ValueError("controller lease cannot be restarted")
         if (
@@ -314,6 +319,9 @@ class ControllerLease:
         ):
             self.failed.set()
             raise ValueError("controller lease unavailable")
+        if self._stop.is_set():
+            self.failed.set()
+            raise ValueError("controller lease stopped during startup")
         self._thread = Thread(target=self._refresh, name="controller-lease-heartbeat")
         self._thread.start()
 
@@ -335,7 +343,9 @@ class ControllerLease:
 
     def stop(self) -> None:
         self.quiesce()
-        if self._thread is not None:
-            self._thread.join(timeout=2)
-            if self._thread.is_alive():
+        with self._lifecycle_lock:
+            thread = self._thread
+        if thread is not None:
+            thread.join(timeout=2)
+            if thread.is_alive():
                 self.failed.set()

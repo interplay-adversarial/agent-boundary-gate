@@ -331,6 +331,24 @@ os._exit(0)
             self.assertEqual(self.worker.step(cancelled=cancelled), "retry")
         self.assertIsNone(self.journal.inspect(self.lease.lease_id)["receipt_ref"])
 
+    def test_concurrent_controller_start_admits_exactly_one_caller(self):
+        controller = ControllerLease(self.journal, self.lease, clock=lambda: self.now)
+        self.addCleanup(controller.stop)
+
+        def start_once(_):
+            try:
+                controller.start(self.binding)
+                return True
+            except ValueError:
+                return False
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(start_once, range(8)))
+        self.assertEqual(sum(results), 1)
+        self.assertIsNotNone(controller._thread)
+        self.assertFalse(controller.failed.is_set())
+        self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "pending")
+
     def test_stopped_worker_does_not_claim_cleanup(self):
         self.register()
         self.advance(10)

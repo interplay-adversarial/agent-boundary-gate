@@ -99,7 +99,7 @@ not live qualification. Authenticated service transports, deployment/identity
 separation, provisioning-allocation intents and real orphan-cell fault injection
 remain pending. Terminal re-verification of referenced proof remains EVID-01.
 
-Local validation: all 163 unit/integration tests and all five pre-commit hooks
+Local validation: all 164 unit/integration tests and all five pre-commit hooks
 pass, including online locked dependency auditing. Staged privacy auditing reports
 no findings. Archived terminal and lifecycle receipt schemas remain unchanged.
 Hosted validation is pending for this increment.
