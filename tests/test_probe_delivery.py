@@ -292,8 +292,10 @@ class DeliveryTests(unittest.TestCase):
         with (
             patch.object(provider, "fetch", side_effect=fetch),
             patch.object(driver, "_command") as command,
+            patch.object(self.verifier, "verify", wraps=self.verifier.verify) as verify,
         ):
             self.assertFalse(self.replay(driver, cancelled=stop))
+            verify.assert_not_called()
             command.assert_not_called()
 
         def expired(request, **kwargs):
@@ -331,6 +333,7 @@ class DeliveryTests(unittest.TestCase):
         with (
             patch.object(provider, "fetch", side_effect=delayed),
             patch.object(driver, "_command") as command,
+            patch.object(self.verifier, "verify", wraps=self.verifier.verify) as verify,
         ):
             self.assertFalse(
                 driver.replay(
@@ -343,6 +346,24 @@ class DeliveryTests(unittest.TestCase):
                     cancelled=Event(),
                 )
             )
+            verify.assert_not_called()
+            command.assert_not_called()
+
+    def test_cancellation_during_verification_never_executes(self):
+        driver = self.driver(self.provider())
+        stop = Event()
+        original = self.verifier.verify
+
+        def verify(*args, **kwargs):
+            receipt = original(*args, **kwargs)
+            stop.set()
+            return receipt
+
+        with (
+            patch.object(self.verifier, "verify", side_effect=verify),
+            patch.object(driver, "_command") as command,
+        ):
+            self.assertFalse(self.replay(driver, cancelled=stop))
             command.assert_not_called()
 
     def test_rust_selection_requires_all_trust_inputs(self):

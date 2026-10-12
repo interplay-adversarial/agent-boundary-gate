@@ -250,6 +250,8 @@ class OpenShellBackend:
                 if cancelled.is_set() or time.monotonic() >= deadline:
                     return False
                 raw = self.delivery_provider.fetch(request, deadline=deadline, cancelled=cancelled)
+                if cancelled.is_set() or time.monotonic() >= deadline:
+                    return False
                 receipt = self.delivery_verifier.verify(raw, request=request, now=datetime.now(UTC))
             except (DeliveryRejected, OSError):
                 raise BackendFailure("backend-probe-delivery-rejected") from None

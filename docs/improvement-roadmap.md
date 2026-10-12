@@ -277,5 +277,10 @@ Validation includes delivery signature/domain, replay/binding/pin mismatch,
 expiry/immutability, cancellation/deadline, exact execution arguments, unsafe-file
 and staging rollback regressions. Native Linux jobs also stage their real static
 artifacts and reject changed pins on both architectures. Local validation passes
-252 Python tests (two native-Linux-only checks run in hosted architecture jobs),
+253 Python tests (two native-Linux-only checks run in hosted architecture jobs),
 plus the existing Rust tests, lint, CVE and publication checks.
+
+PR review follow-up: cancellation/deadline checks immediately after delivery
+transport skip verification, while checks after verification still prevent
+execution. Regressions cover cancellation during both transport and verification
+and late transport replies.
