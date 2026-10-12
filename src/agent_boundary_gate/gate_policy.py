@@ -1,5 +1,6 @@
 """Fail-closed fixture evaluator with v5 precedence and veto-only waivers."""
 
+import json
 import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -15,6 +16,23 @@ from agent_boundary_gate.contracts import (
     SecurityOutcome,
     SignedRecord,
 )
+from agent_boundary_gate.evidence import EvidenceStore
+
+
+def _verify_source(store: EvidenceStore, reference: str, *, monitor: bool) -> None:
+    raw = store.read(reference)
+    if monitor:
+        # The terminal signature binds this inventory. Retrieve the signed raw
+        # heartbeats too; independent issuer/coverage verification is separate work.
+        packet = json.loads(raw)
+        if not isinstance(packet, dict):
+            raise ValueError("invalid-monitor-evidence-inventory")
+        refs = packet.get("heartbeat_refs")
+        if not isinstance(refs, list) or len(refs) > 256:
+            raise ValueError("invalid-monitor-evidence-inventory")
+        for ref in refs:
+            store.read(ref, max_bytes=65536)
+
 
 EXIT_CODES = {
     Decision.PASS: 0,
@@ -32,6 +50,7 @@ def evaluate(
     now: datetime,
     job_complete: bool,
     server_aggregate: float | None,
+    evidence_store: EvidenceStore | None = None,
 ) -> GateDecision:
     """Dispatch and keys are trusted CI inputs; never derive either from returned records."""
     if now.tzinfo is None:
@@ -71,6 +90,27 @@ def evaluate(
             reasons.add("record-binding-mismatch")
             continue
         # Keep proven findings and incident signals even if freshness/duplicate checks fail.
+        if evidence_store is not None:
+            try:
+                evidence_store.read(result.evidence_manifest_digest)
+                for reference in evidence.observed_effect_refs:
+                    evidence_store.read(reference)
+            except (OSError, ValueError):
+                incomplete = True
+                reasons.add("referenced-evidence-unavailable")
+            for source in evidence.sources:
+                try:
+                    _verify_source(
+                        evidence_store,
+                        source.artifact_digest,
+                        monitor=source.source_id == "containment-monitor",
+                    )
+                except (OSError, ValueError, RecursionError):
+                    if source.designation == "required":
+                        incomplete = True
+                        reasons.add("referenced-evidence-unavailable")
+                    else:
+                        degraded.add(case.case_id)
         pins = [dispatch.binding.target_profile.boundary]
         if dispatch.binding.target_profile.agent:
             pins.append(dispatch.binding.target_profile.agent)

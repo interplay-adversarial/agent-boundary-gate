@@ -3,13 +3,13 @@ repos:
     hooks:
       - id: ruff-lint
         name: Ruff lint
-        entry: uv run --frozen --no-editable ruff check src tests scripts
+        entry: uv run --frozen --no-editable ruff check src tests scripts examples
         language: system
         pass_filenames: false
         always_run: true
       - id: ruff-format
         name: Ruff format check
-        entry: uv run --frozen --no-editable ruff format --check src tests scripts
+        entry: uv run --frozen --no-editable ruff format --check src tests scripts examples
         language: system
         pass_filenames: false
         always_run: true
