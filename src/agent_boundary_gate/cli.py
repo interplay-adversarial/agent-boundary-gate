@@ -18,17 +18,36 @@ from agent_boundary_gate.contracts import (
     SignedRecord,
     TargetProfile,
 )
+from agent_boundary_gate.doctor import openshell_doctor, read_regular_input
 from agent_boundary_gate.evidence import EvidenceStore
 from agent_boundary_gate.fixtures import SCENARIOS, fixture
 from agent_boundary_gate.gate_policy import EXIT_CODES, evaluate
 from agent_boundary_gate.local_rig import local_run
+from agent_boundary_gate.receipts import LeaseBinding
 from agent_boundary_gate.registry import inventory
 
 
+class SanitizedArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        # argparse's default diagnostics echo argument values and local paths.
+        self.exit(2, json.dumps({"error": "invalid-cli-input", "release_eligible": False}) + "\n")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="M0 contract prototype; no release authority")
+    parser = SanitizedArgumentParser(description="M0 contract prototype; no release authority")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("adapters", help="implemented, simulated and planned support inventory")
+    doctor = commands.add_parser("doctor", help="read-only OpenShell compatibility; no readiness")
+    doctor.add_argument("--executable", type=Path, required=True)
+    doctor.add_argument("--executable-digest", required=True)
+    doctor.add_argument("--gateway", required=True)
+    doctor.add_argument("--sandbox", required=True)
+    doctor.add_argument("--policy-revision", type=int, required=True)
+    doctor.add_argument(
+        "--lease", type=Path, required=True, help="trusted private operator context"
+    )
+    doctor.add_argument("--probe-runtime", choices=("python3", "perl"), default="python3")
+    doctor.add_argument("--timeout", type=float, default=10.0)
     schemas = commands.add_parser("schemas")
     schemas.add_argument("--output", type=Path, required=True)
     demo = commands.add_parser("demo", help="synthetic fixtures; no OpenShell execution")
@@ -59,6 +78,19 @@ def main() -> int:
     legacy.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "doctor":
+            report = openshell_doctor(
+                executable=args.executable,
+                executable_digest=args.executable_digest,
+                gateway=args.gateway,
+                sandbox=args.sandbox,
+                policy_revision=args.policy_revision,
+                lease=LeaseBinding.model_validate_json(read_regular_input(args.lease, limit=65536)),
+                probe_runtime=args.probe_runtime,
+                timeout_seconds=args.timeout,
+            )
+            print(json.dumps(report, indent=2))
+            return 0 if report["status"] == "observations-match" else 2
         if args.command == "adapters":
             print(json.dumps(inventory(), indent=2))
             return 0

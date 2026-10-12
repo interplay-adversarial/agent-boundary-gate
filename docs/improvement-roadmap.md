@@ -18,7 +18,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; live deployment and orphan-cell qualification pending |
 | QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
 | COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and sanitized diagnostics implemented locally; pinned-image testing and timing measurements pending |
-| COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Planned; read-only checks first, no implicit deletion |
+| COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
 | COMPAT-03 | P2 | Supported live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Planned; depends on authenticated transports and provisioning |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | [Exploration recorded](rust-probe-exploration.md); implementation and artifact distribution pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
@@ -170,3 +170,34 @@ arguments before opening a socket, including header-safe host/attempt characters
 numeric port bounds and action timeout bounds. Receiver URL validation rejects
 controls before parsing can normalize them away. Regression tests reject malformed
 arguments without connecting or emitting a completion marker.
+
+## Read-only compatibility doctor increment
+
+COMPAT-02 now provides a [CLI and library doctor](compatibility-doctor.md). It
+checks the operator-pinned CLI, current lease, sandbox UID/phase and active policy
+observations using only two read commands under one subprocess time budget.
+Same-name replacements stop further inspection. Malformed JSON, CLI failures and
+argument parsing produce sanitized codes without echoing private values.
+
+This is partial COMPAT-02 coverage: runtime/module availability remains explicitly
+unverified because no workload execution occurs. Authenticated readiness, image
+qualification and separately authorized disposable latency experiments remain
+pending. The report cannot authorize attempts or releases; signed wire contracts
+and lifecycle admission are unchanged.
+
+Local validation: all 216 unit/integration tests and all five pre-commit hooks
+pass, including Ruff, the locked dependency CVE audit and publication privacy.
+The installed CLI is exercised against a synthetic pinned executable that accepts
+only the two exact read commands. Tests cover replacement identity, inactive or
+malformed revisions, lease expiry during inspection, pin changes, bounded input
+reads, process failures and sanitized output. Live OpenShell testing is pending.
+
+PR #12 review follow-up: execute verified CLI bytes from a private temporary
+snapshot rather than reopening the original executable path after checking it.
+Tests replace the original immediately before actual launches and between queries,
+verify private snapshot permissions and removal, and sanitize snapshot failures.
+The controller identity and binary's shared libraries remain trusted.
+Input reads explicitly use close-on-exec, retain final-component symlink rejection
+when making paths absolute, and close descriptors if wrapping fails. A regression
+replaces the opened pathname with a FIFO while a hard link remains: checking and
+reading the same original descriptor stays regular and returns the original bytes.
