@@ -4,8 +4,8 @@ import sys
 from threading import Event
 
 from agent_boundary_gate.backends import Readiness, UnsupportedCapability
-from agent_boundary_gate.backends.openshell import PROBE
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
+from agent_boundary_gate.probes import PROBE
 from agent_boundary_gate.process import bounded_process
 
 

@@ -1,0 +1,263 @@
+"""Execute the frozen probes against controlled HTTP receivers, without OpenShell."""
+
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Thread
+
+from agent_boundary_gate.probes import PERL_PROBE, PROBE, validate_receiver_url
+
+
+class ProbeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parents[1]
+        configured = os.environ.get("GATE_RUST_PROBE_BINARY")
+        if configured:
+            cls.rust = Path(configured)
+        else:
+            built = subprocess.run(
+                [sys.executable, "-m", "scripts.rust_probe_build"],
+                cwd=root,
+                capture_output=True,
+                timeout=180,
+            )
+            if built.returncode:
+                raise AssertionError("Rust probe build is required for conformance tests")
+            cls.rust = root / "probes/http/target/release/gate-http-probe"
+        version = subprocess.run([str(cls.rust), "--version"], capture_output=True, timeout=5)
+        if (
+            version.returncode
+            or version.stdout
+            != b"gate-http-probe 0.1.0 agent-boundary-gate/http-probe/1.0 experimental-ip-literal\n"
+        ):
+            raise AssertionError("unexpected Rust probe protocol/version")
+
+    def runtimes(self, host, port, attempt="probe-test", seconds="1"):
+        authority = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+        commands = [
+            [sys.executable, "-c", PROBE, "http://" + authority + "/probe", attempt, seconds]
+        ]
+        perl = shutil.which("perl")
+        if perl:
+            commands.append([perl, "-e", PERL_PROBE, "--", host, str(port), attempt, seconds])
+        elif os.environ.get("CI"):
+            self.fail("CI must exercise the Perl probe")
+        commands.append([str(self.rust), host, str(port), attempt, seconds])
+        return commands
+
+    def test_receiver_url_rejects_controls_and_unsafe_authorities_before_normalization(self):
+        endpoint = "http://receiver:80/probe"
+        for url in (
+            endpoint.replace("receiver", "receiver\r\nInjected:1"),
+            "\n" + endpoint,
+            endpoint + "\t",
+            endpoint.replace("receiver", "receiver\x00"),
+            endpoint.replace("receiver", "receiver bad"),
+            endpoint.replace("receiver", "receiver%0d%0aInjected"),
+            endpoint.replace("receiver", "[::1%zone]"),
+            endpoint.replace("receiver", "receivér"),
+        ):
+            with self.subTest(url=repr(url)), self.assertRaises(ValueError):
+                validate_receiver_url(url)
+        for url in (
+            endpoint,
+            endpoint.replace("receiver", "127.0.0.1"),
+            endpoint.replace("receiver", "[::1]"),
+        ):
+            validate_receiver_url(url)
+
+    def test_native_probes_reject_malformed_arguments_before_connecting_or_completion(self):
+        with socket.socket() as receiver:
+            receiver.bind(("127.0.0.1", 0))
+            receiver.listen()
+            receiver.setblocking(False)
+            valid = ["127.0.0.1", str(receiver.getsockname()[1]), "probe-test", "1"]
+            mutations = (
+                (0, "127.0.0.1\r\nInjected: value"),
+                (0, "host%0aInjected"),
+                (0, "host name"),
+                (0, ""),
+                (1, "80\r\nInjected: value"),
+                (1, "0"),
+                (1, "65536"),
+                (1, "-1"),
+                (1, "service-name"),
+                (2, "probe-test\r\nInjected: value"),
+                (2, ""),
+                (2, "a" * 129),
+                (3, "0"),
+                (3, "31"),
+                (3, "1.5"),
+                (3, "1\n"),
+            )
+            cases = []
+            for index, value in mutations:
+                arguments = valid.copy()
+                arguments[index] = value
+                cases.append(arguments)
+            cases.extend((valid[:3], valid + ["extra"]))
+            for arguments in cases:
+                commands = [[str(self.rust), *arguments]]
+                if shutil.which("perl"):
+                    commands.append([shutil.which("perl"), "-e", PERL_PROBE, "--", *arguments])
+                for argv in commands:
+                    with self.subTest(runtime=argv[0], arguments=repr(arguments)):
+                        result = subprocess.run(argv, capture_output=True, timeout=5)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(result.stdout, b"")
+                        self.assertEqual(result.stderr, b"invalid-probe-input\n")
+                        with self.assertRaises(BlockingIOError):
+                            receiver.accept()
+
+    def test_probes_correlate_direct_request_and_do_not_follow_redirect_or_proxy(self):
+        events = []
+
+        class Receiver(BaseHTTPRequestHandler):
+            def do_GET(self):
+                events.append((self.path, self.headers.get("X-Gate-Attempt")))
+                self.send_response(302)
+                self.send_header("Location", "/redirect-target")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(server.shutdown)
+        host, port = server.server_address
+        for argv in self.runtimes(host, port):
+            with self.subTest(runtime=argv[0]):
+                events.clear()
+                result = subprocess.run(
+                    argv,
+                    capture_output=True,
+                    timeout=5,
+                    env={
+                        **os.environ,
+                        "http_proxy": "http://127.0.0.1:1",
+                        "HTTP_PROXY": "http://127.0.0.1:1",
+                        "no_proxy": "",
+                        "NO_PROXY": "",
+                    },
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
+                self.assertEqual(events, [("/probe", "probe-test")])
+
+    def test_network_failure_completes_attempt_without_claiming_observation(self):
+        # A bound but non-listening socket deterministically rejects a connection.
+        with socket.socket() as receiver:
+            receiver.bind(("127.0.0.1", 0))
+            for argv in self.runtimes("127.0.0.1", receiver.getsockname()[1]):
+                result = subprocess.run(argv, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
+
+    def test_rust_rejects_names_scoped_ips_nonutf8_and_unknown_protocol(self):
+        cases = [
+            [b"localhost", b"80", b"probe-test", b"1"],
+            [b"::1%zone", b"80", b"probe-test", b"1"],
+            [b"[::1]", b"80", b"probe-test", b"1"],
+            [b"127.0.0.1", b"80", b"\xff", b"1"],
+            [b"--version", b"extra"],
+        ]
+        for args in cases:
+            result = subprocess.run([os.fsencode(self.rust), *args], capture_output=True, timeout=5)
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.stdout, b"")
+            self.assertEqual(result.stderr, b"invalid-probe-input\n")
+
+    def test_ipv6_direct_request_matches_across_runtimes(self):
+        events = []
+
+        class IPv6Server(ThreadingHTTPServer):
+            address_family = socket.AF_INET6
+
+        class Receiver(BaseHTTPRequestHandler):
+            def do_GET(self):
+                events.append(
+                    (self.path, self.headers.get("Host"), self.headers.get("X-Gate-Attempt"))
+                )
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = IPv6Server(("::1", 0), Receiver)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        for argv in self.runtimes("::1", port):
+            events.clear()
+            result = subprocess.run(argv, capture_output=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(events, [("/probe", f"[::1]:{port}", "probe-test")])
+
+    def test_rust_stalled_response_uses_one_budget_and_external_cancellation(self):
+        for cancel in (False, True):
+            with self.subTest(cancel=cancel), socket.socket() as receiver:
+                receiver.bind(("127.0.0.1", 0))
+                receiver.listen(1)
+                receiver.settimeout(5)
+                started = time.monotonic()
+                process = subprocess.Popen(
+                    [
+                        str(self.rust),
+                        "127.0.0.1",
+                        str(receiver.getsockname()[1]),
+                        "probe-test",
+                        "1",
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                self.addCleanup(lambda p=process: p.kill() if p.poll() is None else None)
+                with receiver.accept()[0] as connection:
+                    connection.settimeout(5)
+                    request = b""
+                    while b"\r\n\r\n" not in request and len(request) < 1024:
+                        chunk = connection.recv(1024 - len(request))
+                        if not chunk:
+                            break
+                        request += chunk
+                    self.assertIn(b"X-Gate-Attempt: probe-test", request)
+                    if cancel:
+                        process.terminate()
+                    output, error = process.communicate(timeout=3)
+                self.assertLess(time.monotonic() - started, 2.5)
+                if cancel:
+                    self.assertNotEqual(process.returncode, 0)
+                    self.assertEqual(output, b"")
+                else:
+                    self.assertEqual(process.returncode, 0, error)
+                    self.assertEqual(output, b"agent-boundary-gate-probe-complete:probe-test\n")
+
+    def test_static_linux_probe_resource_failure_cannot_emit_completion(self):
+        if "linux-musl" not in str(self.rust):
+            self.skipTest("resource fault is exercised by both static Linux architecture jobs")
+        import resource
+
+        result = subprocess.run(
+            [str(self.rust), "127.0.0.1", "80", "probe-test", "1"],
+            capture_output=True,
+            timeout=5,
+            preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_NOFILE, (3, 3)),
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, b"")
+        self.assertEqual(result.stderr, b"probe-runtime-failed\n")
