@@ -195,7 +195,7 @@ class MonitorSession:
         with self._lock:
             received_at = self._clock()
             self._expire()
-            request, self._pending = self._pending, None
+            request = self._pending
             try:
                 if (
                     request is None
@@ -220,6 +220,10 @@ class MonitorSession:
                     and heartbeat.expires_at <= self.lease.lease_expires_at
                 ):
                     raise ValueError("heartbeat-rejected")
+                # Consume only an authenticated, matching response. Rejected
+                # input must not discard an outstanding challenge: a late valid
+                # incident for it still needs to be retained after health is lost.
+                self._pending = None
                 # A verified incident is latched before storage, so storage loss
                 # cannot erase a proven incident. Health requires durable evidence.
                 self._incident |= heartbeat.state == "incident"
@@ -237,6 +241,9 @@ class MonitorSession:
                 self._expire()
                 return not self._lost and not self._incident
             except (OSError, ValueError, ValidationError, InvalidSignature):
+                # Rejection makes health uncertain, not a proven incident.
+                # Keep fail-stop health while allowing authenticated findings
+                # for an unconsumed request to be retained on a later response.
                 self._lost = True
                 return False
 

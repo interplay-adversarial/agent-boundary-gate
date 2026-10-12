@@ -21,7 +21,10 @@ Monitor heartbeat schema `1.0` is independent of terminal and lifecycle receipt
 schemas. Its signature domain is `agent-boundary-gate/monitor-heartbeat/1.0`, with
 a NUL separator and project-specific sorted compact UTF-8 JSON. Each response
 echoes a new 256-bit challenge and the full trusted lease context. Keep one
-outstanding request per session; do not pipeline or reuse challenges. The controller
+outstanding request per session; do not pipeline or reuse challenges. Consume the
+challenge only after an authenticated response matches it. Rejected input makes
+health uncertain and stops the attempt, but retains the challenge so a late valid
+signed incident can still be captured; rejection is not a proven incident. The controller
 pins monitor signer identity/generation and externally supplied Ed25519 public
 keys. Responses cannot introduce keys. Sequence numbers must strictly increase;
 unknown issuers, changed scope/generation, tampering and replays latch loss.

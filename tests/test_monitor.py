@@ -201,6 +201,20 @@ class MonitorTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 MonitorSession(**(values | changes))
 
+    def test_rejected_packet_keeps_challenge_for_late_authenticated_incident(self):
+        request = self.monitor.request()
+        self.assertFalse(self.monitor.accept(b"{}", now=self.now))
+        self.assertEqual(self.monitor.snapshot().state, "lost")
+        raw = self.wire(request=request, state="incident")
+        self.assertFalse(self.monitor.accept(raw, now=self.now))
+        snapshot = self.monitor.snapshot()
+        self.assertTrue(snapshot.incident)
+        self.assertEqual(len(snapshot.heartbeat_refs), 1)
+        self.assertIsNone(self.monitor._pending)
+        # A fresh healthy message cannot resume this aborted attempt.
+        self.assertFalse(self.monitor.accept(self.wire(), now=self.now))
+        self.assertTrue(self.monitor.snapshot().incident)
+
     def test_wire_schema_matches_export(self):
         path = (
             Path(__file__).resolve().parents[1]
