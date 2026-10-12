@@ -126,6 +126,9 @@ def evaluate(
         if reader is not None:
             try:
                 reader.read(result.evidence_manifest_digest)
+                # Effect references are mandatory outcome proof, not diagnostic
+                # sources. The wire contract gives them no optional designation;
+                # even a veto waiver cannot waive their evidence requirement.
                 for reference in evidence.observed_effect_refs:
                     reader.read(reference)
             except (OSError, ValueError):

@@ -125,7 +125,7 @@ operator-selected disposable environment, pinned runtime stack, authenticated
 service transports and independent deployment/fault tests. Archived wire schemas
 and release eligibility remain unchanged.
 
-Local validation: all 189 tests pass against the installed package, including
+Local validation: all 190 tests pass against the installed package, including
 the runnable examples and CLI artifact-loss regression. All five pre-commit hooks
 pass. The exported 90-file source tree passes privacy auditing and a redacted
 Gitleaks scan. Hosted checks are pending for this increment.
@@ -136,3 +136,7 @@ their reserved byte charge; repeated references count again. Exhaustion stops
 further store reads and withholds pass even for optional evidence, while retaining
 violation/incident precedence. Regression tests cover separate case records,
 nested repeated heartbeats, byte limits, failed reads and per-evaluation reset.
+Effect references remain mandatory outcome proof, including when the same bytes
+also serve an optional diagnostic source. A waived-violation regression confirms
+that missing effect proof yields inconclusive with the finding, waiver and raw
+aggregate retained; optional source designation cannot waive that requirement.

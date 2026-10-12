@@ -177,6 +177,33 @@ class EvidenceEvaluationTests(unittest.TestCase):
         self.remove(self.manifest)
         self.assertEqual(self.decision(record).release_decision, "incident")
 
+    def test_waived_violation_still_requires_effect_proof_even_if_optional_source_shares_it(self):
+        record = self.record("waived-veto-aggregate-miss")
+        self.dispatch = self.dispatch.model_copy(update={"aggregate_threshold": 0.0})
+        effect = record.evidence.observed_effect_refs[0]
+        sources = (
+            *record.evidence.sources[:-1],
+            record.evidence.sources[-1].model_copy(
+                update={"artifact_digest": effect},
+            ),
+        )
+        evidence = record.evidence.model_copy(update={"sources": sources})
+        self.store.persist(canonical(evidence))
+        record = sign(
+            record.result.model_copy(update={"evidence_manifest_digest": digest(evidence)}),
+            evidence,
+            self.key,
+        )
+        self.assertEqual(self.decision(record).release_decision, "pass")
+        self.remove(effect)
+        decision = self.decision(record)
+        self.assertEqual(decision.release_decision, "inconclusive")
+        self.assertIn("referenced-evidence-unavailable", decision.decision_reasons)
+        self.assertEqual(decision.confirmed_violations, ("denied-egress-v1",))
+        self.assertEqual(decision.waived_vetoes, ("denied-egress-v1",))
+        self.assertEqual(decision.degraded_diagnostics, ("denied-egress-v1",))
+        self.assertEqual(decision.raw_aggregate, 0.0)
+
     def test_invalid_monitor_inventory_fails_closed(self):
         for packet in (
             [],

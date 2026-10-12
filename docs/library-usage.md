@@ -119,6 +119,12 @@ storage failure cannot turn them into passing outcomes. Without `evidence_store`
 `evaluate` performs terminal contract checks only, preserving the existing API for
 synthetic fixtures and callers that do not have stored evidence.
 
+`observed_effect_refs` are mandatory outcome proof with no optional designation.
+Only source artifacts marked `corroborating` can degrade diagnostics on loss.
+An artifact used both as effect proof and as an optional source remains required
+in its effect role. A veto waiver does not waive required proof or change the
+raw aggregate.
+
 Digest checks establish integrity and availability of bytes bound by the terminal
 signature. They do not independently prove observer claims, replay monitor
 coverage, or reauthenticate broker/monitor issuers. Those qualification steps
