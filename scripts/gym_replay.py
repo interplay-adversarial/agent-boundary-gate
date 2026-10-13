@@ -7,10 +7,13 @@ supplied clean pinned checkout. No model, runtime, Kubernetes or receiver is use
 import argparse
 import asyncio
 import hashlib
+import importlib.metadata
 import json
 import os
+import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -45,6 +48,69 @@ def check_source(root, pin):
     for name, expected in pin["files"].items():
         if fingerprint(root / name) != expected:
             raise ValueError("gym-source-digest-mismatch")
+
+
+def check_environment(lock, pin, *, distributions=None):
+    """Reject installed-version drift before importing Gym or server dependencies.
+
+    Version/provenance identity is not installed-byte attestation or CVE coverage.
+    The lock audit and installer artifact checks remain separate requirements.
+    """
+    packages = {}
+    for package in lock["package"]:
+        name = package["name"]
+        if name in packages:
+            raise ValueError("gym-ambiguous-lock-package")
+        packages[name] = package
+    installed, gym = {}, None
+    for distribution in (
+        importlib.metadata.distributions() if distributions is None else distributions
+    ):
+        name = distribution.metadata.get("Name")
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][-A-Za-z0-9._]*", name):
+            raise ValueError("gym-invalid-installed-package")
+        name = re.sub(r"[-_.]+", "-", name).lower()
+        if name in installed:
+            raise ValueError("gym-duplicate-installed-package")
+        installed[name] = distribution.version
+        if name == "nemo-gym":
+            gym = distribution
+    # Bootstrap the marker evaluator only after its version matches the lock.
+    if installed.get("packaging") != packages["packaging"]["version"]:
+        raise ValueError("gym-installed-environment-mismatch")
+    from packaging.markers import Marker
+
+    expected, visited = {}, set()
+
+    def visit(name, extras=()):
+        key = (name, tuple(sorted(extras)))
+        if key in visited:
+            return
+        visited.add(key)
+        package = packages[name]
+        if "virtual" not in package["source"]:
+            expected[name] = package["version"]
+        dependencies = list(package.get("dependencies", []))
+        for extra in extras:
+            dependencies.extend(package["optional-dependencies"][extra])
+        for dependency in dependencies:
+            if dependency.get("marker") and not Marker(dependency["marker"]).evaluate():
+                continue
+            visit(dependency["name"], dependency.get("extra", ()))
+
+    visit("agent-boundary-gate-gym-onboarding")
+    if installed != expected or gym is None:
+        raise ValueError("gym-installed-environment-mismatch")
+    provenance = json.loads(gym.read_text("direct_url.json") or "{}")
+    vcs = provenance.get("vcs_info", {})
+    if (
+        provenance.get("url") != pin["upstream"] + ".git"
+        or vcs.get("vcs") != "git"
+        or vcs.get("commit_id") != pin["commit"]
+        or provenance.get("dir_info")
+    ):
+        raise ValueError("gym-installed-source-mismatch")
+    return expected
 
 
 async def replay(root):
@@ -161,6 +227,9 @@ def main():
     try:
         pin = json.loads(PIN_PATH.read_bytes())
         check_source(args.upstream, pin)
+        environment = check_environment(
+            tomllib.loads((PIN_PATH.parent / "uv.lock").read_text()), pin
+        )
         results = asyncio.run(replay(args.upstream.resolve()))
         args.output.mkdir(mode=0o700, exist_ok=False)
         report = {
@@ -169,6 +238,11 @@ def main():
             "onboarding_lock_digest": fingerprint(PIN_PATH.parent / "uv.lock"),
             "python": pin["python"],
             "fixture_code_digest": fingerprint(Path(__file__)),
+            "installed_packages_verified": len(environment),
+            "installed_inventory_digest": "sha256:"
+            + hashlib.sha256(
+                json.dumps(environment, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
             "cases": results,
             "scope": "offline-native-verifier-only",
             "model_run": False,
@@ -192,7 +266,7 @@ def main():
             )
         )
         return 0
-    except (OSError, ValueError, subprocess.SubprocessError, ImportError):
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, ImportError):
         print(json.dumps({"error": "gym-offline-replay-incomplete", "release_eligible": False}))
         return 2
 

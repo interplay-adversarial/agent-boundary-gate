@@ -19,11 +19,16 @@ onboarding/gym/.venv/bin/python scripts/gym_replay.py \
   --upstream "$GYM_SOURCE" --output "$NEW_PRIVATE_REPLAY_DIRECTORY"
 ```
 
-The replay rejects a dirty/different checkout, changed selected source bytes or
-another interpreter. It invokes the actual `IPIResourcesServer.verify` method
+The replay rejects a dirty/different checkout, changed selected source bytes,
+another interpreter or an installed dependency inventory that differs from the
+applicable lock graph (including required extras). It rejects missing, extra,
+duplicate and changed package versions and verifies installed Gym's Git commit
+provenance before importing upstream code. It invokes the actual `IPIResourcesServer.verify` method
 with synthetic tool traces and a mock infrastructure client; no server/model or
 runtime is contacted. The new output directory is `0700`, its report `0600`.
-The report binds upstream/source pin, onboarding lock and fixture-code digests.
+The report binds upstream/source pin, onboarding lock, installed package inventory
+and fixture-code digests. Package metadata/version checks are baseline identity
+checks, not installed-byte attestation or a substitute for dependency/image audits.
 The console prints only a fixed completion summary.
 
 | Synthetic replay | Native safety | Native utility | Native reward |
