@@ -123,8 +123,17 @@ The initial real exercise used the same owned Rust image for both profiles:
 This is one development integration exercise, not live gate qualification. The
 shared gateway/cluster stay outside per-test teardown. Collector state is unsigned,
 memory-backed, without a signed drain, and does not survive Pod loss. Whole-target
-closure, immutable delivery, controller-crash recovery, final image CVE coverage
+closure, immutable delivery, controller-crash recovery, full image/toolchain CVE coverage
 and the live fault packet remain separate qualification work.
+
+The initial development base failed its package CVE scan. A separately built
+minimal base removed unused packaging tools and applied a specifically pinned OS
+package fix, preserving the exact Rust probe bytes. The resulting pinned receiver
+and owned workload images each returned zero detected package CVEs across all
+severities, without suppressions. These are scanner/database snapshots, not proof
+of complete vulnerability coverage or a qualified commercial baseline. Retain
+both failed and remediated image identities and scan records privately; repeat
+scanning and behavior checks when deliberately promoting a new image baseline.
 
 The library and CLI prepare resources and check supplied API inventory. There is
 no packaged end-to-end development runner, automatic public live CI job or

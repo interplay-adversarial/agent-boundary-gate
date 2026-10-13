@@ -6,6 +6,7 @@ live gate receipts. All observations here are explicitly development-only.
 
 import ipaddress
 import json
+import os
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
@@ -301,8 +302,8 @@ def prepare(config: DevelopmentConfig, destination: Path) -> dict:
     store = EvidenceStore(destination)
     store.persist_json(resources(config))
     manifest = destination / "resources.json"
-    with manifest.open("x") as stream:
-        manifest.chmod(0o600)
+    fd = os.open(manifest, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as stream:
         stream.write(json.dumps(resources(config), indent=2) + "\n")
     return {
         "status": "development-resources-prepared",

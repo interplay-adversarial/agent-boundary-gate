@@ -37,7 +37,7 @@ The Kubernetes development profile now renders fresh paired receivers and the
 healthy/weakened policy delta and checks receiver/target Pod identities against
 independently registered values. A real development exercise observed the expected
 paired counts with an owned pinned Rust image and test Pod cleanup. It issues no
-gate receipts; shared-gateway outer closure, image CVE coverage, immutable delivery,
+gate receipts; shared-gateway outer closure, full image/toolchain CVE coverage, immutable delivery,
 whole-cell recovery and live fault qualification remain pending. See the
 [development usage guide](kubernetes-development.md).
 
