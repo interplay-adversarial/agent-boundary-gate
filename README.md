@@ -32,6 +32,9 @@ runnable offline/loopback examples, stored evidence verification and live integr
   point, `live-run`, declared fault campaigns and sanitized operator reports.
   Actual provisioning, an independent environment-specific inspector and live
   qualification remain required.
+- A [Kubernetes development profile](docs/kubernetes-development.md) for fresh
+  paired receivers, controlled policy pairs and independent API inventory checks.
+  These development observations issue no gate receipts or release claims.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
