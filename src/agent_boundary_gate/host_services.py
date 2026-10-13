@@ -26,6 +26,7 @@ class AuthorityConfig(ReceiptContract):
     socket_path: str
     registrations: Annotated[tuple[CellRegistration, ...], Field(min_length=1, max_length=128)]
     inspector: InspectorCommand
+    monitor_inspector: InspectorCommand
     identity: Identifier
     monitor_generation: Identifier
     readiness_key_file: str
@@ -74,6 +75,7 @@ def serve_authority(path: Path):
     authority = RigAuthority(
         registrations=config.registrations,
         inspector=config.inspector,
+        monitor_inspector=config.monitor_inspector,
         identity=config.identity,
         monitor_generation=config.monitor_generation,
         keys=keys,

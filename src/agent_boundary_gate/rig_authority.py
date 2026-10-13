@@ -9,6 +9,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
+from types import MappingProxyType
 from typing import Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -95,6 +96,7 @@ class RigAuthority:
         *,
         registrations: tuple[CellRegistration, ...],
         inspector: InspectorCommand,
+        monitor_inspector: InspectorCommand,
         identity: str,
         monitor_generation: str,
         keys: dict[str, Ed25519PrivateKey],
@@ -103,32 +105,39 @@ class RigAuthority:
         identifier = TypeAdapter(Identifier)
         self.identity = identifier.validate_python(identity, strict=True)
         self.generation = identifier.validate_python(monitor_generation, strict=True)
-        self.cells = {
-            entry.lease.lease_id: CellRegistration.model_validate(entry) for entry in registrations
-        }
+        self.cells = MappingProxyType(
+            {
+                entry.lease.lease_id: CellRegistration.model_validate(entry)
+                for entry in registrations
+            }
+        )
         if not self.cells or len(self.cells) != len(registrations):
             raise ValueError("invalid-cell-register")
         if set(keys) != {"readiness", "cleanup", "delivery", "monitor"}:
             raise ValueError("purpose-keys-required")
+        if monitor_inspector is inspector:
+            raise ValueError("separate-monitor-inspector-required")
         self.keys, self.inspector, self.store = dict(keys), inspector, store
+        self.monitor_inspector = monitor_inspector
         self.sequence = 0
         self.lock = Lock()
+        self.monitor_lock = Lock()
         self.sequence_lock = Lock()
 
     def handle(self, raw: bytes, deadline: float, cancelled: Event) -> bytes:
-        if isinstance(TypeAdapter(Request).validate_json(raw), MonitorRequest):
-            # Whole-cell destruction can exceed heartbeat lifetime. Monitoring
-            # inspects outer containment independently while cleanup progresses.
-            return self._handle(raw, deadline, cancelled)
-        # Serialize inspection and cleanup to avoid signing health across a
-        # simultaneous destruction. Lock waiting shares the service deadline.
-        while not self.lock.acquire(timeout=0.02):
+        monitoring = isinstance(TypeAdapter(Request).validate_json(raw), MonitorRequest)
+        # Each inspector instance receives serialized calls. The separately
+        # configured monitor inspector can continue during slow destruction.
+        lock = self.monitor_lock if monitoring else self.lock
+        while not lock.acquire(timeout=0.02):
             if cancelled.is_set() or time.monotonic() >= deadline:
                 raise ValueError("authority-stopped")
         try:
+            if cancelled.is_set() or time.monotonic() >= deadline:
+                raise ValueError("authority-stopped")
             return self._handle(raw, deadline, cancelled)
         finally:
-            self.lock.release()
+            lock.release()
 
     def _handle(self, raw, deadline, cancelled):
         request = TypeAdapter(Request).validate_json(raw)
@@ -140,7 +149,10 @@ class RigAuthority:
             raise ValueError("unapproved-deployment")
         if not cleanup and datetime.now(UTC) >= request.binding.lease_expires_at:
             raise ValueError("lease-expired")
-        inspection = self.inspector.inspect(
+        inspector = (
+            self.monitor_inspector if isinstance(request, MonitorRequest) else self.inspector
+        )
+        inspection = inspector.inspect(
             InspectionRequest(
                 operation="destroy"
                 if cleanup

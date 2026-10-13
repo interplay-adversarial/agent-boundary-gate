@@ -95,8 +95,14 @@ delivery and monitoring use separately configured Ed25519 purpose keys.
 `operation: monitor` must independently inspect outer containment while destruction
 is in progress. It runs concurrently with cleanup so that a slow hypervisor deletion
 cannot starve heartbeats. `contained` can establish monitor coverage during that
-transition; it cannot authorize readiness or executable delivery. Inspector locking
-must permit this separate read path, and a real loss still stops admission.
+transition; it cannot authorize readiness or executable delivery. `AuthorityConfig`
+requires both `inspector` and `monitor_inspector`, each with its own executable and
+digest pin. The two configurations may name the same stateless executable: every
+invocation uses a fresh private snapshot and subprocess. They must not share a
+mutable socket/session or a blocking external lock that prevents monitoring during
+destruction. Calls to each inspector instance are serialized separately with bounded
+lock waits; the library rejects using one object for both paths. External inventory
+and tool concurrency still require operator qualification. A real loss stops admission.
 
 Generate the precise configuration and inspector JSON schemas:
 
@@ -143,6 +149,12 @@ capacity and parsing/timeouts are recorded as capture loss. The closed-rig timin
 and drain path still need live qualification; a late or incomplete snapshot cannot
 establish held enforcement. Controller-crash drills must also restart/reconcile
 the collector with a new generation before its next capture.
+
+Receiver lifecycle transitions are serialized independently of HTTP capture state.
+Admin operations acquire the lifecycle lock before the capture lock, and release
+the capture lock before closing/joining HTTP handlers. Public shutdown and drain
+cannot close the same listeners concurrently. Admin lock waits respect deadline
+and cancellation; incomplete shutdown cannot establish a complete signed drain.
 
 ## 3. Execute and inspect a live attempt
 

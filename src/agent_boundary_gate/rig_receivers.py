@@ -133,6 +133,9 @@ class ReceiverService:
         self.server_threads = {}
         self.lock = threading.Lock()
         self.admin_lock = threading.Lock()
+        # Serializes public start/stop and admin-driven restart/drain. This lock
+        # must never be held by HTTP handlers or acquired under the capture lock.
+        self.lifecycle_lock = threading.RLock()
         self.active: LeaseBinding | None = None
         self.used: set[str] = set()
         self.counts = {"allowed": 0, "forbidden": 0}
@@ -189,6 +192,14 @@ class ReceiverService:
                 self.dropped = min(1000000, self.dropped + 1)
 
     def start(self):
+        with self.lifecycle_lock:
+            self._start()
+
+    def _start(self):
+        if any(thread.is_alive() for thread in self.server_threads.values()):
+            raise ValueError("receiver-already-started")
+        self.threads = []
+        self.server_threads = {}
         try:
             for receiver in ("allowed", "forbidden"):
                 server = ReceiverServer(
@@ -207,6 +218,10 @@ class ReceiverService:
             raise
 
     def stop(self):
+        with self.lifecycle_lock:
+            self._stop()
+
+    def _stop(self):
         for receiver, server in self.servers.items():
             thread = self.server_threads.get(receiver)
             if thread is not None and thread.is_alive():
@@ -232,22 +247,38 @@ class ReceiverService:
             if cancelled.is_set() or time.monotonic() >= deadline:
                 raise ValueError("capture-stopped")
         try:
-            if request.operation == "start" and request.binding.lease_id in self.used:
-                raise ValueError("capture-start-rejected")
-            if request.operation == "drain":
-                with self.lock:
-                    if self.active != request.binding:
-                        raise ValueError("capture-binding-mismatch")
-                self.stop()
-            elif (
-                request.operation == "start"
-                and self.servers
-                and all(server.fileno() < 0 for server in self.servers.values())
-            ):
-                self.start()
-            return self._handle(raw, deadline, cancelled)
+            while not self.lifecycle_lock.acquire(timeout=0.02):
+                if cancelled.is_set() or time.monotonic() >= deadline:
+                    raise ValueError("capture-stopped")
+            try:
+                if cancelled.is_set() or time.monotonic() >= deadline:
+                    raise ValueError("capture-stopped")
+                return self._admin_operation(request, raw, deadline, cancelled)
+            finally:
+                self.lifecycle_lock.release()
         finally:
             self.admin_lock.release()
+
+    def _admin_operation(self, request, raw, deadline, cancelled):
+        if request.operation == "start" and request.binding.lease_id in self.used:
+            raise ValueError("capture-start-rejected")
+        if request.operation == "drain":
+            self._require_active_binding(request.binding)
+            # Binding validation has released the capture lock. Closing
+            # waits for HTTP handlers, which must remain able to acquire it.
+            self.stop()
+        elif (
+            request.operation == "start"
+            and self.servers
+            and all(server.fileno() < 0 for server in self.servers.values())
+        ):
+            self.start()
+        return self._handle(raw, deadline, cancelled)
+
+    def _require_active_binding(self, binding: LeaseBinding):
+        with self.lock:
+            if self.active != binding:
+                raise ValueError("capture-binding-mismatch")
 
     def _handle(self, raw: bytes, deadline: float, cancelled: threading.Event) -> bytes:
         request = CaptureRequest.model_validate_json(raw)

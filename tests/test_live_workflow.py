@@ -61,6 +61,9 @@ class SyntheticInspector:
         self.requests.append(request)
         if request.operation == "destroy":
             self.state = "destroyed"
+        return self.observation()
+
+    def observation(self):
         return CellInspection(
             binding=self.lease,
             observed_at=datetime.now(UTC),
@@ -72,6 +75,16 @@ class SyntheticInspector:
             immutable_until=self.lease.lease_expires_at,
             executable_authorized=True,
         ).model_copy(update=self.changes)
+
+
+class SyntheticMonitorInspector:
+    """Separate read path over the synthetic cell inventory, with no shared I/O handle."""
+
+    def __init__(self, cell):
+        self.cell = cell
+
+    def inspect(self, request, *, deadline, cancelled):
+        return self.cell.observation()
 
 
 @contextlib.contextmanager
@@ -108,9 +121,11 @@ class LiveTests(unittest.TestCase):
             for purpose in ("readiness", "cleanup", "delivery", "monitor")
         }
         self.inspector = SyntheticInspector(self.lease, self.deployment)
+        self.monitor_inspector = SyntheticMonitorInspector(self.inspector)
         self.authority = RigAuthority(
             registrations=(CellRegistration(lease=self.lease, deployment=self.deployment),),
             inspector=self.inspector,
+            monitor_inspector=self.monitor_inspector,
             identity="synthetic-authority",
             monitor_generation="monitor-1",
             keys=self.keys,
@@ -537,10 +552,9 @@ else:
 
         def inspect(request, *, deadline, cancelled):
             if request.operation == "destroy":
+                self.inspector.state = "contained"
                 destroying.set()
                 release.wait(2)
-            if request.operation == "monitor" and destroying.is_set():
-                self.inspector.state = "contained"
             return original(request, deadline=deadline, cancelled=cancelled)
 
         monitor = MonitorSession(
@@ -657,3 +671,180 @@ else:
             with self.assertRaises(RuntimeError):
                 receiver.start()
         self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
+
+    def test_drain_releases_capture_lock_and_serializes_concurrent_shutdown(self):
+        receiver, observer, _ = self.receiver()
+        server = receiver.servers["forbidden"]
+        handler = server.RequestHandlerClass
+        original_get, original_shutdown = handler.do_GET, server.shutdown
+        entered, allow_get, closing, allow_close, second_entered, second_done = (
+            Event() for _ in range(6)
+        )
+        observations, errors, capture_lock_free = [], [], []
+
+        def get(request):
+            entered.set()
+            if not allow_get.wait(2):
+                raise AssertionError("request-not-released")
+            return original_get(request)
+
+        def shutdown():
+            free = receiver.lock.acquire(blocking=False)
+            if free:
+                receiver.lock.release()
+            capture_lock_free.append(free)
+            allow_get.set()
+            closing.set()
+            if not allow_close.wait(2):
+                raise AssertionError("shutdown-not-released")
+            return original_shutdown()
+
+        def perform(operation):
+            try:
+                operation()
+            except Exception as error:
+                errors.append(type(error).__name__)
+
+        def second_stop():
+            second_entered.set()
+            try:
+                receiver.stop()
+            finally:
+                second_done.set()
+
+        workers = []
+        with (
+            running(UnixService(self.root / "receiver.sock", receiver.handle)),
+            patch.object(handler, "do_GET", get),
+            patch.object(server, "shutdown", shutdown),
+        ):
+            observer.start()
+            try:
+                request_worker = Thread(
+                    target=perform, args=(lambda: self.send(observer, "forbidden"),)
+                )
+                workers.append(request_worker)
+                request_worker.start()
+                self.assertTrue(entered.wait(1))
+                drain_worker = Thread(
+                    target=perform,
+                    args=(lambda: observations.append(observer.observe(execution_valid=True)),),
+                )
+                workers.append(drain_worker)
+                drain_worker.start()
+                self.assertTrue(closing.wait(1))
+                stop_worker = Thread(target=perform, args=(second_stop,))
+                workers.append(stop_worker)
+                stop_worker.start()
+                self.assertTrue(second_entered.wait(1))
+                self.assertFalse(second_done.wait(0.05))
+            finally:
+                allow_get.set()
+                allow_close.set()
+                for worker in workers:
+                    worker.join(timeout=3)
+            self.assertTrue(all(not worker.is_alive() for worker in workers))
+        self.assertEqual(errors, [])
+        self.assertTrue(all(capture_lock_free))
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].outcome, "violation")
+        self.assertTrue(observations[0].complete)
+        self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
+
+    def test_admin_lifecycle_lock_wait_obeys_deadline_and_cancellation(self):
+        from agent_boundary_gate.rig_receivers import CaptureRequest
+
+        receiver, observer, _ = self.receiver()
+        held, release = Event(), Event()
+
+        def hold_lifecycle():
+            with receiver.lifecycle_lock:
+                held.set()
+                release.wait(2)
+
+        worker = Thread(target=hold_lifecycle)
+        worker.start()
+        try:
+            self.assertTrue(held.wait(1))
+            request = CaptureRequest(operation="start", challenge="a" * 64, binding=self.lease)
+            began = time.monotonic()
+            with self.assertRaises(ValueError):
+                receiver.handle(request.model_dump_json().encode(), began + 0.05, Event())
+            self.assertLess(time.monotonic() - began, 0.3)
+            stopped = Event()
+            stopped.set()
+            with self.assertRaises(ValueError):
+                receiver.handle(request.model_dump_json().encode(), time.monotonic() + 1, stopped)
+            self.assertIsNone(receiver.active)
+        finally:
+            release.set()
+            worker.join(timeout=3)
+
+    def test_authority_rejects_shared_inspector_instance(self):
+        with self.assertRaisesRegex(ValueError, "separate-monitor-inspector-required"):
+            RigAuthority(
+                registrations=(CellRegistration(lease=self.lease, deployment=self.deployment),),
+                inspector=self.inspector,
+                monitor_inspector=self.inspector,
+                identity="synthetic-authority",
+                monitor_generation="monitor-1",
+                keys=self.keys,
+                store=self.authority.store,
+            )
+
+    def test_monitor_inspector_calls_are_serialized_and_wait_is_bounded(self):
+        entered, release = Event(), Event()
+        calls, responses, errors = [], [], []
+        original = self.monitor_inspector.inspect
+
+        def inspect(request, *, deadline, cancelled):
+            calls.append(request)
+            entered.set()
+            if not release.wait(2):
+                raise AssertionError("monitor-not-released")
+            return original(request, deadline=deadline, cancelled=cancelled)
+
+        monitor = MonitorSession(
+            lease=self.lease,
+            identity="synthetic-authority",
+            generation="monitor-1",
+            trusted_keys={"synthetic-authority": self.keys["monitor"].public_key()},
+            store=EvidenceStore(self.root / "serialized-monitor"),
+        )
+        first = monitor.request()
+
+        def fetch_first():
+            try:
+                responses.append(
+                    self.client.fetch(first, deadline=time.monotonic() + 3, cancelled=Event())
+                )
+            except Exception as error:
+                errors.append(type(error).__name__)
+
+        with (
+            patch.object(self.monitor_inspector, "inspect", side_effect=inspect),
+            running(UnixService(self.root / "authority.sock", self.authority.handle)),
+        ):
+            worker = Thread(target=fetch_first)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(1))
+                second = first.model_copy(update={"challenge": "b" * 64})
+                began = time.monotonic()
+                with self.assertRaises(ValueError):
+                    self.authority.handle(second.model_dump_json().encode(), began + 0.05, Event())
+                self.assertLess(time.monotonic() - began, 0.3)
+                self.assertEqual(len(calls), 1)
+                stopped = Event()
+                stopped.set()
+                with self.assertRaises(ValueError):
+                    self.authority.handle(
+                        second.model_dump_json().encode(), time.monotonic() + 1, stopped
+                    )
+                self.assertEqual(len(calls), 1)
+            finally:
+                release.set()
+                worker.join(timeout=3)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(responses), 1)
+        self.assertTrue(monitor.accept(responses[0]))
