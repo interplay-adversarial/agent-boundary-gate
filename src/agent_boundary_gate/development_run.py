@@ -726,12 +726,19 @@ class DevelopmentRunner:
             # an ambiguous create within it can be retired by namespace UID.
             if allocation.get("cell_uid"):
                 self.retire_cell(allocation, **bounds)
-            if allocation.get("pending") and allocation.get("pending") not in (
-                "cell-bootstrap",
-                "sandbox",
+            pending = allocation.get("pending")
+            if (
+                allocation.get("cell_uid")
+                and allocation.get("cell_absent") is True
+                and pending in ("cell-bootstrap", "sandbox")
             ):
-                raise ValueError("development-allocation-unresolved")
-            if allocation.get("pending") and not allocation.get("cell_absent"):
+                # Only these requests are confined to the registered cell. Record
+                # their retirement explicitly without erasing the failed attempt.
+                # Receiver/grant creates are outside that scope and stay unresolved.
+                allocation["retired_pending"] = pending
+                allocation["pending"] = None
+                self.save()
+            if allocation.get("pending"):
                 raise ValueError("development-allocation-unresolved")
             if allocation.get("sandbox_id") and not allocation.get("target_absent"):
                 pair = allocation.get("boundary_pair")

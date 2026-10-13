@@ -132,6 +132,8 @@ class DevelopmentCellTests(unittest.TestCase):
         self.assertIsNone(runner.cell)
         self.assertIsNone(runner.namespace)
         self.assertTrue(runner.state["allocations"][0]["failed"])
+        self.assertEqual(runner.state["allocations"][0]["retired_pending"], "sandbox")
+        self.assertIsNone(runner.state["allocations"][0]["pending"])
 
     def test_uncertain_namespace_create_never_adopts_by_name(self):
         runner = self.runner()
@@ -150,6 +152,35 @@ class DevelopmentCellTests(unittest.TestCase):
                     self.assertFalse(result["development_campaign_completed"])
                     self.assertTrue(result["profiles"][0]["cleanup_complete"])
                     self.assertIsNone(runner.cell)
+                    allocation = runner.state["allocations"][0]
+                    self.assertEqual(allocation["retired_pending"], "cell-bootstrap")
+                    self.assertIsNone(allocation["pending"])
+                    self.assertTrue(allocation["failed"])
+
+    def test_receiver_create_uncertainty_is_not_resolved_by_cell_retirement(self):
+        runner = self.runner()
+        command = runner.command
+
+        def timeout(kind, args, **kwargs):
+            result = command(kind, args, **kwargs)
+            data = kwargs.get("data")
+            if (
+                kind == "kubernetes"
+                and args[0] == "create"
+                and data.get("kind") == "Namespace"
+                and data["metadata"]["name"].startswith("gate-dev-")
+            ):
+                raise AttemptStopped("timeout")
+            return result
+
+        with patch.object(runner, "command", timeout):
+            result = runner.run(Event())
+        allocation = runner.state["allocations"][0]
+        self.assertTrue(allocation["cell_absent"])
+        self.assertEqual(allocation["pending"], "namespace")
+        self.assertNotIn("retired_pending", allocation)
+        self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        self.assertIsNotNone(runner.namespace)
 
     def test_controller_crash_recovery_retires_cell_without_rerunning_bootstrap(self):
         runner = self.runner()

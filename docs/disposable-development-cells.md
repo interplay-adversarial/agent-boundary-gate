@@ -73,6 +73,9 @@ A timed-out bootstrap or sandbox create can be retired because its enclosing cel
 UID was already committed. If namespace creation itself loses its response before
 registration, recovery refuses name-based adoption/deletion and needs operator
 reconciliation. Resource labels cannot resolve that uncertain-create window.
+Retired inner-create intents are preserved as `retired_pending` in the journal,
+while receiver/grant create uncertainty remains pending outside the retired cell.
+Retirement never clears the failed evaluation flag.
 
 Cleanup has a fresh cancellation scope and deadline. Restart recovery never reruns
 bootstrap/probes or promotes failed evaluation to passing. Final receiver sampling
