@@ -384,7 +384,6 @@ class DevelopmentRunner:
                 raise AttemptStopped("timeout")
             bounds["cancelled"].wait(0.2)
         allocation["cell_absent"] = True
-        allocation["target_absent"] = True
         self.save()
 
     def inventory(self, allocation, **bounds):
@@ -425,6 +424,10 @@ class DevelopmentRunner:
             raise ValueError("development-target-identity-changed")
 
     def sample(self, allocation, **bounds):
+        # This samples independent receivers, never the target. A timed-out create
+        # may have produced effects without returning a registered sandbox ID.
+        if set(allocation["receiver_uids"]) != {"allowed", "forbidden"}:
+            raise ValueError("development-receivers-unregistered")
         counts = {}
         for name, uid in allocation["receiver_uids"].items():
             pod = self.query(
@@ -720,12 +723,15 @@ class DevelopmentRunner:
         """
         bounds = {"deadline": time.monotonic() + self.config.cleanup_seconds, "cancelled": Event()}
         try:
+            cell_mode = allocation.get("cell_name") is not None
             if allocation.get("cell_name") and not allocation.get("cell_uid"):
                 raise ValueError("development-cell-allocation-unresolved")
             # Registered cell ownership precedes bootstrap/sandbox requests. Even
             # an ambiguous create within it can be retired by namespace UID.
             if allocation.get("cell_uid"):
                 self.retire_cell(allocation, **bounds)
+            if cell_mode and allocation.get("cell_absent") is not True:
+                raise ValueError("development-cell-absence-unconfirmed")
             pending = allocation.get("pending")
             if (
                 allocation.get("cell_uid")
@@ -740,7 +746,14 @@ class DevelopmentRunner:
                 self.save()
             if allocation.get("pending"):
                 raise ValueError("development-allocation-unresolved")
-            if allocation.get("sandbox_id") and not allocation.get("target_absent"):
+            # Cell absence and shared-gateway sandbox absence are different
+            # observations. Cell cleanup never invokes the shared helper or
+            # claims a separately observed sandbox/Pod absence.
+            if (
+                not cell_mode
+                and allocation.get("sandbox_id")
+                and not allocation.get("target_absent")
+            ):
                 pair = allocation.get("boundary_pair")
                 if not pair or set(allocation.get("target_uids", {})) != {"supervisor", "workload"}:
                     raise ValueError("development-target-unregistered")
@@ -813,22 +826,23 @@ class DevelopmentRunner:
                     ):
                         raise ValueError("development-cleanup-replacement")
                     bounds["cancelled"].wait(0.2)
-            if not allocation.get("sandbox_id"):
+            if not cell_mode and not allocation.get("sandbox_id"):
                 allocation["target_absent"] = True
             if allocation.get("namespace_uid") and not allocation.get("namespace_absent"):
                 # Preserve late effects, and counts already observed, even if this
                 # final snapshot is lost. Loss prevents a successful result.
-                if allocation.get("sandbox_id") or allocation.get("cell_bootstrap_requested"):
-                    try:
-                        final = self.sample(allocation, **bounds)
-                        allocation["counts"] = {
-                            name: max(final[name], allocation.get("counts", {}).get(name, 0))
-                            for name in final
-                        }
-                        allocation["final_capture"] = True
-                    except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
-                        allocation["capture_lost"] = True
-                    self.save()
+                # Always capture the registered receiver pair before removing it,
+                # including ambiguous target creation and zero observed effects.
+                try:
+                    final = self.sample(allocation, **bounds)
+                    allocation["counts"] = {
+                        name: max(final[name], allocation.get("counts", {}).get(name, 0))
+                        for name in final
+                    }
+                    allocation["final_capture"] = True
+                except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
+                    allocation["capture_lost"] = True
+                self.save()
                 options = {
                     "apiVersion": "v1",
                     "kind": "DeleteOptions",

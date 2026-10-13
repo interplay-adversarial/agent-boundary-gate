@@ -72,6 +72,11 @@ UIDs identify recreated objects and the API enforces mutation preconditions.
 [Object identities](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/),
 [DeleteOptions](https://kubernetes.io/docs/reference/kubernetes-api/definitions/delete-options-v1-meta/).
 
+Cleanup records `cell_absent` for observed namespace absence; the shared-mode
+`target_absent` field is reserved for sandbox/Pod observations. Historical journals
+may contain both fields; cell cleanup uses `cell_absent` and does not reinterpret
+the older field as additional attestation.
+
 A timed-out bootstrap or sandbox create can be retired because its enclosing cell
 UID was already committed. If namespace creation itself loses its response before
 registration, recovery refuses name-based adoption/deletion and needs operator
@@ -82,8 +87,11 @@ Retirement never clears the failed evaluation flag.
 
 Cleanup has a fresh cancellation scope and deadline. Restart recovery never reruns
 bootstrap/probes or promotes failed evaluation to passing. Final receiver sampling
-preserves historical effects and loss before deleting receivers. Private client
-aliases, credentials and operator-owned forwarding processes need operator-side
+preserves historical effects and loss before deleting receivers. Final sampling
+reads only the registered receiver pair, even when a timed-out
+target create returned no sandbox ID. Missing/partial receiver registration
+withholds complete capture. It never executes or samples an unregistered target.
+Private client aliases, credentials and operator-owned forwarding processes need operator-side
 reconciliation; bounded bootstrap execution cannot manage detached helpers.
 
 Results stay `development-only`, `release_eligible: false`. Namespace API absence

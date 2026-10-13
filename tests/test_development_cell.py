@@ -21,6 +21,7 @@ class CellRunner(FakeRunner):
         self.cell = None
         self.cell_fault = None
         self.cleanup_events = []
+        self.deletion_polls = None
 
     def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
         if kind == "cell-bootstrap":
@@ -43,6 +44,16 @@ class CellRunner(FakeRunner):
                 return ProcessResult(0, json.dumps(self.cell).encode())
             if args[:2] == ["get", "namespace"] and args[2].startswith("gate-cell-"):
                 self.calls.append((kind, args, data))
+                if self.deletion_polls is not None:
+                    allocation = self.state["allocations"][-1]
+                    assert allocation.get("cell_absent") is not True
+                    assert allocation.get("target_absent") is not True
+                    assert allocation.get("final_capture") is not True
+                    self.deletion_polls -= 1
+                    if self.deletion_polls == 0:
+                        self.cell = None
+                        self.pods = []
+                        self.deletion_polls = None
                 return ProcessResult(0, json.dumps(self.cell or {}).encode())
             if args[0] == "delete" and args[2].startswith("/api/v1/namespaces/gate-cell-"):
                 self.calls.append((kind, args, data))
@@ -55,6 +66,10 @@ class CellRunner(FakeRunner):
                     raise ValueError("api-uid-conflict")
                 if self.late:
                     self.counts["forbidden"] += 1
+                if self.cell_fault == "delete-delayed":
+                    self.cell["metadata"]["deletionTimestamp"] = "synthetic-termination"
+                    self.deletion_polls = 2
+                    return ProcessResult(0, b"{}")
                 self.cell = None
                 self.pods = []
                 return ProcessResult(0, b"{}")
@@ -104,6 +119,7 @@ class DevelopmentCellTests(unittest.TestCase):
         for allocation in allocations:
             self.assertTrue(allocation["cell_absent"])
             self.assertTrue(allocation["final_capture"])
+            self.assertNotIn("target_absent", allocation)
         calls = runner.calls
         for i, (kind, args, data) in enumerate(calls):
             if kind == "kubernetes" and args[0] == "delete" and "gate-cell-" in args[2]:
@@ -134,6 +150,30 @@ class DevelopmentCellTests(unittest.TestCase):
         self.assertTrue(runner.state["allocations"][0]["failed"])
         self.assertEqual(runner.state["allocations"][0]["retired_pending"], "sandbox")
         self.assertIsNone(runner.state["allocations"][0]["pending"])
+        self.assertTrue(result["profiles"][0]["sampled_after_target_cleanup"])
+        self.assertEqual(runner.state["allocations"][0]["counts"], {"allowed": 0, "forbidden": 0})
+
+    def test_delete_acceptance_does_not_claim_cell_absence_or_start_capture(self):
+        runner = self.runner()
+        runner.cell_fault = "delete-delayed"
+        report = runner.profile(False, Event())
+        self.assertTrue(report["expected_behavior_observed"])
+        allocation = runner.state["allocations"][0]
+        self.assertTrue(allocation["cell_absent"])
+        self.assertNotIn("target_absent", allocation)
+        self.assertTrue(allocation["final_capture"])
+
+    def test_partial_receiver_registration_cannot_claim_complete_final_capture(self):
+        runner = self.runner()
+        with patch.object(runner, "cleanup"):
+            runner.profile(False, Event())
+        allocation = runner.state["allocations"][0]
+        del allocation["receiver_uids"]["forbidden"]
+        runner.cleanup(allocation)
+        self.assertTrue(allocation["cell_absent"])
+        self.assertTrue(allocation["capture_lost"])
+        self.assertFalse(allocation.get("final_capture", False))
+        self.assertFalse(runner.report(allocation)["expected_behavior_observed"])
 
     def test_uncertain_namespace_create_never_adopts_by_name(self):
         runner = self.runner()
