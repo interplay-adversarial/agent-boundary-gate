@@ -38,6 +38,11 @@ def main() -> int:
     parser = SanitizedArgumentParser(description="M0 contract prototype; no release authority")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("adapters", help="implemented, simulated and planned support inventory")
+    development = commands.add_parser(
+        "development-plan", help="prepare private Kubernetes integration resources; no live gate"
+    )
+    development.add_argument("--config", type=Path, required=True)
+    development.add_argument("--output", type=Path, required=True)
     for name, help_text in (
         ("live-run", "experimental live OpenShell attempt; private configuration"),
         ("live-suite", "paired calibration and declared disposable-cell fault profiles"),
@@ -90,6 +95,13 @@ def main() -> int:
     legacy.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command == "development-plan":
+            from agent_boundary_gate.development import DevelopmentConfig, prepare
+            from agent_boundary_gate.live import read_private
+
+            config = DevelopmentConfig.model_validate_json(read_private(args.config))
+            print(json.dumps(prepare(config, args.output), indent=2))
+            return 0
         if args.command in ("authority-serve", "receiver-serve", "watchdog"):
             from agent_boundary_gate.host_services import (
                 run_watchdog,
@@ -151,6 +163,7 @@ def main() -> int:
             return 0 if authenticated else 2
         if args.command == "schemas":
             from agent_boundary_gate.campaign import CampaignPlan
+            from agent_boundary_gate.development import DevelopmentConfig
             from agent_boundary_gate.host_services import (
                 AuthorityConfig,
                 ReceiverConfig,
@@ -170,6 +183,7 @@ def main() -> int:
                 SignedRecord,
                 TargetProfile,
                 LiveConfig,
+                DevelopmentConfig,
                 AuthorityConfig,
                 ReceiverConfig,
                 WatchdogConfig,

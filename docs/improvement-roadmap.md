@@ -33,6 +33,14 @@ are bounded changes that strengthen validation before lifecycle work starts.
 
 ## Implementation order
 
+The Kubernetes development profile now renders fresh paired receivers and the
+healthy/weakened policy delta and checks receiver/target Pod identities against
+independently registered values. A real development exercise observed the expected
+paired counts with an owned pinned Rust image and test Pod cleanup. It issues no
+gate receipts; shared-gateway outer closure, full image/toolchain CVE coverage, immutable delivery,
+whole-cell recovery and live fault qualification remain pending. See the
+[development usage guide](kubernetes-development.md).
+
 The next deployment milestone prioritizes an owned pinned image and disposable
 rig, actual receipt/watchdog services, paired receivers with `live-run`, a small
 calibration/fault campaign, and actionable private-CI reports. Rust DNS follows

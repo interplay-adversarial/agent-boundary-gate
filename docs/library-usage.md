@@ -13,6 +13,7 @@ may change. Every decision carries `qualification: m0-prototype` and
 | Custom attempt orchestration | `lifecycle.run_attempt` | Composes backend, observer, optional agent, monitor and lease recovery interfaces |
 | Read-only OpenShell inspection | `doctor.openshell_doctor` / CLI `doctor` | Pinned CLI, lease expiry, sandbox identity/phase and active policy observations; no authenticated readiness |
 | Live OpenShell qualification | Pending | Requires a pinned isolated rig, independent services and fault qualification |
+| Shared-gateway Kubernetes development | `development.resources`, `policy`, `inspect_pod`, `inspect_target_pair` | Portable per-test receivers/policy delta and independently registered Pod/image checks; no gate receipts or whole-cell claims |
 
 An [experimental live workflow](live-workflow.md) now provides a supported command
 composition path and host-side services. It requires a real, independently owned
@@ -20,6 +21,10 @@ environment-specific inspector/provisioner; no synthetic fallback is supplied.
 For library composition, load a trusted private `LiveConfig` and call
 `live.live_run(config, new_private_output_directory)` to obtain a sanitized report
 and prototype exit code. `live_run` does not provision a cell or grant qualification.
+
+For an existing Kubernetes gateway, start with the separate
+[development profile and library examples](kubernetes-development.md).
+`development-plan` prepares owner-only manifests without accessing a cluster.
 
 Hermes, OpenCode and OpenClaw adapters are planned. Typed tool-request contracts
 do not imply an implemented agent adapter. Check support with

@@ -2,6 +2,11 @@
 
 Checkpoint: 2026-10-12. Direct driver implemented; live qualification pending.
 
+The [Kubernetes development profile](kubernetes-development.md) has exercised the
+owned Rust image against a real healthy/weakened policy pair using independent
+receivers and API inventory. It retains development-only qualification and cannot
+supply whole-cell readiness, cleanup, immutable delivery or containment receipts.
+
 ## Available implementation
 
 `src/agent_boundary_gate/backends/openshell.py` targets the CLI flags and JSON contract inspected in cached
