@@ -123,6 +123,16 @@ credentials, endpoint inventory or operator-specific environment configuration.
 
 ## Next executable deployment work
 
+The [reprioritized roadmap](improvement-roadmap.md) starts with a packaged
+development runner and [optional Gym onboarding](nemo-gym-adoption.md), followed
+by an agent injection/effect pilot and fault drills. Those development milestones
+can proceed before qualification. The steps below remain prerequisites for
+whole-cell qualification and cannot be replaced by a Gym reward or Pod deletion.
+
+The [runner](development-runner.md) and [offline Gym calibration](gym-onboarding.md)
+are implemented. Model-backed onboarding and the optional evidence bridge remain
+pending; neither the runner's cleanup nor native verifier reward issues receipts.
+
 1. Select the location and pin the entire target stack, guest, image digests,
    CLI artifact, policy schema and prover. Source snapshots are not runtime pins.
 2. Implement the provisioning/lease broker and independent whole-cell watchdog.

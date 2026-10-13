@@ -1,6 +1,6 @@
 # Agent Boundary Gate improvement roadmap
 
-Recorded: 2026-10-11. Scope: portable gate core, built-in adapters and qualification.
+Recorded: 2026-10-11. Reprioritized: 2026-10-12. Updated: 2026-10-13. Scope: portable gate core, built-in adapters and qualification.
 
 The project remains an M0 prototype. All decisions retain
 `qualification: m0-prototype` and `release_eligible: false`. Completing a local
@@ -16,20 +16,27 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Planned |
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; live deployment and orphan-cell qualification pending |
-| QUAL-01 | P1 | Live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Planned; depends on LIFE-01/LIFE-02 |
-| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and sanitized diagnostics implemented locally; pinned-image testing and timing measurements pending |
+| QUAL-01 | P1 | Whole-cell containment and live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Development healthy/weakened Rust exercise completed in PR #19; whole-cell containment, authenticated deployment and fault qualification pending; depends on LIFE-01/LIFE-02 |
+| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and diagnostics implemented; independently pinned Rust image exercised against actual healthy/weakened policies in PR #19; qualified delivery and lifecycle budgets pending |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
-| COMPAT-03 | P2 | Supported live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Planned; depends on authenticated transports and provisioning |
+| COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Host services and live-run/campaign composition implemented in PR #18; independent provisioning/inspection and authenticated live qualification pending |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, native Linux CI, digest-verified staging and signed immutable-delivery backend admission implemented; hostname/DNS, live provisioning/issuer, release provenance and qualification pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
-| PORT-01 | P3 | Second real agent adapter | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned; agent selection pending |
+| PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned via GYM-03; Hermes first, compatibility-dependent; broader pairing expansion follows pilot |
+| DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Orchestration, bounded cancellation, private journals and helper conformance implemented; safe live cleanup helper still required. New campaigns stop before allocation without it. Earlier live pair used a removed name-based path; ambiguous creates and whole-cell recovery remain pending. [Guide](development-runner.md) |
+| GYM-01 | P2, onboarding in progress | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Pinned source/interpreter, separate remediated lock, six native offline replay cases and lock CVE audit implemented; model-backed rollout/provider manifest, task rights and any image scan remain pending. [Guide](gym-onboarding.md) |
+| GYM-02 | P2, next bridge | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Planned; depends on GYM-01 |
+| GYM-03 | P2, early agent pilot | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Planned; depends on GYM-02/DEV-02; PORT-01 delivered through this pilot |
+| GYM-04 | P2, after pilot | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01 |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
-P3 marks expansion. The first implementation tackles SEC-01/SEC-02 because they
-are bounded changes that strengthen validation before lifecycle work starts.
+P3 marks expansion. SEC-01/SEC-02 were the first implementation. P1 blockers
+remain mandatory for qualification while P2 onboarding brings useful agent-level
+red-teaming forward. The [Gym adoption plan](nemo-gym-adoption.md) defines the
+new milestones, dependency isolation and behavior/effect reporting.
 
 ## Implementation order
 
@@ -41,27 +48,43 @@ gate receipts; shared-gateway outer closure, full image/toolchain CVE coverage, 
 whole-cell recovery and live fault qualification remain pending. See the
 [development usage guide](kubernetes-development.md).
 
-The next deployment milestone prioritizes an owned pinned image and disposable
-rig, actual receipt/watchdog services, paired receivers with `live-run`, a small
-calibration/fault campaign, and actionable private-CI reports. Rust DNS follows
-this IP-based vertical slice. See [the live workflow](live-workflow.md).
+DEV-02 now has a private runner and recovery command, requiring a separately
+implemented identity-bound cleanup helper before live execution. GYM-01 has
+native offline verifier calibration and its own remediated dependency lock.
+Finish the model-backed onboarding manifest/rollout and task-rights review next,
+then implement the optional evidence bridge. No step changes the frozen Rust
+baseline or grants qualification. Use upstream harnesses for the agent pilot.
 
-The current increment implements image-context preparation, host-side bounded Unix
-RPC, an inspector-backed authority service, signed paired-receiver snapshots,
-watchdog/runner entry points, declared campaign expectations and sanitized reports.
-It does not supply a hypervisor provisioner or independent cell inspector; live
-environment selection, actual containment/deployment and fault qualification are
-still required. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
+The host-side receipt, paired-capture, watchdog and `live-run` services from PR #18
+remain available. They do not supply a hypervisor provisioner or independent cell
+inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
 
-1. Finish SEC-01/SEC-02 and review hosted CI; establish SEC-03 merge enforcement
-   only after the aggregate status check exists on the default branch.
-2. Define authenticated receipt contracts and trust configuration (LIFE-01),
-   without modifying archived signed wire versions.
-3. Implement unknown-to-healthy monitoring, external recovery and lease-bound
-   cleanup (LIFE-02); add evidence durability and fault tests alongside this work.
-4. Qualify a pinned OpenShell target and observer pair in a disposable isolated
-   rig (QUAL-01), following the [live-rig handoff](live-rig-handoff.md).
-5. Validate portability with one real agent adapter and deliver EvalHub mapping.
+1. Implement and exercise identity-bound target cleanup for the packaged runner,
+   retaining its registered-allocation recovery limits (DEV-02). Complete GYM-01 with one selected model/provider configuration,
+   private smoke traces and task-rights review; retain offline calibration and
+   the separate dependency baseline.
+2. Implement the optional result/evidence bridge (GYM-02), then one real-agent
+   injection/effect pilot (GYM-03/PORT-01). Hermes is the initial candidate, with
+   compatibility recorded before confirming support. The development pilot does
+   not depend on completed commercial qualification and cannot establish it.
+3. Run development failure drills (REL-01/EVID-01), including Gym/verifier failure,
+   policy mutation, receiver/storage loss, cancellation, supervisor restart and
+   controller death. Preserve raw effects and prove bounded cleanup behavior.
+4. Freeze a reviewed injection regression suite with benign controls and private
+   CI reporting (GYM-04). Require all pilot and fault criteria before expanding.
+5. Advance the P1 containment track throughout: independently contain the whole
+   target, provision real inspectors/watchdog and authenticated lifecycle/delivery
+   services, then run live fault qualification (LIFE-01/LIFE-02/QUAL-01/COMPAT-03).
+   This remains the commercial qualification blocker even if Gym scores improve.
+6. Extend to additional agent pairings, broader injection coverage, Rust DNS,
+   supply-chain/distribution controls and EvalHub mapping as their prerequisites
+   are met (COMPAT-04/SEC-03/DEV-01/INT-01). SEC-03 merge enforcement remains
+   valuable independent work once the hosted aggregate check is established.
+
+Training, adaptive attack discovery and broad harness expansion follow the frozen
+pilot. New attacks require explicit baseline promotion; runtime upgrades never
+silently change Gym, case, verifier, agent/model or Rust pins. Existing historical
+validation notes below describe their original increments, not present coverage.
 
 Release eligibility remains disabled until a separately reviewed qualification
 policy, trusted qualification records and release-authorization contract exist.

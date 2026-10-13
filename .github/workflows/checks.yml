@@ -42,6 +42,8 @@ jobs:
         run: uv run --no-sync python scripts/audit_dependencies.py
       - name: Rust probe locked dependency vulnerability check
         run: uv run --no-sync python -m scripts.audit_rust_probe
+      - name: Separate Gym onboarding locked dependency vulnerability check
+        run: uv run --no-sync python scripts/audit_dependencies.py --gym
       - name: Publication privacy audit
         run: python scripts/audit_publication.py
       - name: Gitleaks secret scan
@@ -60,6 +62,28 @@ jobs:
           PY
           tar -xzf "$audit_dir/gitleaks_8.30.1_linux_x64.tar.gz" -C "$audit_dir" gitleaks
           "$audit_dir/gitleaks" git . --redact=100 --no-banner
+
+  gym-onboarding:
+    name: Gym offline native verifier replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: NVIDIA-NeMo/Gym
+          ref: f444b8020a3431fc820ef061cef400140bc7afb5
+          path: .private-gym-source
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13.14'
+      - name: Install isolated locked Gym environment
+        run: |
+          python -m pip install uv==0.12.17
+          uv sync --project onboarding/gym --frozen --no-editable
+      - name: Replay synthetic cases through upstream native verifier
+        run: onboarding/gym/.venv/bin/python scripts/gym_replay.py --upstream .private-gym-source --output "$RUNNER_TEMP/gym-replay"
 
   rust-platforms:
     name: Rust probe (${{ matrix.target }})
@@ -113,12 +137,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     if: always()
-    needs: [validate, rust-platforms]
+    needs: [validate, rust-platforms, gym-onboarding]
     steps:
       - name: Require every validation matrix entry to pass
         env:
           VALIDATION_RESULT: ${{ needs.validate.result }}
           RUST_RESULT: ${{ needs.rust-platforms.result }}
+          GYM_RESULT: ${{ needs.gym-onboarding.result }}
         run: |
           test "$VALIDATION_RESULT" = success
           test "$RUST_RESULT" = success
+          test "$GYM_RESULT" = success

@@ -2,10 +2,12 @@
 
 import argparse
 import json
+import signal
 import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Event
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import TypeAdapter, ValidationError
@@ -43,6 +45,12 @@ def main() -> int:
     )
     development.add_argument("--config", type=Path, required=True)
     development.add_argument("--output", type=Path, required=True)
+    for name in ("development-run", "development-recover"):
+        command = commands.add_parser(
+            name, help="private development orchestration; no gate receipts"
+        )
+        command.add_argument("--config", type=Path, required=True)
+        command.add_argument("--output", type=Path, required=True)
     for name, help_text in (
         ("live-run", "experimental live OpenShell attempt; private configuration"),
         ("live-suite", "paired calibration and declared disposable-cell fault profiles"),
@@ -95,6 +103,36 @@ def main() -> int:
     legacy.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command in ("development-run", "development-recover"):
+            from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
+            from agent_boundary_gate.live import read_private
+
+            config = DevelopmentRunConfig.model_validate_json(read_private(args.config))
+            cancelled = Event()
+            previous = {}
+            try:
+                for number in (signal.SIGINT, signal.SIGTERM):
+                    previous[number] = signal.signal(number, lambda *_: cancelled.set())
+                with DevelopmentRunner(
+                    config, args.output, recover=args.command == "development-recover"
+                ) as runner:
+                    report = (
+                        runner.recover()
+                        if args.command == "development-recover"
+                        else runner.run(cancelled)
+                    )
+                print(json.dumps(report, indent=2))
+                return (
+                    0
+                    if report.get(
+                        "development_campaign_completed",
+                        report.get("development_cleanup_complete", False),
+                    )
+                    else 2
+                )
+            finally:
+                for number, handler in previous.items():
+                    signal.signal(number, handler)
         if args.command == "development-plan":
             from agent_boundary_gate.development import DevelopmentConfig, prepare
             from agent_boundary_gate.live import read_private

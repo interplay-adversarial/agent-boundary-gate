@@ -35,6 +35,11 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - A [Kubernetes development profile](docs/kubernetes-development.md) for fresh
   paired receivers, controlled policy pairs and independent API inventory checks.
   These development observations issue no gate receipts or release claims.
+- A [packaged development runner](docs/development-runner.md) with private
+  allocation journals, paired Rust controls, final capture and recovery;
+  execution requires a separately implemented identity-bound cleanup helper.
+- [Separate pinned NeMo Gym onboarding](docs/gym-onboarding.md) with offline
+  native verifier replay and an independently audited dependency lock.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -61,6 +66,7 @@ The pre-commit hooks and pull-request checks run:
 - Rust fmt, Clippy, unit tests, shared probe conformance and binary privacy checks.
 - A pinned Cargo/RustSec lockfile CVE audit; compiler/stdlib and images need separate coverage.
 - A pip-audit CVE check for all applicable locked runtime and development dependencies.
+- A separate CVE audit for the optional Gym onboarding lock and a model-free PR replay.
 - Publication privacy checks. PR checks also scan Git history with Gitleaks.
 
 Run the same hooks manually:
@@ -161,6 +167,10 @@ explicit monitor admission, lease recovery and deployment limits.
 
 See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for acceptance
 criteria, implementation status and qualification blockers.
+The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
+prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
+reports. Offline onboarding is implemented; the model-backed smoke and bridge are
+still planned, and no Gym agent pairing is currently qualified.
 
 ## License
 

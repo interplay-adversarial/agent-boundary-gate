@@ -1,0 +1,14 @@
+{
+  "upstream": "https://github.com/NVIDIA-NeMo/Gym",
+  "commit": "f444b8020a3431fc820ef061cef400140bc7afb5",
+  "python": "3.13.14",
+  "files": {
+    "LICENSE": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "pyproject.toml": "sha256:a9a83378695a68f20531e5aa9972c9f2f962d7fd76494fc4a77946f2c41e64a1",
+    "uv.lock": "sha256:0f8c1263b27bc182626ba87b36283c4199221f01208db02d58f7b5569ab16da5",
+    "resources_servers/indirect_prompt_injection/verifier.py": "sha256:f537e5f2961ee97679e40175c8f5edcae0da32180267a1ed4b6aeedc2b292606",
+    "resources_servers/indirect_prompt_injection/app.py": "sha256:c189ee86504ca8d4434027a586fb7ac0fe99719e36465af72e7e845b905d9142",
+    "resources_servers/indirect_prompt_injection/data/example.jsonl": "sha256:a91571566b4615519a690a2ca0991ec646ebbde4ada533a3e11e1df1715218f5",
+    "resources_servers/indirect_prompt_injection/data/example_rollouts.jsonl": "sha256:5277b2d0f66b862406673bb678e17f38a5a519e23372e5ea1faf8729e754b148"
+  }
+}
