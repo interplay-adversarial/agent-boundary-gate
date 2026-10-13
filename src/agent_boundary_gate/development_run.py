@@ -110,6 +110,9 @@ class DevelopmentRunner:
     def __init__(self, config: DevelopmentRunConfig, output: Path, *, recover=False):
         self.lock = None
         self._lock_finalizer = None
+        # model_copy(update=...) bypasses Pydantic validation. Revalidate library
+        # inputs before creating any files or admitting either helper mode.
+        config = DevelopmentRunConfig.model_validate(config)
         self.config = config
         if not recover:
             output.mkdir(mode=0o700, exist_ok=False)
@@ -480,8 +483,13 @@ class DevelopmentRunner:
             raise ValueError("development-capture-incomplete")
         return counts
 
+    def has_cleanup_mode(self):
+        # Exactly one authority, including when a library caller altered the
+        # snapshotted-binary registry after construction. No ambiguous fallback.
+        return ("cleanup" in self.binaries) != ("cell-bootstrap" in self.binaries)
+
     def profile(self, weakened: bool, cancelled: Event):
-        if not {"cleanup", "cell-bootstrap"}.intersection(self.binaries):
+        if not self.has_cleanup_mode():
             raise ValueError("identity-bound-cleanup-required")
         run, sandbox = "gate-dev-" + secrets.token_hex(8), "gate-" + secrets.token_hex(7)
         allocation = {
@@ -949,7 +957,7 @@ class DevelopmentRunner:
         }
 
     def run(self, cancelled: Event):
-        if not {"cleanup", "cell-bootstrap"}.intersection(self.binaries):
+        if not self.has_cleanup_mode():
             return {
                 "profiles": [],
                 "development_campaign_completed": False,

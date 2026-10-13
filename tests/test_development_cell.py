@@ -301,6 +301,31 @@ class DevelopmentCellTests(unittest.TestCase):
                 }
             )
 
+    def test_unvalidated_copied_config_is_rejected_before_creating_campaign(self):
+        config = self.config.model_copy(
+            update={
+                "cleanup_executable": self.config.cell_bootstrap_executable,
+                "cleanup_digest": self.config.cell_bootstrap_digest,
+            }
+        )
+        output = self.root / "ambiguous-config"
+        with self.assertRaisesRegex(
+            ValueError, "development-cell-and-shared-cleanup-mutually-exclusive"
+        ):
+            DevelopmentRunner(config, output)
+        self.assertFalse(output.exists())
+
+    def test_ambiguous_binary_modes_stop_before_any_allocation(self):
+        runner = self.runner()
+        runner.binaries["cleanup"] = runner.binaries["cell-bootstrap"]
+        result = runner.run(Event())
+        self.assertFalse(result["development_campaign_completed"])
+        self.assertEqual(result["error"], "identity-bound-cleanup-required")
+        self.assertEqual(runner.state["allocations"], [])
+        self.assertEqual(runner.calls, [])
+        with self.assertRaisesRegex(ValueError, "identity-bound-cleanup-required"):
+            runner.profile(False, Event())
+
     def test_openshell_commands_use_cell_gateway_alias(self):
         runner = self.runner()
         with patch.object(runner, "cleanup"):

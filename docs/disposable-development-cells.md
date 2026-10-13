@@ -24,6 +24,9 @@ config = DevelopmentRunConfig(
 ```
 
 Bootstrap pin fields must be paired; the two helper modes are mutually exclusive.
+Library construction revalidates copied configurations before creating campaign
+files. Execution also requires exactly one snapshotted helper mode, rejecting
+missing or ambiguous admission before allocation.
 The configured `target_namespace`/`gateway` identify the protected shared deployment.
 Cell commands use a fresh `gate-cell-<24 hex>` namespace and matching gateway alias.
 The receiver and optional image registry namespaces are also protected from cell
