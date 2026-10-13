@@ -1,12 +1,16 @@
 # Packaged OpenShell development runner
 
 `development-run` provisions fresh paired receivers and runs healthy/weakened
-Rust HTTP controls against an operator-selected existing gateway. It snapshots
+Rust HTTP controls against a disposable target cell or an operator-selected
+existing gateway. It snapshots
 digest-checked CLI binaries, registers namespace/receiver/target Pod identities,
 checks policy and probe pins, and retains private evidence through cleanup.
-Execution requires a separately pinned identity-bound cleanup helper. Without
-that helper, the runner returns `identity-bound-cleanup-required` before allocating
-any resources. This repository does not yet ship a live helper for the tested
+Use [disposable target cells](disposable-development-cells.md) for a fresh gateway
+namespace with UID-conditioned cleanup and a separately pinned operator bootstrap.
+The original shared-gateway mode requires a separately pinned identity-bound
+cleanup helper. Without either path, the runner returns
+`identity-bound-cleanup-required` before allocating any resources.
+This repository does not ship a shared-gateway cleanup helper for the tested
 OpenShell deployment; name-only CLI/SDK deletion is unsupported for automatic cleanup.
 This is a `development-only` workflow with `release_eligible: false`; it issues
 no gate receipts or release decisions. See [the development profile](kubernetes-development.md).
@@ -56,6 +60,11 @@ namespace or gateway. Operator permissions must permit creating/deleting the
 fresh test namespace and optional grant, inspecting target Pods, and reading
 receiver snapshots through Kubernetes exec. No credentials or providers are
 attached by the sandbox create command.
+
+The configuration above describes shared-gateway mode. Disposable-cell mode creates
+a separate target namespace and fresh gateway alias, preserving the configured
+shared deployment; see its bootstrap contract and recovery limits in the
+[cell guide](disposable-development-cells.md). Do not supply both helper modes.
 
 ## Identity-bound cleanup helper contract
 
@@ -130,7 +139,7 @@ An abandoned instance has a descriptor finalizer as a fallback. Neither context
 exit nor garbage collection deletes cluster resources: registered-allocation
 cleanup stays in the explicit run/recovery workflow.
 
-An allocation request that times out or loses its registration response is
+In shared-gateway mode, an allocation request that times out or loses its registration response is
 explicitly unresolved. Recovery refuses to delete that target or its receivers
 based on a name guess. Inspect the private allocation intent and actual API
 inventory, reconcile ownership outside this automatic runner, and retain that
@@ -143,7 +152,7 @@ The tested OpenShell CLI and checked public API accept names for sandbox deletio
 [API source](https://github.com/NVIDIA/OpenShell/blob/v0.1.3/proto/openshell.proto).
 Their check-then-delete path has been removed from the runner. Automatic target
 cleanup must use the identity-bound helper; there is no name-based fallback.
-Without it, new campaigns stop before provisioning and existing uncleaned targets
+Without it, new shared-gateway campaigns stop before provisioning and existing uncleaned targets
 remain unresolved. The read-only inventory checks cannot supply the missing
 atomic mutation authority.
 
@@ -154,7 +163,8 @@ are retained as historical development evidence. An initial CLI cleanup incompat
 was recovered before the repeat. No live identity-bound helper has been exercised,
 and these observations are not a fault qualification packet.
 
-The shared gateway and cluster survive each profile. Unsigned memory-backed
+The configured shared gateway and cluster survive each profile. Cell mode retires
+only its newly allocated gateway namespace. Unsigned memory-backed
 receivers, Kubernetes exec sampling and Pod absence do not establish whole-cell
 closure, authenticated readiness/drain or watchdog recovery. This runner must
 never substitute for the [live workflow](live-workflow.md) qualification packet.
