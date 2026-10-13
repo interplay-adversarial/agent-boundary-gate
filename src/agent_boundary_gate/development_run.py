@@ -486,7 +486,8 @@ class DevelopmentRunner:
     def has_cleanup_mode(self):
         # Exactly one authority, including when a library caller altered the
         # snapshotted-binary registry after construction. No ambiguous fallback.
-        return ("cleanup" in self.binaries) != ("cell-bootstrap" in self.binaries)
+        modes = {"cleanup", "cell-bootstrap"}.intersection(self.binaries)
+        return len(modes) == 1
 
     def profile(self, weakened: bool, cancelled: Event):
         if not self.has_cleanup_mode():
