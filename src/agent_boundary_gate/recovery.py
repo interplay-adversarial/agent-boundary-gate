@@ -89,8 +89,6 @@ class LeaseJournal:
     def register(self, lease: LeaseBinding, *, now: datetime, heartbeat_ttl: float = 10) -> None:
         bounded_seconds(heartbeat_ttl)
         current = stamp(now)
-        if now >= lease.lease_expires_at:
-            raise ValueError("cannot start an expired lease")
         body = lease.model_dump_json()
         deadline = stamp(min(now + timedelta(seconds=heartbeat_ttl), lease.lease_expires_at))
         with self._transaction() as connection:
@@ -102,6 +100,8 @@ class LeaseJournal:
                     raise ValueError("lease identifier cannot be reused for another binding")
                 # Re-registering never renews or resurrects a lease.
                 return
+            if now >= lease.lease_expires_at:
+                raise ValueError("cannot start an expired lease")
             connection.execute(
                 "INSERT INTO leases (lease_id,binding_json,lease_expires_at,heartbeat_deadline,"
                 "state,retry_at,updated_at) VALUES (?,?,?,?,'pending',?,?)",

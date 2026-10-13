@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +38,17 @@ def main() -> int:
     parser = SanitizedArgumentParser(description="M0 contract prototype; no release authority")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("adapters", help="implemented, simulated and planned support inventory")
+    for name, help_text in (
+        ("live-run", "experimental live OpenShell attempt; private configuration"),
+        ("live-suite", "paired calibration and declared disposable-cell fault profiles"),
+        ("authority-serve", "host-side receipt authority; requires independent inspector"),
+        ("receiver-serve", "host-side paired receivers with private signed capture control"),
+        ("watchdog", "separate host-side process for expired/lost cell recovery"),
+    ):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--config", type=Path, required=True)
+        if name in ("live-run", "live-suite"):
+            command.add_argument("--output", type=Path, required=True)
     doctor = commands.add_parser("doctor", help="read-only OpenShell compatibility; no readiness")
     doctor.add_argument("--executable", type=Path, required=True)
     doctor.add_argument("--executable-digest", required=True)
@@ -78,6 +90,30 @@ def main() -> int:
     legacy.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command in ("authority-serve", "receiver-serve", "watchdog"):
+            from agent_boundary_gate.host_services import (
+                run_watchdog,
+                serve_authority,
+                serve_receivers,
+            )
+
+            {
+                "authority-serve": serve_authority,
+                "receiver-serve": serve_receivers,
+                "watchdog": run_watchdog,
+            }[args.command](args.config)
+            return 0
+        if args.command in ("live-run", "live-suite"):
+            from agent_boundary_gate.campaign import CampaignPlan, live_campaign
+            from agent_boundary_gate.live import LiveConfig, live_run, read_private
+
+            raw = read_private(args.config)
+            if args.command == "live-run":
+                report, code = live_run(LiveConfig.model_validate_json(raw), args.output)
+            else:
+                report, code = live_campaign(CampaignPlan.model_validate_json(raw), args.output)
+            print(json.dumps(report, indent=2))
+            return code
         if args.command == "doctor":
             report = openshell_doctor(
                 executable=args.executable,
@@ -114,6 +150,16 @@ def main() -> int:
             )
             return 0 if authenticated else 2
         if args.command == "schemas":
+            from agent_boundary_gate.campaign import CampaignPlan
+            from agent_boundary_gate.host_services import (
+                AuthorityConfig,
+                ReceiverConfig,
+                WatchdogConfig,
+            )
+            from agent_boundary_gate.live import LiveConfig
+            from agent_boundary_gate.rig_authority import CellInspection, InspectionRequest
+            from agent_boundary_gate.rig_receivers import SignedCaptureSnapshot
+
             args.output.mkdir(parents=True, exist_ok=True)
             for model in (
                 CaseSpec,
@@ -123,6 +169,14 @@ def main() -> int:
                 Dispatch,
                 SignedRecord,
                 TargetProfile,
+                LiveConfig,
+                AuthorityConfig,
+                ReceiverConfig,
+                WatchdogConfig,
+                CampaignPlan,
+                CellInspection,
+                InspectionRequest,
+                SignedCaptureSnapshot,
             ):
                 (args.output / f"{model.__name__}.json").write_text(
                     json.dumps(model.model_json_schema(), indent=2) + "\n"
@@ -158,7 +212,7 @@ def main() -> int:
             )
         print(decision.model_dump_json(indent=2))
         return EXIT_CODES[decision.release_decision]
-    except (OSError, ValidationError, ValueError):
+    except (OSError, ValidationError, ValueError, sqlite3.Error, RecursionError):
         # Validation messages can echo untrusted input; export only an allowlisted code.
         print(
             json.dumps({"error": "invalid-contract-or-input", "release_eligible": False}),

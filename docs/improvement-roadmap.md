@@ -33,6 +33,18 @@ are bounded changes that strengthen validation before lifecycle work starts.
 
 ## Implementation order
 
+The next deployment milestone prioritizes an owned pinned image and disposable
+rig, actual receipt/watchdog services, paired receivers with `live-run`, a small
+calibration/fault campaign, and actionable private-CI reports. Rust DNS follows
+this IP-based vertical slice. See [the live workflow](live-workflow.md).
+
+The current increment implements image-context preparation, host-side bounded Unix
+RPC, an inspector-backed authority service, signed paired-receiver snapshots,
+watchdog/runner entry points, declared campaign expectations and sanitized reports.
+It does not supply a hypervisor provisioner or independent cell inspector; live
+environment selection, actual containment/deployment and fault qualification are
+still required. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
+
 1. Finish SEC-01/SEC-02 and review hosted CI; establish SEC-03 merge enforcement
    only after the aggregate status check exists on the default branch.
 2. Define authenticated receipt contracts and trust configuration (LIFE-01),

@@ -17,7 +17,7 @@ from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import LeaseBinding
 
 
-def read_regular_input(path: Path, *, limit: int) -> bytes:
+def read_regular_input(path: Path, *, limit: int, private: bool = False) -> bytes:
     """Reject symlinks/devices/FIFOs and bound private input allocation."""
     # Capture the current directory without resolving away a final symlink.
     # CLOEXEC is explicit even though Python's os.open already defaults to it.
@@ -28,8 +28,11 @@ def read_regular_input(path: Path, *, limit: int) -> bytes:
         os.close(fd)
         raise
     with stream:
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+        metadata = os.fstat(stream.fileno())
+        if not stat.S_ISREG(metadata.st_mode):
             raise ValueError("invalid-doctor-input")
+        if private and (metadata.st_uid != os.geteuid() or metadata.st_mode & 0o077):
+            raise ValueError("private-input-required")
         raw = stream.read(limit + 1)
     if len(raw) > limit:
         raise ValueError("invalid-doctor-input")

@@ -22,7 +22,12 @@ class ProcessResult:
 
 
 def bounded_process(
-    argv: list[str], *, deadline: float, cancelled: Event, max_output: int = 65536
+    argv: list[str],
+    *,
+    deadline: float,
+    cancelled: Event,
+    max_output: int = 65536,
+    input_data: bytes | None = None,
 ) -> ProcessResult:
     if cancelled.is_set():
         raise AttemptStopped("cancelled")
@@ -30,10 +35,15 @@ def bounded_process(
         raise AttemptStopped("timeout")
     # Child output is untrusted. Keep it off shared logs and cap the retained bytes.
     # Disk quotas still belong to the rig; this file is not a raw-log retention store.
-    with tempfile.TemporaryFile() as output:
+    if input_data is not None and (not isinstance(input_data, bytes) or len(input_data) > 65536):
+        raise ValueError("process-input-limit")
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as request:
+        if input_data is not None:
+            request.write(input_data)
+            request.seek(0)
         child = subprocess.Popen(
             argv,
-            stdin=subprocess.DEVNULL,
+            stdin=request if input_data is not None else subprocess.DEVNULL,
             stdout=output,
             stderr=subprocess.DEVNULL,
             start_new_session=True,

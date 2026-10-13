@@ -56,7 +56,10 @@ and independent receiver evidence determines the security outcome.
 
 A [standalone Rust probe exploration](rust-probe-exploration.md) records a possible
 interpreter-free follow-up, including deadline, DNS, artifact and policy requirements.
-No Rust probe is shipped yet.
+A pinned experimental Rust probe and signed-delivery admission are now shipped;
+see [the delivery guide](rust-probe-delivery.md). The [live workflow](live-workflow.md)
+adds host-side service transports, a runner and campaign reports. Actual independent
+inspection/provisioning and live qualification remain pending.
 
 ## Active policy revision and timing
 
