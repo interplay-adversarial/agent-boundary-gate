@@ -23,7 +23,9 @@ class CellRunner(FakeRunner):
         self.cleanup_events = []
         self.deletion_polls = None
 
-    def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
+    def command(
+        self, kind, args, *, deadline, cancelled, data=None, check=True, allocation_context=None
+    ):
         if kind == "cell-bootstrap":
             self.calls.append((kind, args, data))
             if self.cell_fault == "bootstrap-timeout":
@@ -74,7 +76,13 @@ class CellRunner(FakeRunner):
                 self.pods = []
                 return ProcessResult(0, b"{}")
         result = super().command(
-            kind, args, deadline=deadline, cancelled=cancelled, data=data, check=check
+            kind,
+            args,
+            deadline=deadline,
+            cancelled=cancelled,
+            data=data,
+            check=check,
+            allocation_context=allocation_context,
         )
         if kind == "openshell" and args[:2] == ["sandbox", "create"]:
             for pod in self.pods:
@@ -302,12 +310,52 @@ class DevelopmentCellTests(unittest.TestCase):
             return_value=ProcessResult(0, b"{}"),
         ) as process:
             DevelopmentRunner.command(
-                runner, "openshell", ["sandbox", "list"], deadline=1e20, cancelled=Event()
+                runner,
+                "openshell",
+                ["sandbox", "list"],
+                deadline=1e20,
+                cancelled=Event(),
+                allocation_context=runner.state["allocations"][0],
             )
         self.assertEqual(
             process.call_args.args[0][1:3],
             ["--gateway", runner.state["allocations"][0]["cell_name"]],
         )
+
+    def test_earlier_allocation_command_never_uses_latest_gateway(self):
+        runner = self.runner()
+        runner.run(Event())
+        earlier, later = runner.state["allocations"]
+        with patch(
+            "agent_boundary_gate.development_run.bounded_process",
+            return_value=ProcessResult(0, b"{}"),
+        ) as process:
+            DevelopmentRunner.command(
+                runner,
+                "openshell",
+                ["sandbox", "list"],
+                deadline=1e20,
+                cancelled=Event(),
+                allocation_context=earlier,
+            )
+        self.assertEqual(process.call_args.args[0][1:3], ["--gateway", earlier["cell_name"]])
+        self.assertNotEqual(earlier["cell_name"], later["cell_name"])
+
+    def test_cell_command_without_owned_allocation_context_fails_before_execution(self):
+        runner = self.runner()
+        runner.run(Event())
+        with patch("agent_boundary_gate.development_run.bounded_process") as process:
+            for allocation in (None, dict(runner.state["allocations"][0])):
+                with self.assertRaisesRegex(ValueError, "development-allocation-context-required"):
+                    DevelopmentRunner.command(
+                        runner,
+                        "openshell",
+                        ["sandbox", "list"],
+                        deadline=1e20,
+                        cancelled=Event(),
+                        allocation_context=allocation,
+                    )
+            process.assert_not_called()
 
     def test_protected_namespace_cannot_be_retired_even_with_registered_uid(self):
         runner = self.runner()

@@ -28,6 +28,8 @@ The configured `target_namespace`/`gateway` identify the protected shared deploy
 Cell commands use a fresh `gate-cell-<24 hex>` namespace and matching gateway alias.
 The receiver and optional image registry namespaces are also protected from cell
 retirement. Keep all operator inputs outside this public repository.
+Cell-mode OpenShell commands bind explicitly to a runner-owned allocation;
+the runner never selects a gateway by looking at the latest journal entry.
 
 The helper receives a bounded stdin JSON object, no arguments:
 

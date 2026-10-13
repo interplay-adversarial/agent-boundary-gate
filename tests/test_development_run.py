@@ -31,7 +31,9 @@ class FakeRunner(DevelopmentRunner):
         self.fault = None
         self.late = False
 
-    def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
+    def command(
+        self, kind, args, *, deadline, cancelled, data=None, check=True, allocation_context=None
+    ):
         self.calls.append((kind, args, data))
         if cancelled.is_set():
             raise AttemptStopped("cancelled")

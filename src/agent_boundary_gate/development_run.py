@@ -244,12 +244,14 @@ class DevelopmentRunner:
     def save(self):
         _write(self.output / "journal.json", self.state)
 
-    def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
+    def command(
+        self, kind, args, *, deadline, cancelled, data=None, check=True, allocation_context=None
+    ):
         argv = [self.binaries[kind]]
         if kind == "kubernetes":
             argv += ["--context", self.config.context]
         elif kind == "openshell":
-            argv += ["--gateway", self.gateway()]
+            argv += ["--gateway", self.gateway(allocation_context)]
         env = dict(os.environ)
         if self.config.xdg_config_home:
             env["XDG_CONFIG_HOME"] = str(self.config.xdg_config_home)
@@ -276,9 +278,15 @@ class DevelopmentRunner:
     def target_namespace(self, allocation):
         return allocation.get("cell_name", self.config.target_namespace)
 
-    def gateway(self):
-        allocation = self.state["allocations"][-1] if self.state["allocations"] else {}
-        return allocation.get("cell_name", self.config.gateway)
+    def gateway(self, allocation=None):
+        if self.config.cell_bootstrap_executable is None:
+            return self.config.gateway
+        if allocation is None or not any(a is allocation for a in self.state["allocations"]):
+            raise ValueError("development-allocation-context-required")
+        name = allocation.get("cell_name")
+        if not isinstance(name, str) or not re.fullmatch(r"gate-cell-[0-9a-f]{24}", name):
+            raise ValueError("development-cell-gateway-invalid")
+        return name
 
     def inspect_cell(self, allocation, **bounds):
         current = self.query(
@@ -491,6 +499,7 @@ class DevelopmentRunner:
         bounds = {
             "deadline": time.monotonic() + self.config.profile_seconds,
             "cancelled": cancelled,
+            "allocation_context": allocation,
         }
         try:
             if allocation.get("cell_name"):
