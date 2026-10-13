@@ -28,6 +28,7 @@ def bounded_process(
     cancelled: Event,
     max_output: int = 65536,
     input_data: bytes | None = None,
+    env: dict[str, str] | None = None,
 ) -> ProcessResult:
     if cancelled.is_set():
         raise AttemptStopped("cancelled")
@@ -47,6 +48,7 @@ def bounded_process(
             stdout=output,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
         )
         try:
             while child.poll() is None:

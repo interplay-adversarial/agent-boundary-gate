@@ -1,0 +1,21 @@
+[project]
+name = "agent-boundary-gate-gym-onboarding"
+version = "0.1.0"
+requires-python = "==3.13.14"
+dependencies = [
+  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@f444b8020a3431fc820ef061cef400140bc7afb5",
+]
+
+[tool.uv]
+package = false
+# Explicit CVE remediations are a new development baseline, not upstream's lock.
+constraint-dependencies = [
+  "datasets==5.0.1",
+  "filelock==3.24.2",
+  "fsspec==2026.6.0",
+  "hydra-core==1.3.7",
+  "idna==3.15",
+  "python-dotenv==1.2.2",
+  "requests==2.33.0",
+  "virtualenv==21.7.13",
+]

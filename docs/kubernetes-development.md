@@ -135,9 +135,11 @@ of complete vulnerability coverage or a qualified commercial baseline. Retain
 both failed and remediated image identities and scan records privately; repeat
 scanning and behavior checks when deliberately promoting a new image baseline.
 
-The library and CLI prepare resources and check supplied API inventory. There is
-no packaged end-to-end development runner, automatic public live CI job or
-infrastructure provisioner. Operators orchestrate these commands privately and
-retain allocation intents, policy state, inventories, captures and cleanup evidence.
+The [packaged development runner](development-runner.md) now provisions these
+resources, checks identities/pins, executes both controls and captures through
+cleanup, with private journals and explicit recovery. There is no automatic public
+live CI job, whole-cell provisioner or external watchdog for this profile.
+Ambiguous creates require operator reconciliation; see the runner's cleanup limits.
+Retain allocation intents, policy state, inventories, captures and cleanup evidence.
 Export only fixed profile names, counts and explicit development qualification.
 No synthetic receipt may bridge this profile into the authenticated live gate.

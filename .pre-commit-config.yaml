@@ -37,6 +37,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: gym-dependency-cve-audit
+        name: Separate Gym onboarding locked dependency CVE audit
+        entry: uv run --frozen --no-editable python scripts/audit_dependencies.py --gym
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: publication-privacy
         name: Publication privacy audit
         entry: uv run --frozen --no-editable python scripts/audit_publication.py

@@ -1,7 +1,8 @@
 # NeMo Gym onboarding and adoption plan
 
-Recorded: 2026-10-12. Status: planned; no Gym integration or agent pairing has
-been implemented or qualified by this project.
+Recorded: 2026-10-12. Updated: 2026-10-13. Status: onboarding in progress;
+offline native verifier calibration and the packaged development runner are
+implemented. No model-backed Gym integration or agent pairing is qualified.
 
 ## Decision and verified starting point
 
@@ -72,6 +73,13 @@ versioning and review. All project decisions remain `m0-prototype` and
 `release_eligible: false`.
 
 ## Onboarding milestones and exit criteria
+
+Current implementation: [Gym onboarding](gym-onboarding.md) pins the upstream
+commit/interpreter, remediates the dependency graph in a separate lock, and
+replays six synthetic cases through the actual native verifier. The
+[development runner](development-runner.md) packages paired Rust controls and
+registered-allocation recovery. Model/provider selection and the model-backed
+smoke, dataset rights and any image deployment remain open GYM-01 work.
 
 | ID | Deliverable | Exit criteria and dependencies |
 | --- | --- | --- |

@@ -13,6 +13,13 @@ SPEC.loader.exec_module(AUDIT)
 
 
 class CVEAuditTests(unittest.TestCase):
+    def test_gym_markers_use_selected_interpreter_not_auditor_interpreter(self):
+        export = "old==1.0 ; python_version < '3.13'\nnew==2.0 ; python_version >= '3.13'\n"
+        expected = AUDIT.locked_dependencies(
+            export, marker_environment={"python_version": "3.13", "python_full_version": "3.13.14"}
+        )
+        self.assertEqual(expected, {"new": Version("2.0")})
+
     def test_complete_clean_audit_passes(self):
         report = {"dependencies": [{"name": "example", "version": "1.2.3", "vulns": []}]}
         self.assertEqual(AUDIT.summarize(report, {"example": Version("1.2.3")})[0], 0)

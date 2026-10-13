@@ -1,4 +1,5 @@
 .venv/
+.private-gym-source/
 __pycache__/
 *.pyc
 .ruff_cache/

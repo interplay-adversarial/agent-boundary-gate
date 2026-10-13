@@ -1,5 +1,6 @@
 """Audit every applicable locked runtime/dev dependency; fail closed on audit gaps."""
 
+import argparse
 import json
 import re
 import subprocess
@@ -13,7 +14,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 
-def locked_dependencies(export: str) -> dict[str, Version]:
+def locked_dependencies(export: str, *, marker_environment=None) -> dict[str, Version]:
     """Resolve applicable exact pins; reject ambiguous or unpinned audit inputs."""
     expected: dict[str, Version] = {}
     for line in export.splitlines():
@@ -21,7 +22,7 @@ def locked_dependencies(export: str) -> dict[str, Version]:
         if not line or line.startswith("#"):
             continue
         requirement = Requirement(line)
-        if requirement.marker is not None and not requirement.marker.evaluate():
+        if requirement.marker is not None and not requirement.marker.evaluate(marker_environment):
             continue
         pins = list(requirement.specifier)
         if requirement.url or len(pins) != 1 or pins[0].operator != "==":
@@ -106,6 +107,12 @@ def summarize(report: object, expected: dict[str, Version]) -> tuple[int, dict[s
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--gym", action="store_true", help="audit the separate pinned Gym lock")
+    args = parser.parse_args()
+    project = Path(__file__).resolve().parents[1]
+    if args.gym:
+        project = project / "onboarding/gym"
     with tempfile.TemporaryDirectory(prefix="dependency-audit-") as temporary:
         requirements = Path(temporary) / "requirements.txt"
         report_path = Path(temporary) / "report.json"
@@ -120,15 +127,25 @@ def main() -> int:
                     "--no-hashes",
                     "--format",
                     "requirements-txt",
-                ],
+                ]
+                + (["--no-emit-package", "nemo-gym"] if args.gym else []),
                 capture_output=True,
                 text=True,
                 timeout=120,
+                cwd=project,
             )
             if export.returncode:
                 raise ValueError("locked export failed")
-            requirements.write_text(export.stdout)
-            expected = locked_dependencies(export.stdout)
+            # Gym's selected interpreter differs from the core's supported range.
+            # Filter marker branches for that interpreter before invoking an auditor
+            # running in the core environment; otherwise it could scan wrong pins.
+            environment = (
+                {"python_version": "3.13", "python_full_version": "3.13.14"} if args.gym else None
+            )
+            expected = locked_dependencies(export.stdout, marker_environment=environment)
+            requirements.write_text(
+                "\n".join(f"{name}=={version}" for name, version in sorted(expected.items())) + "\n"
+            )
             audit = subprocess.run(
                 [
                     sys.executable,

@@ -1,0 +1,329 @@
+"""Allocation faults, late effects and recovery of the development runner."""
+
+import copy
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from threading import Event
+
+from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
+from agent_boundary_gate.evidence import bytes_digest
+from agent_boundary_gate.probe_delivery import PROBE_PATH
+from agent_boundary_gate.process import AttemptStopped, ProcessResult
+
+IMAGE = "example/owned@sha256:" + "a" * 64
+
+
+class FakeRunner(DevelopmentRunner):
+    def __init__(self, config, output, **kwargs):
+        super().__init__(config, output, **kwargs)
+        self.calls = []
+        self.namespace = None
+        self.pods = []
+        self.receivers = {}
+        self.counts = {"allowed": 0, "forbidden": 0}
+        self.active = {}
+        self.fault = None
+        self.late = False
+
+    def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
+        self.calls.append((kind, args, data))
+        if cancelled.is_set():
+            raise AttemptStopped("cancelled")
+        if (
+            self.fault == "cleanup-failure"
+            and kind == "openshell"
+            and args[:2] == ["sandbox", "get"]
+            and self.state["allocations"][-1].get("complete")
+        ):
+            raise ValueError("synthetic-cleanup-failure")
+        if (
+            self.fault == "create-timeout"
+            and kind == "openshell"
+            and args[:2] == ["sandbox", "create"]
+        ):
+            raise AttemptStopped("timeout")
+        result = {}
+        if kind == "kubernetes":
+            if args[0] == "create":
+                if data["kind"] == "Namespace":
+                    self.namespace = {"metadata": {**data["metadata"], "uid": "namespace-uid"}}
+                    result = self.namespace
+                    self.counts = {"allowed": 0, "forbidden": 0}
+                else:
+                    for pod in data["items"]:
+                        if pod["kind"] == "Pod":
+                            pod = copy.deepcopy(pod)
+                            pod["metadata"]["uid"] = pod["metadata"]["name"] + "-uid"
+                            pod["status"] = {
+                                "phase": "Running",
+                                "containerStatuses": [
+                                    {
+                                        "name": "receiver",
+                                        "ready": True,
+                                        "restartCount": 0,
+                                        "imageID": IMAGE,
+                                    }
+                                ],
+                            }
+                            self.receivers[pod["metadata"]["name"]] = pod
+            elif args[:2] == ["get", "pods"]:
+                if "-l" in args:
+                    items = self.pods
+                    if "openshell.ai/sandbox-id=sandbox-1" in args:
+                        items = [
+                            p
+                            for p in items
+                            if p["metadata"]["labels"]["openshell.ai/boundary-role"] == "supervisor"
+                        ]
+                    result = {"items": items}
+                else:
+                    result = {"items": list(self.receivers.values())}
+            elif args[:2] == ["get", "pod"]:
+                result = self.receivers[args[2]]
+            elif args[:2] == ["get", "services"]:
+                result = {
+                    "items": [
+                        {"metadata": {"name": name}, "spec": {"clusterIP": ip}}
+                        for name, ip in (("allowed", "127.0.0.1"), ("forbidden", "127.0.0.2"))
+                    ]
+                }
+            elif args[0] == "exec":
+                name = args[args.index("--") - 1]
+                result = {
+                    "attempt": self.state["allocations"][-1]["run"],
+                    "count": self.counts[name],
+                    "dropped": 1 if self.fault == "capture-loss" and name == "forbidden" else 0,
+                }
+            elif args[:2] == ["get", "namespace"]:
+                result = self.namespace or {}
+            elif args[0] == "delete":
+                if self.namespace:
+                    if data["preconditions"]["uid"] != self.namespace["metadata"]["uid"]:
+                        raise ValueError("uid-precondition")
+                    self.namespace = None
+        else:
+            if args[:2] == ["sandbox", "create"]:
+                self.active = {
+                    "status": "effective",
+                    "version": 7,
+                    "active_version": 7,
+                    "hash": "policy-hash",
+                    "policy": json.loads(Path(args[args.index("--policy") + 1]).read_bytes()),
+                }
+                self.pods = []
+                for role in ("supervisor", "workload"):
+                    labels = {
+                        "openshell.ai/boundary-role": role,
+                        "openshell.ai/boundary-pair": "pair-1",
+                    }
+                    if role == "supervisor":
+                        labels["openshell.ai/sandbox-id"] = "sandbox-1"
+                    self.pods.append(
+                        {
+                            "metadata": {
+                                "name": role,
+                                "namespace": self.config.target_namespace,
+                                "uid": role + "-uid",
+                                "labels": labels,
+                            },
+                            "spec": {"containers": [{"name": role, "image": IMAGE}]},
+                            "status": {
+                                "phase": "Running",
+                                "containerStatuses": [
+                                    {
+                                        "name": role,
+                                        "ready": True,
+                                        "restartCount": 0,
+                                        "imageID": IMAGE,
+                                    }
+                                ],
+                            },
+                        }
+                    )
+            elif args[:2] == ["sandbox", "get"]:
+                result = {"id": "sandbox-1"}
+            elif args[:2] == ["policy", "get"]:
+                result = self.active
+            elif args[:2] == ["sandbox", "exec"]:
+                if PROBE_PATH == args[-1]:
+                    return ProcessResult(
+                        0, (self.config.probe_digest[7:] + "  " + PROBE_PATH).encode()
+                    )
+                name = "allowed" if args[-4] == "127.0.0.1" else "forbidden"
+                if name == "allowed" or "forbidden" in self.active["policy"]["network_policies"]:
+                    self.counts[name] += 1
+                if self.fault == "restart":
+                    self.receivers["allowed"]["status"]["containerStatuses"][0]["restartCount"] = 1
+                if self.fault == "cancel-after-probe":
+                    cancelled.set()
+                return ProcessResult(0, ("agent-boundary-gate-probe-complete:" + args[-2]).encode())
+            elif args[:2] == ["sandbox", "delete"]:
+                self.pods = []
+                if self.late:
+                    self.counts["forbidden"] += 1
+        return ProcessResult(0, json.dumps(result).encode())
+
+
+class DevelopmentRunTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        source = self.root / "binary"
+        source.write_bytes(b"synthetic-command")
+        self.config = DevelopmentRunConfig(
+            target_namespace="development-target",
+            receiver_image=IMAGE,
+            workload_image=IMAGE,
+            openshell_executable=source,
+            kubernetes_executable=source,
+            openshell_digest=bytes_digest(source.read_bytes()),
+            kubernetes_digest=bytes_digest(source.read_bytes()),
+            probe_digest="sha256:" + "b" * 64,
+            context="private-test",
+            gateway="private-test",
+        )
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def runner(self):
+        runner = FakeRunner(self.config, self.root / "campaign")
+        self.addCleanup(runner.close)
+        return runner
+
+    def test_pair_completes_with_private_journal_and_no_release_authority(self):
+        runner = self.runner()
+        result = runner.run(Event())
+        self.assertTrue(result["development_campaign_completed"])
+        self.assertEqual(
+            [(p["allowed_count"], p["forbidden_count"]) for p in result["profiles"]],
+            [(1, 0), (1, 1)],
+        )
+        self.assertFalse(result["release_eligible"])
+        self.assertIsNone(runner.namespace)
+        self.assertEqual(runner.pods, [])
+        self.assertEqual((runner.output / "journal.json").stat().st_mode & 0o777, 0o600)
+        deletes = [
+            a for k, a, _ in runner.calls if k == "openshell" and a[:2] == ["sandbox", "delete"]
+        ]
+        names = {a["sandbox_name"] for a in runner.state["allocations"]}
+        self.assertEqual({a[-1] for a in deletes}, names)
+
+    def test_late_forbidden_effect_survives_target_cleanup(self):
+        runner = self.runner()
+        runner.late = True
+        result = runner.run(Event())
+        self.assertFalse(result["development_campaign_completed"])
+        self.assertEqual(result["profiles"][0]["forbidden_count"], 1)
+        self.assertTrue(result["profiles"][0]["sampled_after_target_cleanup"])
+
+    def test_capture_loss_and_restart_withhold_success(self):
+        for fault in ("capture-loss", "restart"):
+            with self.subTest(fault=fault):
+                runner = FakeRunner(self.config, self.root / fault)
+                try:
+                    runner.fault = fault
+                    result = runner.run(Event())
+                    self.assertFalse(result["development_campaign_completed"])
+                    self.assertTrue(result["profiles"][0]["cleanup_complete"])
+                finally:
+                    runner.close()
+
+    def test_ambiguous_create_keeps_receivers_and_requires_reconciliation(self):
+        runner = self.runner()
+        runner.fault = "create-timeout"
+        result = runner.run(Event())
+        self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        self.assertIsNotNone(runner.namespace)
+        self.assertFalse(any(a[0] == "delete" for _, a, _ in runner.calls))
+        self.assertFalse(runner.recover()["development_cleanup_complete"])
+
+    def test_recovery_is_idempotent_and_config_changes_rejected(self):
+        runner = self.runner()
+        runner.run(Event())
+        runner.close()
+        recovered = FakeRunner(self.config, self.root / "campaign", recover=True)
+        try:
+            self.assertTrue(recovered.recover()["development_cleanup_complete"])
+            self.assertTrue(recovered.recover()["development_cleanup_complete"])
+            self.assertFalse(any(a[0] == "delete" for _, a, _ in recovered.calls))
+        finally:
+            recovered.close()
+        changed = self.config.model_copy(update={"gateway": "different"})
+        with self.assertRaises(ValueError):
+            FakeRunner(changed, self.root / "campaign", recover=True)
+
+    def test_cancelled_profile_runs_cleanup_in_independent_scope(self):
+        runner = self.runner()
+        cancelled = Event()
+        cancelled.set()
+        report = runner.profile(False, cancelled)
+        self.assertFalse(report["expected_behavior_observed"])
+        # No identity was returned by create; no unsafe deletion is attempted.
+        self.assertFalse(report["cleanup_complete"])
+
+    def test_wrong_binary_pin_and_parallel_recovery_are_rejected(self):
+        with self.assertRaises(ValueError):
+            DevelopmentRunner(
+                self.config.model_copy(update={"openshell_digest": "sha256:" + "f" * 64}),
+                self.root / "wrong",
+            )
+        runner = self.runner()
+        with self.assertRaises(BlockingIOError):
+            DevelopmentRunner(self.config, runner.output, recover=True)
+
+    def test_cancellation_after_execution_keeps_capture_and_cleans_registered_target(self):
+        runner = self.runner()
+        runner.fault = "cancel-after-probe"
+        result = runner.run(Event())
+        self.assertFalse(result["development_campaign_completed"])
+        self.assertTrue(result["profiles"][0]["cleanup_complete"])
+        self.assertEqual(result["profiles"][0]["allowed_count"], 1)
+        self.assertTrue(result["profiles"][0]["sampled_after_target_cleanup"])
+
+    def test_killed_writer_pending_file_does_not_block_recovery(self):
+        runner = self.runner()
+        runner.run(Event())
+        pending = runner.output / "journal.pending"
+        pending.write_text('{"incomplete":')
+        pending.chmod(0o600)
+        runner.close()
+        recovered = FakeRunner(self.config, runner.output, recover=True)
+        try:
+            self.assertFalse(pending.exists())
+            self.assertTrue(recovered.recover()["development_cleanup_complete"])
+        finally:
+            recovered.close()
+
+    def test_invalid_journal_is_rejected_before_running_commands(self):
+        runner = self.runner()
+        runner.close()
+        (runner.output / "journal.json").write_text("[]")
+        with self.assertRaises(ValueError):
+            DevelopmentRunner(self.config, runner.output, recover=True)
+
+    def test_recovery_does_not_upgrade_attempt_that_failed_cleanup(self):
+        runner = self.runner()
+        runner.fault = "cleanup-failure"
+        result = runner.run(Event())
+        self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        runner.fault = None
+        self.assertTrue(runner.recover()["development_cleanup_complete"])
+        allocation = runner.state["allocations"][0]
+        self.assertEqual(allocation["counts"], {"allowed": 1, "forbidden": 0})
+        self.assertFalse(runner.report(allocation)["expected_behavior_observed"])
+
+    def test_replacement_namespace_is_never_deleted(self):
+        runner = self.runner()
+        runner.namespace = {"metadata": {"uid": "replacement"}}
+        allocation = {
+            "run": "gate-dev-0123456789abcdef",
+            "profile": "healthy",
+            "namespace_uid": "original",
+            "receiver_uids": {},
+        }
+        runner.cleanup(allocation)
+        self.assertFalse(allocation["cleanup_complete"])
+        self.assertFalse(any(a[0] == "delete" for _, a, _ in runner.calls))
