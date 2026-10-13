@@ -196,6 +196,9 @@ class DevelopmentTests(unittest.TestCase):
 
     def test_target_pair_replacements_image_changes_and_generation_change_are_rejected(self):
         for modify in (
+            lambda p: p[0]["status"]["containerStatuses"][0].update(restartCount=1),
+            lambda p: p[0]["status"]["containerStatuses"][0].update(ready=False),
+            lambda p: p[0]["status"].update(phase="Failed"),
             lambda p: p[0]["metadata"].update(uid="new-supervisor"),
             lambda p: p[1]["metadata"].update(uid="new-workload"),
             lambda p: p[1]["metadata"]["labels"].update({"openshell.ai/boundary-pair": "pair-2"}),

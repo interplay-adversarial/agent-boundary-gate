@@ -268,8 +268,19 @@ def inspect_target_pair(
         "workload",
     }
     if matched:
+        for pod in roles.values():
+            status = pod.get("status", {})
+            states = status.get("containerStatuses", [])
+            matched = matched and (
+                status.get("phase") == "Running"
+                and len(states) == 1
+                and states[0].get("ready") is True
+                and type(states[0].get("restartCount")) is int
+                and states[0].get("restartCount") == 0
+            )
         matched = (
-            roles["supervisor"]["metadata"].get("uid") == supervisor_uid
+            matched
+            and roles["supervisor"]["metadata"].get("uid") == supervisor_uid
             and roles["workload"]["metadata"].get("uid") == workload_uid
             and roles["supervisor"]["metadata"]["labels"].get("openshell.ai/sandbox-id")
             == sandbox_id
