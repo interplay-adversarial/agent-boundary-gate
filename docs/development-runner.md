@@ -4,6 +4,10 @@
 Rust HTTP controls against an operator-selected existing gateway. It snapshots
 digest-checked CLI binaries, registers namespace/receiver/target Pod identities,
 checks policy and probe pins, and retains private evidence through cleanup.
+Execution requires a separately pinned identity-bound cleanup helper. Without
+that helper, the runner returns `identity-bound-cleanup-required` before allocating
+any resources. This repository does not yet ship a live helper for the tested
+OpenShell deployment; name-only CLI/SDK deletion is unsupported for automatic cleanup.
 This is a `development-only` workflow with `release_eligible: false`; it issues
 no gate receipts or release decisions. See [the development profile](kubernetes-development.md).
 
@@ -30,6 +34,8 @@ config = DevelopmentRunConfig(
     openshell_digest=approved_openshell_digest,
     kubernetes_executable=operator_kubernetes_cli_path.resolve(),
     kubernetes_digest=approved_kubernetes_cli_digest,
+    cleanup_executable=operator_identity_cleanup_path.resolve(),
+    cleanup_digest=approved_identity_cleanup_digest,
     context=operator_context,
     gateway=operator_gateway,
     probe_digest=approved_probe_digest,
@@ -50,6 +56,36 @@ namespace or gateway. Operator permissions must permit creating/deleting the
 fresh test namespace and optional grant, inspecting target Pods, and reading
 receiver snapshots through Kubernetes exec. No credentials or providers are
 attached by the sandbox create command.
+
+## Identity-bound cleanup helper contract
+
+The helper is an operator-owned executable snapshotted and digest-checked like
+the CLIs. It receives one bounded JSON request on stdin, with protocol
+`agent-boundary-gate/development-cleanup/1`, the configured context/gateway,
+run and target namespace, registered `sandbox_id`, `boundary_pair` and
+`target_uids` (`supervisor`/`workload`). The request contains no sandbox name.
+Credentials/configuration must remain in its private operator environment.
+
+Implement deletion by an immutable allocation ID, or enforce an atomic identity
+precondition at the mutation authority. It must be idempotent for the same
+allocation, reject replacements, and handle the complete target allocation,
+including control-plane state that could recreate its Pods. A get followed by
+name-based deletion, or deleting Pods while a controller can recreate them, does
+not implement this contract. No boolean configuration flag can waive it.
+
+On successful admission, stdout must exactly echo the request plus the booleans
+`identity_preconditioned: true` and `cleanup_requested: true`, with exit code `0`.
+Unsupported/precondition-failed/error outcomes must return a failure; malformed,
+extra or mismatched response fields leave cleanup incomplete and keep receivers.
+The runner still independently observes the registered Pod pair's absence and
+captures final effects before deleting receiver resources with UID preconditions.
+
+This response is a trusted helper's development contract, not a signed gate
+receipt or independent proof of whole-cell destruction. The operator must review
+the helper implementation and its mutation authority; a digest alone proves no
+atomic semantics. Tests in this repo use a synthetic ID-selecting helper and
+establish orchestration/conformance only. Live helper implementation and failure
+qualification are required before another automated development pair is admitted.
 
 ## Run and recover
 
@@ -103,16 +139,20 @@ a stronger allocation authority and remain qualification work.
 
 ## Cleanup limits and baseline ownership
 
-The tested OpenShell CLI accepts names for sandbox get/delete. The runner checks
-the registered sandbox ID and Pod-pair UIDs immediately before deleting its fresh
-random name, and rejects observed replacements. This is a check followed by a
-name-based request, not an atomic UID-preconditioned sandbox delete. Name-reuse
-prevention or a stronger independent authority is needed for qualification.
+The tested OpenShell CLI and checked public API accept names for sandbox deletion.
+[API source](https://github.com/NVIDIA/OpenShell/blob/v0.1.3/proto/openshell.proto).
+Their check-then-delete path has been removed from the runner. Automatic target
+cleanup must use the identity-bound helper; there is no name-based fallback.
+Without it, new campaigns stop before provisioning and existing uncleaned targets
+remain unresolved. The read-only inventory checks cannot supply the missing
+atomic mutation authority.
 
-The packaged live integration exercise completed healthy counts `1/0` and weakened
+The earlier packaged live integration exercise completed healthy counts `1/0` and weakened
 counts `1/1` (allowed/forbidden), with final capture and registered-resource cleanup
-for both profiles. An initial CLI cleanup incompatibility was recovered before
-the repeat. These are development observations, not a fault qualification packet.
+for both profiles. It used the now-removed name-based cleanup path; its observations
+are retained as historical development evidence. An initial CLI cleanup incompatibility
+was recovered before the repeat. No live identity-bound helper has been exercised,
+and these observations are not a fault qualification packet.
 
 The shared gateway and cluster survive each profile. Unsigned memory-backed
 receivers, Kubernetes exec sampling and Pod absence do not establish whole-cell

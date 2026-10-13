@@ -16,7 +16,7 @@ from threading import Event
 from typing import Annotated
 from urllib.parse import urlsplit
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from agent_boundary_gate.development import (
     RUN_LABEL,
@@ -45,6 +45,8 @@ class DevelopmentRunConfig(ReceiptContract):
     openshell_digest: Digest
     kubernetes_executable: Path
     kubernetes_digest: Digest
+    cleanup_executable: Path | None = None
+    cleanup_digest: Digest | None = None
     context: Annotated[str, Field(min_length=1, max_length=200)]
     gateway: Annotated[str, Field(min_length=1, max_length=200)]
     probe_digest: Digest
@@ -54,6 +56,12 @@ class DevelopmentRunConfig(ReceiptContract):
     command_seconds: Annotated[int, Field(ge=5, le=120)] = 30
     profile_seconds: Annotated[int, Field(ge=30, le=600)] = 300
     cleanup_seconds: Annotated[int, Field(ge=30, le=300)] = 120
+
+    @model_validator(mode="after")
+    def cleanup_pin_pair(self):
+        if (self.cleanup_executable is None) != (self.cleanup_digest is None):
+            raise ValueError("development-cleanup-pin-pair-required")
+        return self
 
 
 def _write(path: Path, value: dict) -> None:
@@ -147,7 +155,10 @@ class DevelopmentRunner:
             for name, source, expected in (
                 ("openshell", config.openshell_executable, config.openshell_digest),
                 ("kubernetes", config.kubernetes_executable, config.kubernetes_digest),
+                ("cleanup", config.cleanup_executable, config.cleanup_digest),
             ):
+                if source is None:
+                    continue
                 raw = read_regular_input(source, limit=256 * 1024 * 1024)
                 if bytes_digest(raw) != expected:
                     raise ValueError("development-executable-digest-mismatch")
@@ -203,11 +214,10 @@ class DevelopmentRunner:
 
     def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
         argv = [self.binaries[kind]]
-        argv += (
-            ["--context", self.config.context]
-            if kind == "kubernetes"
-            else ["--gateway", self.config.gateway]
-        )
+        if kind == "kubernetes":
+            argv += ["--context", self.config.context]
+        elif kind == "openshell":
+            argv += ["--gateway", self.config.gateway]
         env = dict(os.environ)
         if self.config.xdg_config_home:
             env["XDG_CONFIG_HOME"] = str(self.config.xdg_config_home)
@@ -312,6 +322,8 @@ class DevelopmentRunner:
         return counts
 
     def profile(self, weakened: bool, cancelled: Event):
+        if "cleanup" not in self.binaries:
+            raise ValueError("identity-bound-cleanup-required")
         run, sandbox = "gate-dev-" + secrets.token_hex(8), "gate-" + secrets.token_hex(7)
         allocation = {
             "run": run,
@@ -578,19 +590,33 @@ class DevelopmentRunner:
                     p["metadata"]["uid"] not in allocation["target_uids"].values() for p in pods
                 ):
                     raise ValueError("development-cleanup-replacement")
-                if pods or not allocation.get("target_delete_requested"):
-                    current = self.query(
-                        "openshell",
-                        ["sandbox", "get", allocation["sandbox_name"], "-o", "json"],
-                        **bounds,
-                    )
-                    if current.get("id") != allocation["sandbox_id"]:
-                        raise ValueError("development-cleanup-identity-mismatch")
-                    allocation["target_delete_requested"] = True
-                    self.save()
-                    self.command(
-                        "openshell", ["sandbox", "delete", allocation["sandbox_name"]], **bounds
-                    )
+                if "cleanup" not in self.binaries:
+                    raise ValueError("identity-bound-cleanup-required")
+                # No sandbox name is sent. The trusted, separately pinned helper
+                # must enforce immutable-ID or atomic identity-conditional deletion;
+                # a CLI/SDK name-only delete is not an implementation of this contract.
+                request = {
+                    "protocol": "agent-boundary-gate/development-cleanup/1",
+                    "context": self.config.context,
+                    "gateway": self.config.gateway,
+                    "run": allocation["run"],
+                    "target_namespace": self.config.target_namespace,
+                    "sandbox_id": allocation["sandbox_id"],
+                    "boundary_pair": pair,
+                    "target_uids": allocation["target_uids"],
+                }
+                allocation["target_delete_requested"] = True
+                self.save()
+                response = self.query("cleanup", [], data=request, **bounds)
+                if (
+                    response
+                    != {**request, "identity_preconditioned": True, "cleanup_requested": True}
+                    or response.get("identity_preconditioned") is not True
+                    or response.get("cleanup_requested") is not True
+                ):
+                    raise ValueError("development-cleanup-response-mismatch")
+                allocation["cleanup_helper_confirmed"] = True
+                self.save()
                 while True:
                     pods = self.query(
                         "kubernetes",
@@ -728,6 +754,13 @@ class DevelopmentRunner:
         }
 
     def run(self, cancelled: Event):
+        if "cleanup" not in self.binaries:
+            return {
+                "profiles": [],
+                "development_campaign_completed": False,
+                "error": "identity-bound-cleanup-required",
+                "release_eligible": False,
+            }
         profiles = []
         for weakened in (False, True):
             if cancelled.is_set():

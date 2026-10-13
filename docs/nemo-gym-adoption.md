@@ -78,7 +78,9 @@ Current implementation: [Gym onboarding](gym-onboarding.md) pins the upstream
 commit/interpreter, remediates the dependency graph in a separate lock, and
 replays six synthetic cases through the actual native verifier. The
 [development runner](development-runner.md) packages paired Rust controls and
-registered-allocation recovery. Model/provider selection and the model-backed
+registered-allocation recovery. It requires an external identity-bound cleanup
+helper; name-based target deletion has been removed and live helper support is
+pending. Model/provider selection and the model-backed
 smoke, dataset rights and any image deployment remain open GYM-01 work.
 
 | ID | Deliverable | Exit criteria and dependencies |

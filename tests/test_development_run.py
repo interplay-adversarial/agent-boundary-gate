@@ -35,12 +35,7 @@ class FakeRunner(DevelopmentRunner):
         self.calls.append((kind, args, data))
         if cancelled.is_set():
             raise AttemptStopped("cancelled")
-        if (
-            self.fault == "cleanup-failure"
-            and kind == "openshell"
-            and args[:2] == ["sandbox", "get"]
-            and self.state["allocations"][-1].get("complete")
-        ):
+        if self.fault == "cleanup-failure" and kind == "cleanup":
             raise ValueError("synthetic-cleanup-failure")
         if (
             self.fault == "create-timeout"
@@ -49,7 +44,26 @@ class FakeRunner(DevelopmentRunner):
         ):
             raise AttemptStopped("timeout")
         result = {}
-        if kind == "kubernetes":
+        if kind == "cleanup":
+            if self.fault == "cleanup-response-mismatch":
+                return ProcessResult(
+                    0,
+                    json.dumps(
+                        {
+                            **data,
+                            "sandbox_id": "replacement",
+                            "identity_preconditioned": True,
+                            "cleanup_requested": True,
+                        }
+                    ).encode(),
+                )
+            self.pods = [
+                p for p in self.pods if p["metadata"]["uid"] not in data["target_uids"].values()
+            ]
+            if self.late:
+                self.counts["forbidden"] += 1
+            result = {**data, "identity_preconditioned": True, "cleanup_requested": True}
+        elif kind == "kubernetes":
             if args[0] == "create":
                 if data["kind"] == "Namespace":
                     self.namespace = {"metadata": {**data["metadata"], "uid": "namespace-uid"}}
@@ -75,12 +89,9 @@ class FakeRunner(DevelopmentRunner):
             elif args[:2] == ["get", "pods"]:
                 if "-l" in args:
                     items = self.pods
-                    if "openshell.ai/sandbox-id=sandbox-1" in args:
-                        items = [
-                            p
-                            for p in items
-                            if p["metadata"]["labels"]["openshell.ai/boundary-role"] == "supervisor"
-                        ]
+                    selector = args[args.index("-l") + 1]
+                    key, value = selector.split("=", 1)
+                    items = [p for p in items if p["metadata"]["labels"].get(key) == value]
                     result = {"items": items}
                 else:
                     result = {"items": list(self.receivers.values())}
@@ -164,9 +175,7 @@ class FakeRunner(DevelopmentRunner):
                     cancelled.set()
                 return ProcessResult(0, ("agent-boundary-gate-probe-complete:" + args[-2]).encode())
             elif args[:2] == ["sandbox", "delete"]:
-                self.pods = []
-                if self.late:
-                    self.counts["forbidden"] += 1
+                raise AssertionError("name-based-delete-must-never-be-used")
         return ProcessResult(0, json.dumps(result).encode())
 
 
@@ -188,6 +197,8 @@ class DevelopmentRunTests(unittest.TestCase):
             kubernetes_executable=source,
             openshell_digest=bytes_digest(source.read_bytes()),
             kubernetes_digest=bytes_digest(source.read_bytes()),
+            cleanup_executable=source,
+            cleanup_digest=bytes_digest(source.read_bytes()),
             probe_digest="sha256:" + "b" * 64,
             context="private-test",
             gateway="private-test",
@@ -216,8 +227,65 @@ class DevelopmentRunTests(unittest.TestCase):
         deletes = [
             a for k, a, _ in runner.calls if k == "openshell" and a[:2] == ["sandbox", "delete"]
         ]
-        names = {a["sandbox_name"] for a in runner.state["allocations"]}
-        self.assertEqual({a[-1] for a in deletes}, names)
+        self.assertEqual(deletes, [])
+        cleanup = [data for kind, _, data in runner.calls if kind == "cleanup"]
+        self.assertEqual(len(cleanup), 2)
+        self.assertTrue(
+            all(c["sandbox_id"] == "sandbox-1" and "sandbox_name" not in c for c in cleanup)
+        )
+
+    def test_missing_identity_bound_cleanup_stops_before_any_allocation(self):
+        config = self.config.model_copy(update={"cleanup_executable": None, "cleanup_digest": None})
+        with FakeRunner(config, self.root / "no-cleanup") as runner:
+            result = runner.run(Event())
+            self.assertFalse(result["development_campaign_completed"])
+            self.assertEqual(result["error"], "identity-bound-cleanup-required")
+            self.assertEqual(runner.calls, [])
+            self.assertEqual(runner.state["allocations"], [])
+            with self.assertRaisesRegex(ValueError, "identity-bound-cleanup-required"):
+                runner.profile(False, Event())
+
+    def test_cleanup_helper_requires_paired_and_matching_digest_pin(self):
+        with self.assertRaises(ValueError):
+            DevelopmentRunConfig.model_validate(
+                {**self.config.model_dump(), "cleanup_digest": None}
+            )
+        with self.assertRaisesRegex(ValueError, "development-executable-digest-mismatch"):
+            DevelopmentRunner(
+                self.config.model_copy(update={"cleanup_digest": "sha256:" + "f" * 64}),
+                self.root / "wrong-cleanup-pin",
+            )
+
+    def test_mismatched_cleanup_response_keeps_receivers_and_withholds_success(self):
+        runner = self.runner()
+        runner.fault = "cleanup-response-mismatch"
+        result = runner.run(Event())
+        self.assertFalse(result["development_campaign_completed"])
+        self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        self.assertIsNotNone(runner.namespace)
+
+    def test_same_name_replacement_is_not_selected_for_cleanup(self):
+        runner = self.runner()
+        command = runner.command
+        replacement = {
+            "metadata": {
+                "uid": "replacement-uid",
+                "labels": {"openshell.ai/boundary-pair": "different-pair"},
+            }
+        }
+
+        def reuse_name(kind, args, **kwargs):
+            if kind == "cleanup":
+                # A different target now owns the old name. Deletion still selects
+                # only the original registered ID/UIDs; the name is not a selector.
+                runner.pods.append(replacement)
+            return command(kind, args, **kwargs)
+
+        with patch.object(runner, "command", reuse_name):
+            report = runner.profile(False, Event())
+        self.assertTrue(report["cleanup_complete"])
+        self.assertEqual(runner.pods, [replacement])
+        self.assertFalse(any(a[:2] == ["sandbox", "delete"] for _, a, _ in runner.calls))
 
     def test_late_forbidden_effect_survives_target_cleanup(self):
         runner = self.runner()

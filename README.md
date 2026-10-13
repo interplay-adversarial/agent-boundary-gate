@@ -36,7 +36,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
   paired receivers, controlled policy pairs and independent API inventory checks.
   These development observations issue no gate receipts or release claims.
 - A [packaged development runner](docs/development-runner.md) with private
-  allocation journals, paired Rust controls, final capture and recovery.
+  allocation journals, paired Rust controls, final capture and recovery;
+  execution requires a separately implemented identity-bound cleanup helper.
 - [Separate pinned NeMo Gym onboarding](docs/gym-onboarding.md) with offline
   native verifier replay and an independently audited dependency lock.
 

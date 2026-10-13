@@ -25,7 +25,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned via GYM-03; Hermes first, compatibility-dependent; broader pairing expansion follows pilot |
-| DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Implemented with private journals, bounded cancellation, registered-allocation recovery and final capture; ambiguous creates require operator reconciliation and whole-cell recovery remains pending. [Guide](development-runner.md) |
+| DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Orchestration, bounded cancellation, private journals and helper conformance implemented; safe live cleanup helper still required. New campaigns stop before allocation without it. Earlier live pair used a removed name-based path; ambiguous creates and whole-cell recovery remain pending. [Guide](development-runner.md) |
 | GYM-01 | P2, onboarding in progress | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Pinned source/interpreter, separate remediated lock, six native offline replay cases and lock CVE audit implemented; model-backed rollout/provider manifest, task rights and any image scan remain pending. [Guide](gym-onboarding.md) |
 | GYM-02 | P2, next bridge | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Planned; depends on GYM-01 |
 | GYM-03 | P2, early agent pilot | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Planned; depends on GYM-02/DEV-02; PORT-01 delivered through this pilot |
@@ -48,7 +48,8 @@ gate receipts; shared-gateway outer closure, full image/toolchain CVE coverage, 
 whole-cell recovery and live fault qualification remain pending. See the
 [development usage guide](kubernetes-development.md).
 
-DEV-02 now has a supported private runner and recovery command. GYM-01 has
+DEV-02 now has a private runner and recovery command, requiring a separately
+implemented identity-bound cleanup helper before live execution. GYM-01 has
 native offline verifier calibration and its own remediated dependency lock.
 Finish the model-backed onboarding manifest/rollout and task-rights review next,
 then implement the optional evidence bridge. No step changes the frozen Rust
@@ -58,8 +59,8 @@ The host-side receipt, paired-capture, watchdog and `live-run` services from PR 
 remain available. They do not supply a hypervisor provisioner or independent cell
 inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
 
-1. Review the packaged runner and its registered-allocation recovery limits
-   (DEV-02). Complete GYM-01 with one selected model/provider configuration,
+1. Implement and exercise identity-bound target cleanup for the packaged runner,
+   retaining its registered-allocation recovery limits (DEV-02). Complete GYM-01 with one selected model/provider configuration,
    private smoke traces and task-rights review; retain offline calibration and
    the separate dependency baseline.
 2. Implement the optional result/evidence bridge (GYM-02), then one real-agent

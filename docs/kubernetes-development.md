@@ -140,6 +140,9 @@ resources, checks identities/pins, executes both controls and captures through
 cleanup, with private journals and explicit recovery. There is no automatic public
 live CI job, whole-cell provisioner or external watchdog for this profile.
 Ambiguous creates require operator reconciliation; see the runner's cleanup limits.
+Automatic execution now requires a pinned identity-bound cleanup helper, which
+is not implemented for the tested deployment. The earlier name-based cleanup
+exercise above is historical; it does not qualify the helper contract.
 Retain allocation intents, policy state, inventories, captures and cleanup evidence.
 Export only fixed profile names, counts and explicit development qualification.
 No synthetic receipt may bridge this profile into the authenticated live gate.
