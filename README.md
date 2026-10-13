@@ -161,6 +161,9 @@ explicit monitor admission, lease recovery and deployment limits.
 
 See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for acceptance
 criteria, implementation status and qualification blockers.
+The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
+prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
+reports. Integration is planned; no Gym agent pairing is currently qualified.
 
 ## License
 
