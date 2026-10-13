@@ -261,11 +261,38 @@ class DevelopmentCellTests(unittest.TestCase):
         runner.cell_fault = "delete-timeout"
         self.assertFalse(runner.run(Event())["development_campaign_completed"])
         self.assertIsNotNone(runner.namespace)
+        allocation = runner.state["allocations"][0]
+        self.assertNotIn("target_absent", allocation)
+        self.assertFalse(allocation.get("final_capture", False))
+        self.assertFalse(runner.report(allocation)["sampled_after_target_cleanup"])
         runner.cell_fault = None
         self.assertTrue(runner.recover()["development_cleanup_complete"])
         self.assertFalse(
             runner.report(runner.state["allocations"][0])["expected_behavior_observed"]
         )
+
+    def test_report_requires_mode_specific_absence_with_final_capture(self):
+        for cell_mode in (False, True):
+            with self.subTest(cell_mode=cell_mode):
+                allocation = {
+                    "profile": "healthy",
+                    "complete": True,
+                    "cleanup_complete": True,
+                    "final_capture": True,
+                    "counts": {"allowed": 1, "forbidden": 0},
+                }
+                if cell_mode:
+                    allocation["cell_name"] = "gate-cell-" + "a" * 24
+                absence = "cell_absent" if cell_mode else "target_absent"
+                other = "target_absent" if cell_mode else "cell_absent"
+                allocation[other] = True
+                report = DevelopmentRunner.report(allocation)
+                self.assertFalse(report["sampled_after_target_cleanup"])
+                self.assertFalse(report["expected_behavior_observed"])
+                allocation[absence] = True
+                report = DevelopmentRunner.report(allocation)
+                self.assertTrue(report["sampled_after_target_cleanup"])
+                self.assertTrue(report["expected_behavior_observed"])
 
     def test_cleanup_has_fresh_scope_after_attempt_cancelled(self):
         runner = self.runner()

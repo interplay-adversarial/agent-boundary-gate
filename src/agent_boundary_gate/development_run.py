@@ -844,8 +844,6 @@ class DevelopmentRunner:
                     ):
                         raise ValueError("development-cleanup-replacement")
                     bounds["cancelled"].wait(0.2)
-            if not cell_mode and not allocation.get("sandbox_id"):
-                allocation["target_absent"] = True
             if allocation.get("namespace_uid") and not allocation.get("namespace_absent"):
                 # Preserve late effects, and counts already observed, even if this
                 # final snapshot is lost. Loss prevents a successful result.
@@ -936,12 +934,18 @@ class DevelopmentRunner:
     @staticmethod
     def report(allocation):
         counts = allocation.get("counts", {})
+        # Receiver capture and target retirement are separate observations.
+        # Require the applicable absence observation even for recovered journals.
+        absence = "cell_absent" if allocation.get("cell_name") is not None else "target_absent"
+        sampled_after_cleanup = (
+            allocation.get(absence) is True and allocation.get("final_capture") is True
+        )
         observed = (
             allocation.get("complete") is True
             and not allocation.get("failed")
             and allocation.get("cleanup_complete") is True
             and not allocation.get("cleanup_failed")
-            and allocation.get("final_capture") is True
+            and sampled_after_cleanup
             and not allocation.get("capture_lost")
             and counts.get("allowed") == 1
             and counts.get("forbidden") == int(allocation["profile"] == "weakened")
@@ -952,7 +956,7 @@ class DevelopmentRunner:
             "forbidden_count": counts.get("forbidden"),
             "expected_behavior_observed": bool(observed),
             "cleanup_complete": allocation.get("cleanup_complete", False),
-            "sampled_after_target_cleanup": allocation.get("final_capture", False),
+            "sampled_after_target_cleanup": sampled_after_cleanup,
             "qualification": "development-only",
             "release_eligible": False,
         }
