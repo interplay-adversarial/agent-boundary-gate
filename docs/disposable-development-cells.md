@@ -51,6 +51,9 @@ all non-secret chart/manifest/configuration inputs and runtime images, use ephem
 in-cell state and attach no providers or business credentials. An executable pin
 alone does not attest other files it reads. Preserve Rust artifact/image pins when
 changing OpenShell; deployment CVE/provenance checks are separate from package audits.
+Per-cell PVCs require a reviewed storage reclaim policy and independent backing-PV
+cleanup checks. The runner's `cleanup_complete` covers registered namespaces and
+receivers; it does not attest storage-backend data erasure or ancillary-resource cleanup.
 
 External databases, shared controllers, host mounts and target-created namespaces
 are outside this cleanup authority. Necessary cluster-scoped RBAC must be uniquely
@@ -97,6 +100,10 @@ sampling and receiver cleanup. A separate live API check rejected a stale UID
 after namespace name reuse and preserved the replacement. Early bootstrap and
 sandbox readiness failures were retained as failed attempts and their registered
 cells were retired; they were not promoted to passing results.
+Independent post-cleanup inventory found no remaining cell-owned RBAC, backing
+PVs referencing the retired cells or owned forwarding processes. The shared
+gateway's UID/generation remained unchanged. Forwarding lifecycle and storage
+reclamation checks are operator validation, not additional core cleanup receipts.
 
 The bootstrap and deployment inventory are private operator inputs, not a portable
 product deployment or authenticated qualification packet. The independent Rust
