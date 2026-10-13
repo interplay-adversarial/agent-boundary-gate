@@ -226,20 +226,37 @@ class ReceiverService:
     def _stop(self):
         for receiver, server in self.servers.items():
             thread = self.server_threads.get(receiver)
-            if thread is not None and thread.is_alive():
-                server.shutdown()
-                # Process already queued connections before closing the listener.
-                # Capacity loss is recorded instead of silently treated as denial.
-                for _ in range(16):
-                    if not select.select([server.socket], [], [], 0)[0]:
-                        break
-                    request, address = server.get_request()
-                    server.process_request(request, address)
-                if select.select([server.socket], [], [], 0)[0]:
-                    self.mark_loss()
-            server.server_close()
+            try:
+                try:
+                    if thread is not None and thread.is_alive():
+                        server.shutdown()
+                        self._drain_pending(server)
+                finally:
+                    # Even a failed accept/dispatch must close the listener and
+                    # join admitted handlers before a final snapshot is signed.
+                    server.server_close()
+            except (OSError, RuntimeError):
+                self.mark_loss()
         for thread in self.threads:
             thread.join(timeout=2)
+
+    def _drain_pending(self, server):
+        # serve_forever has stopped. A readiness notification can be stale, so
+        # accept itself must be nonblocking; accepted sockets retain the header
+        # timeout installed by ReceiverServer.get_request.
+        server.socket.setblocking(False)
+        for _ in range(16):
+            try:
+                request, address = server.get_request()
+            except BlockingIOError:
+                break
+            try:
+                server.process_request(request, address)
+            except BaseException:
+                server.shutdown_request(request)
+                raise
+        if select.select([server.socket], [], [], 0)[0]:
+            self.mark_loss()
 
     def handle(self, raw: bytes, deadline: float, cancelled: threading.Event) -> bytes:
         request = CaptureRequest.model_validate_json(raw)

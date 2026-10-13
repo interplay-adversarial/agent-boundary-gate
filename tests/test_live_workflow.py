@@ -838,6 +838,69 @@ else:
             self.assertEqual(sampled.snapshot.forbidden_count, signed.snapshot.forbidden_count)
             self.assertEqual(sampled.snapshot.dropped_events, signed.snapshot.dropped_events)
 
+    def assert_drain_accept_failure(self, error_type, *, complete):
+        receiver, observer, _ = self.receiver()
+        server = receiver.servers["allowed"]
+        accepts = []
+
+        def accept():
+            accepts.append(server.socket.gettimeout())
+            self.assertEqual(server.socket.gettimeout(), 0)
+            raise error_type()
+
+        with running(UnixService(self.root / "receiver.sock", receiver.handle)):
+            observer.start()
+            self.send(observer, "forbidden")
+            with patch.object(server, "get_request", accept):
+                observation = observer.observe(execution_valid=True)
+        self.assertEqual(accepts, [0])
+        self.assertEqual(observation.outcome, "violation")
+        self.assertEqual(observation.complete, complete)
+        self.assertTrue(receiver.drained)
+        self.assertEqual(receiver.dropped, 0 if complete else 1)
+        self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
+        self.assertTrue(all(not thread.is_alive() for thread in receiver.threads))
+
+    def test_drain_empty_accept_is_nonblocking_and_preserves_evidence(self):
+        self.assert_drain_accept_failure(BlockingIOError, complete=True)
+
+    def test_drain_accept_error_closes_both_receivers_and_records_loss(self):
+        self.assert_drain_accept_failure(OSError, complete=False)
+
+    def test_drain_dispatch_failure_closes_accepted_connection_and_records_loss(self):
+        receiver, observer, _ = self.receiver()
+        server = receiver.servers["allowed"]
+        original_shutdown = server.shutdown
+        connections, accepted = [], []
+
+        def shutdown():
+            original_shutdown()
+            # Queue a real connection after the accept loop stops so only the
+            # bounded backlog drain can admit it.
+            connection = socket.create_connection(server.server_address, timeout=1)
+            self.addCleanup(connection.close)
+            connections.append(connection)
+
+        def dispatch(request, address):
+            accepted.append(request)
+            raise RuntimeError("synthetic-thread-start-failure")
+
+        with running(UnixService(self.root / "receiver.sock", receiver.handle)):
+            observer.start()
+            self.send(observer, "forbidden")
+            with (
+                patch.object(server, "shutdown", shutdown),
+                patch.object(server, "process_request", dispatch),
+            ):
+                observation = observer.observe(execution_valid=True)
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(accepted[0].fileno(), -1)
+        self.assertEqual(connections[0].recv(1), b"")
+        self.assertEqual(observation.outcome, "violation")
+        self.assertFalse(observation.complete)
+        self.assertEqual(receiver.dropped, 1)
+        self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
+
     def test_admin_lifecycle_lock_wait_obeys_deadline_and_cancellation(self):
         from agent_boundary_gate.rig_receivers import CaptureRequest
 
