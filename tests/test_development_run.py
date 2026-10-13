@@ -419,7 +419,23 @@ class DevelopmentRunTests(unittest.TestCase):
     def test_cancellation_after_execution_keeps_capture_and_cleans_registered_target(self):
         runner = self.runner()
         runner.fault = "cancel-after-probe"
-        result = runner.run(Event())
+        attempt_cancelled = Event()
+        cleanup_events = []
+        command = runner.command
+
+        def inspect_cleanup_event(kind, args, **kwargs):
+            if kind == "cleanup" or args[:1] == ["delete"]:
+                cleanup_events.append(kwargs["cancelled"])
+                self.assertTrue(attempt_cancelled.is_set())
+                self.assertIsNot(kwargs["cancelled"], attempt_cancelled)
+                self.assertFalse(kwargs["cancelled"].is_set())
+            return command(kind, args, **kwargs)
+
+        with patch.object(runner, "command", inspect_cleanup_event):
+            result = runner.run(attempt_cancelled)
+        self.assertTrue(attempt_cancelled.is_set())
+        self.assertGreaterEqual(len(cleanup_events), 2)  # helper and Kubernetes deletion
+        self.assertTrue(all(event is cleanup_events[0] for event in cleanup_events))
         self.assertFalse(result["development_campaign_completed"])
         self.assertTrue(result["profiles"][0]["cleanup_complete"])
         self.assertEqual(result["profiles"][0]["allowed_count"], 1)
