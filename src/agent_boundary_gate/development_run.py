@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 import time
+import weakref
 from pathlib import Path
 from threading import Event
 from typing import Annotated
@@ -82,15 +83,21 @@ class DevelopmentRunner:
     """
 
     def __init__(self, config: DevelopmentRunConfig, output: Path, *, recover=False):
+        self.lock = None
+        self._lock_finalizer = None
         self.config = config
         if not recover:
             output.mkdir(mode=0o700, exist_ok=False)
         self.store = EvidenceStore(output, create=False)
         self.output = self.store.root
-        self.lock = os.open(
-            self.output / "runner.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
-        )
         try:
+            self.lock = os.open(
+                self.output / "runner.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
+            )
+            # The callback holds only the fd, never this runner. Explicit close
+            # consumes the finalizer; abandoning a library instance releases its
+            # lock without performing any cluster cleanup from garbage collection.
+            self._lock_finalizer = weakref.finalize(self, os.close, self.lock)
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             # A killed writer can leave a fsynced but uncommitted temporary. The
             # committed journal remains authoritative; never infer allocations
@@ -157,14 +164,39 @@ class DevelopmentRunner:
                 ):
                     raise ValueError("development-snapshot-digest-mismatch")
                 self.binaries[name] = str(destination)
-        except BaseException:
-            self.close()
+        except BaseException as error:
+            self._close_after_error(error)
             raise
 
+    def __enter__(self):
+        if self.lock is None:
+            raise ValueError("development-runner-closed")
+        return self
+
+    def __exit__(self, error_type, error, traceback):
+        if error is None:
+            self.close()
+        else:
+            self._close_after_error(error)
+        return False
+
+    def _close_after_error(self, error):
+        try:
+            self.close()
+        except OSError:
+            # Retain the original initialization/body error and add only a fixed
+            # diagnostic; close() itself still reports failures on normal exit.
+            error.add_note("development-runner-lock-close-failed")
+
     def close(self):
-        if self.lock is not None:
-            os.close(self.lock)
-            self.lock = None
+        fd, self.lock = self.lock, None
+        finalizer, self._lock_finalizer = self._lock_finalizer, None
+        # Clear ownership before closing. Never retry a failed close on an fd
+        # number that the OS might already have released and reused.
+        if finalizer is not None:
+            finalizer()
+        elif fd is not None:
+            os.close(fd)
 
     def save(self):
         _write(self.output / "journal.json", self.state)

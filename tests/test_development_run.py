@@ -1,11 +1,15 @@
 """Allocation faults, late effects and recovery of the development runner."""
 
 import copy
+import gc
 import json
+import os
 import tempfile
 import unittest
+import weakref
 from pathlib import Path
 from threading import Event
+from unittest.mock import Mock, patch
 
 from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
 from agent_boundary_gate.evidence import bytes_digest
@@ -167,6 +171,10 @@ class FakeRunner(DevelopmentRunner):
 
 
 class DevelopmentRunTests(unittest.TestCase):
+    def assert_closed(self, fd):
+        with self.assertRaises(OSError):
+            os.fstat(fd)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -273,6 +281,72 @@ class DevelopmentRunTests(unittest.TestCase):
         runner = self.runner()
         with self.assertRaises(BlockingIOError):
             DevelopmentRunner(self.config, runner.output, recover=True)
+
+    def test_context_releases_lock_on_success_and_exception(self):
+        output = self.root / "managed"
+        with DevelopmentRunner(self.config, output) as runner:
+            fd = runner.lock
+        self.assert_closed(fd)
+        with self.assertRaisesRegex(RuntimeError, "synthetic-body-failure"):
+            with DevelopmentRunner(self.config, output, recover=True) as runner:
+                fd = runner.lock
+                raise RuntimeError("synthetic-body-failure")
+        self.assert_closed(fd)
+        with DevelopmentRunner(self.config, output, recover=True):
+            pass
+
+    def test_abandoned_runner_releases_lock_without_cluster_commands(self):
+        output = self.root / "abandoned"
+        runner = DevelopmentRunner(self.config, output)
+        fd, reference = runner.lock, weakref.ref(runner)
+        del runner
+        gc.collect()
+        self.assertIsNone(reference())
+        self.assert_closed(fd)
+        with DevelopmentRunner(self.config, output, recover=True):
+            pass
+
+    def test_failed_initialization_releases_acquired_lock(self):
+        acquired = []
+
+        def fail_after_lock(instance):
+            acquired.append(instance.lock)
+            raise ValueError("synthetic-initialization-failure")
+
+        with patch.object(DevelopmentRunner, "save", fail_after_lock):
+            with self.assertRaisesRegex(ValueError, "synthetic-initialization-failure"):
+                DevelopmentRunner(self.config, self.root / "failed-init")
+        self.assert_closed(acquired[0])
+
+    def test_close_is_idempotent_and_does_not_close_reused_descriptor(self):
+        runner = DevelopmentRunner(self.config, self.root / "closed")
+        fd = runner.lock
+        runner.close()
+        self.assert_closed(fd)
+        with (self.root / "binary").open("rb") as replacement:
+            runner.close()
+            os.fstat(replacement.fileno())
+        with self.assertRaisesRegex(ValueError, "development-runner-closed"):
+            with runner:
+                pass
+
+    def test_close_failure_does_not_mask_body_error_or_retry_descriptor(self):
+        runner = DevelopmentRunner(self.config, self.root / "close-failure")
+        fd = runner.lock
+        runner._lock_finalizer.detach()
+        failing_close = Mock(side_effect=OSError)
+        try:
+            with patch.object(runner, "_lock_finalizer", failing_close):
+                with self.assertRaisesRegex(RuntimeError, "synthetic-body-failure") as raised:
+                    with runner:
+                        raise RuntimeError("synthetic-body-failure")
+            self.assertEqual(raised.exception.__notes__, ["development-runner-lock-close-failed"])
+            runner.close()
+            failing_close.assert_called_once_with()
+            self.assertIsNotNone(os.fstat(fd))
+        finally:
+            # The injected failure did not close the real descriptor.
+            os.close(fd)
 
     def test_cancellation_after_execution_keeps_capture_and_cleans_registered_target(self):
         runner = self.runner()

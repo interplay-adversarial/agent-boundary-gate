@@ -110,18 +110,17 @@ def main() -> int:
             config = DevelopmentRunConfig.model_validate_json(read_private(args.config))
             cancelled = Event()
             previous = {}
-            runner = None
             try:
                 for number in (signal.SIGINT, signal.SIGTERM):
                     previous[number] = signal.signal(number, lambda *_: cancelled.set())
-                runner = DevelopmentRunner(
+                with DevelopmentRunner(
                     config, args.output, recover=args.command == "development-recover"
-                )
-                report = (
-                    runner.recover()
-                    if args.command == "development-recover"
-                    else runner.run(cancelled)
-                )
+                ) as runner:
+                    report = (
+                        runner.recover()
+                        if args.command == "development-recover"
+                        else runner.run(cancelled)
+                    )
                 print(json.dumps(report, indent=2))
                 return (
                     0
@@ -132,8 +131,6 @@ def main() -> int:
                     else 2
                 )
             finally:
-                if runner is not None:
-                    runner.close()
                 for number, handler in previous.items():
                     signal.signal(number, handler)
         if args.command == "development-plan":

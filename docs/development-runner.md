@@ -87,6 +87,13 @@ probes or upgrade a failed attempt into a passing evaluation. A killed writer's
 uncommitted temporary journal is discarded under that lock; committed allocation
 records remain authoritative.
 
+Library callers should use `with DevelopmentRunner(config, destination) as runner:`
+and call `runner.run(cancelled)` or `runner.recover()` inside that scope. Context
+exit releases the campaign lock even on exceptions; `close()` is also idempotent.
+An abandoned instance has a descriptor finalizer as a fallback. Neither context
+exit nor garbage collection deletes cluster resources: registered-allocation
+cleanup stays in the explicit run/recovery workflow.
+
 An allocation request that times out or loses its registration response is
 explicitly unresolved. Recovery refuses to delete that target or its receivers
 based on a name guess. Inspect the private allocation intent and actual API
