@@ -14,7 +14,6 @@ from urllib.parse import urlsplit
 from pydantic import Field, TypeAdapter, model_validator
 
 from agent_boundary_gate import development_receiver
-from agent_boundary_gate.evidence import EvidenceStore
 from agent_boundary_gate.probe_delivery import PROBE_PATH
 from agent_boundary_gate.probes import validate_receiver_url
 from agent_boundary_gate.receipts import ReceiptContract
@@ -309,13 +308,12 @@ def inspect_target_pair(
 
 
 def prepare(config: DevelopmentConfig, destination: Path) -> dict:
-    destination.mkdir(mode=0o700)
-    store = EvidenceStore(destination)
-    store.persist_json(resources(config))
+    destination.mkdir(mode=0o700, exist_ok=False)
+    rendered = resources(config)
     manifest = destination / "resources.json"
     fd = os.open(manifest, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w") as stream:
-        stream.write(json.dumps(resources(config), indent=2) + "\n")
+        stream.write(json.dumps(rendered, indent=2) + "\n")
     return {
         "status": "development-resources-prepared",
         "qualification": "development-only",
