@@ -23,6 +23,7 @@ PUBLIC_HOSTS = {
     "files.pythonhosted.org",
     "www.apache.org",
     "doc.rust-lang.org",
+    "kubernetes.io",
     "apache.org",
     "localhost",
     "127.0.0.1",

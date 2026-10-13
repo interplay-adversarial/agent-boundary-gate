@@ -47,6 +47,8 @@ class DevelopmentRunConfig(ReceiptContract):
     kubernetes_digest: Digest
     cleanup_executable: Path | None = None
     cleanup_digest: Digest | None = None
+    cell_bootstrap_executable: Path | None = None
+    cell_bootstrap_digest: Digest | None = None
     context: Annotated[str, Field(min_length=1, max_length=200)]
     gateway: Annotated[str, Field(min_length=1, max_length=200)]
     probe_digest: Digest
@@ -61,7 +63,22 @@ class DevelopmentRunConfig(ReceiptContract):
     def cleanup_pin_pair(self):
         if (self.cleanup_executable is None) != (self.cleanup_digest is None):
             raise ValueError("development-cleanup-pin-pair-required")
+        if (self.cell_bootstrap_executable is None) != (self.cell_bootstrap_digest is None):
+            raise ValueError("development-cell-bootstrap-pin-pair-required")
+        if self.cell_bootstrap_executable is not None and self.cleanup_executable is not None:
+            raise ValueError("development-cell-and-shared-cleanup-mutually-exclusive")
         return self
+
+
+def _config_digest(config: DevelopmentRunConfig) -> str:
+    # Keep original shared-gateway journal bindings readable. Adding unused
+    # optional cell fields must not invalidate an already registered allocation.
+    exclude = (
+        {"cell_bootstrap_executable", "cell_bootstrap_digest"}
+        if config.cell_bootstrap_executable is None
+        else set()
+    )
+    return bytes_digest(config.model_dump_json(exclude=exclude).encode())
 
 
 def _write(path: Path, value: dict) -> None:
@@ -93,6 +110,9 @@ class DevelopmentRunner:
     def __init__(self, config: DevelopmentRunConfig, output: Path, *, recover=False):
         self.lock = None
         self._lock_finalizer = None
+        # model_copy(update=...) bypasses Pydantic validation. Revalidate library
+        # inputs before creating any files or admitting either helper mode.
+        config = DevelopmentRunConfig.model_validate(config)
         self.config = config
         if not recover:
             output.mkdir(mode=0o700, exist_ok=False)
@@ -120,9 +140,7 @@ class DevelopmentRunner:
                 )
                 if not isinstance(self.state, dict) or self.state.get("version") != "1":
                     raise ValueError("development-recovery-journal-invalid")
-                if self.state.get("config_digest") != bytes_digest(
-                    config.model_dump_json().encode()
-                ):
+                if self.state.get("config_digest") != _config_digest(config):
                     raise ValueError("development-recovery-config-mismatch")
                 allocations = self.state.get("allocations")
                 if not isinstance(allocations, list) or len(allocations) > 2:
@@ -136,6 +154,22 @@ class DevelopmentRunner:
                         or not isinstance(allocation.get("receiver_uids"), dict)
                     ):
                         raise ValueError("development-recovery-journal-invalid")
+                    cell = allocation.get("cell_name")
+                    if cell is not None and (
+                        not isinstance(cell, str)
+                        or not re.fullmatch(r"gate-cell-[0-9a-f]{24}", cell)
+                        or cell == config.target_namespace
+                        or cell == allocation["run"]
+                        or cell == config.image_pull_namespace
+                        or config.cell_bootstrap_executable is None
+                    ):
+                        raise ValueError("development-recovery-cell-invalid")
+                    if allocation.get("cell_uid") is not None and (
+                        cell is None
+                        or not isinstance(allocation["cell_uid"], str)
+                        or not re.fullmatch(r"[A-Za-z0-9-]{1,128}", allocation["cell_uid"])
+                    ):
+                        raise ValueError("development-recovery-cell-invalid")
                     DevelopmentConfig(
                         run=allocation.get("run"),
                         target_namespace=config.target_namespace,
@@ -145,7 +179,7 @@ class DevelopmentRunner:
             else:
                 self.state = {
                     "version": "1",
-                    "config_digest": bytes_digest(config.model_dump_json().encode()),
+                    "config_digest": _config_digest(config),
                     "allocations": [],
                     "qualification": "development-only",
                     "release_eligible": False,
@@ -156,6 +190,7 @@ class DevelopmentRunner:
                 ("openshell", config.openshell_executable, config.openshell_digest),
                 ("kubernetes", config.kubernetes_executable, config.kubernetes_digest),
                 ("cleanup", config.cleanup_executable, config.cleanup_digest),
+                ("cell-bootstrap", config.cell_bootstrap_executable, config.cell_bootstrap_digest),
             ):
                 if source is None:
                     continue
@@ -212,12 +247,14 @@ class DevelopmentRunner:
     def save(self):
         _write(self.output / "journal.json", self.state)
 
-    def command(self, kind, args, *, deadline, cancelled, data=None, check=True):
+    def command(
+        self, kind, args, *, deadline, cancelled, data=None, check=True, allocation_context=None
+    ):
         argv = [self.binaries[kind]]
         if kind == "kubernetes":
             argv += ["--context", self.config.context]
         elif kind == "openshell":
-            argv += ["--gateway", self.config.gateway]
+            argv += ["--gateway", self.gateway(allocation_context)]
         env = dict(os.environ)
         if self.config.xdg_config_home:
             env["XDG_CONFIG_HOME"] = str(self.config.xdg_config_home)
@@ -241,7 +278,128 @@ class DevelopmentRunner:
             raise ValueError("development-invalid-command-output")
         return value
 
+    def target_namespace(self, allocation):
+        return allocation.get("cell_name", self.config.target_namespace)
+
+    def gateway(self, allocation=None):
+        if self.config.cell_bootstrap_executable is None:
+            return self.config.gateway
+        if allocation is None or not any(a is allocation for a in self.state["allocations"]):
+            raise ValueError("development-allocation-context-required")
+        name = allocation.get("cell_name")
+        if not isinstance(name, str) or not re.fullmatch(r"gate-cell-[0-9a-f]{24}", name):
+            raise ValueError("development-cell-gateway-invalid")
+        return name
+
+    def inspect_cell(self, allocation, **bounds):
+        current = self.query(
+            "kubernetes",
+            ["get", "namespace", allocation["cell_name"], "--ignore-not-found", "-o", "json"],
+            **bounds,
+        )
+        if (
+            not current
+            or current.get("metadata", {}).get("uid") != allocation["cell_uid"]
+            or current["metadata"].get("deletionTimestamp")
+        ):
+            raise ValueError("development-cell-identity-changed")
+        return current
+
+    def allocate_cell(self, allocation, **bounds):
+        name = allocation["cell_name"]
+        if name in (
+            self.config.target_namespace,
+            self.config.image_pull_namespace,
+            allocation["run"],
+        ):
+            raise ValueError("development-cell-protected-namespace")
+        allocation["pending"] = "cell-namespace"
+        self.save()
+        current = self.query(
+            "kubernetes",
+            ["create", "-f", "-", "-o", "json"],
+            data={
+                "apiVersion": "v1",
+                "kind": "Namespace",
+                "metadata": {"name": name, "labels": {RUN_LABEL: allocation["run"]}},
+            },
+            **bounds,
+        )
+        metadata = current.get("metadata", {})
+        uid = metadata.get("uid")
+        if (
+            metadata.get("name") != name
+            or not isinstance(uid, str)
+            or not re.fullmatch(r"[A-Za-z0-9-]{1,128}", uid)
+        ):
+            raise ValueError("development-cell-allocation-invalid")
+        allocation["cell_uid"] = uid
+        allocation["pending"] = "cell-bootstrap"
+        allocation["cell_bootstrap_requested"] = True
+        self.save()
+        request = {
+            "protocol": "agent-boundary-gate/development-cell-bootstrap/1",
+            "context": self.config.context,
+            "run": allocation["run"],
+            "namespace": name,
+            "namespace_uid": uid,
+            "gateway": name,
+        }
+        # Trusted operator bootstrap confines all gateway controllers, their
+        # writable state and sandbox resources to this registered namespace.
+        # It may not point this gateway alias at a shared/external controller.
+        response = self.query("cell-bootstrap", [], data=request, **bounds)
+        if response != {**request, "ready": True} or response.get("ready") is not True:
+            raise ValueError("development-cell-bootstrap-response-mismatch")
+        self.inspect_cell(allocation, **bounds)
+        allocation["pending"] = None
+        self.save()
+
+    def retire_cell(self, allocation, **bounds):
+        if allocation.get("cell_absent"):
+            return
+        name, uid = allocation["cell_name"], allocation["cell_uid"]
+        if not re.fullmatch(r"gate-cell-[0-9a-f]{24}", name) or name in (
+            self.config.target_namespace,
+            self.config.image_pull_namespace,
+            allocation["run"],
+        ):
+            raise ValueError("development-cell-protected-namespace")
+        args = ["get", "namespace", name, "--ignore-not-found", "-o", "json"]
+        current = self.query("kubernetes", args, **bounds)
+        if current:
+            if current.get("metadata", {}).get("uid") != uid:
+                raise ValueError("development-cell-replaced")
+            allocation["cell_delete_requested"] = True
+            self.save()
+            # The UID is checked by the mutation authority itself, closing the
+            # get/delete race. Never remove finalizers or fall back to name delete.
+            self.command(
+                "kubernetes",
+                ["delete", "--raw", "/api/v1/namespaces/" + name, "-f", "-"],
+                data={
+                    "apiVersion": "v1",
+                    "kind": "DeleteOptions",
+                    "preconditions": {"uid": uid},
+                    "propagationPolicy": "Foreground",
+                },
+                **bounds,
+            )
+        while True:
+            current = self.query("kubernetes", args, **bounds)
+            if not current:
+                break
+            if current.get("metadata", {}).get("uid") != uid:
+                raise ValueError("development-cell-replaced")
+            if time.monotonic() >= bounds["deadline"]:
+                raise AttemptStopped("timeout")
+            bounds["cancelled"].wait(0.2)
+        allocation["cell_absent"] = True
+        self.save()
+
     def inventory(self, allocation, **bounds):
+        if allocation.get("cell_uid"):
+            self.inspect_cell(allocation, **bounds)
         run = allocation["run"]
         if set(allocation["receiver_uids"]) != {"allowed", "forbidden"}:
             raise ValueError("development-receivers-unregistered")
@@ -257,7 +415,7 @@ class DevelopmentRunner:
                 "get",
                 "pods",
                 "-n",
-                self.config.target_namespace,
+                self.target_namespace(allocation),
                 "-l",
                 "openshell.ai/boundary-pair=" + allocation["boundary_pair"],
                 "-o",
@@ -267,7 +425,7 @@ class DevelopmentRunner:
         )["items"]
         if not inspect_target_pair(
             pods,
-            namespace=self.config.target_namespace,
+            namespace=self.target_namespace(allocation),
             pair=allocation["boundary_pair"],
             sandbox_id=allocation["sandbox_id"],
             supervisor_uid=allocation["target_uids"]["supervisor"],
@@ -277,6 +435,10 @@ class DevelopmentRunner:
             raise ValueError("development-target-identity-changed")
 
     def sample(self, allocation, **bounds):
+        # This samples independent receivers, never the target. A timed-out create
+        # may have produced effects without returning a registered sandbox ID.
+        if set(allocation["receiver_uids"]) != {"allowed", "forbidden"}:
+            raise ValueError("development-receivers-unregistered")
         counts = {}
         for name, uid in allocation["receiver_uids"].items():
             pod = self.query(
@@ -321,8 +483,14 @@ class DevelopmentRunner:
             raise ValueError("development-capture-incomplete")
         return counts
 
+    def has_cleanup_mode(self):
+        # Exactly one authority, including when a library caller altered the
+        # snapshotted-binary registry after construction. No ambiguous fallback.
+        modes = {"cleanup", "cell-bootstrap"}.intersection(self.binaries)
+        return len(modes) == 1
+
     def profile(self, weakened: bool, cancelled: Event):
-        if "cleanup" not in self.binaries:
+        if not self.has_cleanup_mode():
             raise ValueError("identity-bound-cleanup-required")
         run, sandbox = "gate-dev-" + secrets.token_hex(8), "gate-" + secrets.token_hex(7)
         allocation = {
@@ -333,20 +501,25 @@ class DevelopmentRunner:
             "pending": None,
             "complete": False,
         }
+        if "cell-bootstrap" in self.binaries:
+            allocation["cell_name"] = "gate-cell-" + secrets.token_hex(12)
         self.state["allocations"].append(allocation)
         self.save()
         bounds = {
             "deadline": time.monotonic() + self.config.profile_seconds,
             "cancelled": cancelled,
+            "allocation_context": allocation,
         }
-        config = DevelopmentConfig(
-            run=run,
-            target_namespace=self.config.target_namespace,
-            receiver_image=self.config.receiver_image,
-            workload_image=self.config.workload_image,
-        )
-        manifest = resources(config)
         try:
+            if allocation.get("cell_name"):
+                self.allocate_cell(allocation, **bounds)
+            config = DevelopmentConfig(
+                run=run,
+                target_namespace=self.target_namespace(allocation),
+                receiver_image=self.config.receiver_image,
+                workload_image=self.config.workload_image,
+            )
+            manifest = resources(config)
             allocation["pending"] = "namespace"
             self.save()
             created = self.query(
@@ -412,6 +585,8 @@ class DevelopmentRunner:
             _write(policy_path, expected_policy)
             allocation["pending"] = "sandbox"
             self.save()
+            if allocation.get("cell_uid"):
+                self.inspect_cell(allocation, **bounds)
             self.command(
                 "openshell",
                 [
@@ -566,9 +741,37 @@ class DevelopmentRunner:
         """
         bounds = {"deadline": time.monotonic() + self.config.cleanup_seconds, "cancelled": Event()}
         try:
+            cell_mode = allocation.get("cell_name") is not None
+            if allocation.get("cell_name") and not allocation.get("cell_uid"):
+                raise ValueError("development-cell-allocation-unresolved")
+            # Registered cell ownership precedes bootstrap/sandbox requests. Even
+            # an ambiguous create within it can be retired by namespace UID.
+            if allocation.get("cell_uid"):
+                self.retire_cell(allocation, **bounds)
+            if cell_mode and allocation.get("cell_absent") is not True:
+                raise ValueError("development-cell-absence-unconfirmed")
+            pending = allocation.get("pending")
+            if (
+                allocation.get("cell_uid")
+                and allocation.get("cell_absent") is True
+                and pending in ("cell-bootstrap", "sandbox")
+            ):
+                # Only these requests are confined to the registered cell. Record
+                # their retirement explicitly without erasing the failed attempt.
+                # Receiver/grant creates are outside that scope and stay unresolved.
+                allocation["retired_pending"] = pending
+                allocation["pending"] = None
+                self.save()
             if allocation.get("pending"):
                 raise ValueError("development-allocation-unresolved")
-            if allocation.get("sandbox_id") and not allocation.get("target_absent"):
+            # Cell absence and shared-gateway sandbox absence are different
+            # observations. Cell cleanup never invokes the shared helper or
+            # claims a separately observed sandbox/Pod absence.
+            if (
+                not cell_mode
+                and allocation.get("sandbox_id")
+                and not allocation.get("target_absent")
+            ):
                 pair = allocation.get("boundary_pair")
                 if not pair or set(allocation.get("target_uids", {})) != {"supervisor", "workload"}:
                     raise ValueError("development-target-unregistered")
@@ -641,22 +844,21 @@ class DevelopmentRunner:
                     ):
                         raise ValueError("development-cleanup-replacement")
                     bounds["cancelled"].wait(0.2)
-            if not allocation.get("sandbox_id"):
-                allocation["target_absent"] = True
             if allocation.get("namespace_uid") and not allocation.get("namespace_absent"):
                 # Preserve late effects, and counts already observed, even if this
                 # final snapshot is lost. Loss prevents a successful result.
-                if allocation.get("sandbox_id"):
-                    try:
-                        final = self.sample(allocation, **bounds)
-                        allocation["counts"] = {
-                            name: max(final[name], allocation.get("counts", {}).get(name, 0))
-                            for name in final
-                        }
-                        allocation["final_capture"] = True
-                    except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
-                        allocation["capture_lost"] = True
-                    self.save()
+                # Always capture the registered receiver pair before removing it,
+                # including ambiguous target creation and zero observed effects.
+                try:
+                    final = self.sample(allocation, **bounds)
+                    allocation["counts"] = {
+                        name: max(final[name], allocation.get("counts", {}).get(name, 0))
+                        for name in final
+                    }
+                    allocation["final_capture"] = True
+                except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
+                    allocation["capture_lost"] = True
+                self.save()
                 options = {
                     "apiVersion": "v1",
                     "kind": "DeleteOptions",
@@ -732,12 +934,18 @@ class DevelopmentRunner:
     @staticmethod
     def report(allocation):
         counts = allocation.get("counts", {})
+        # Receiver capture and target retirement are separate observations.
+        # Require the applicable absence observation even for recovered journals.
+        absence = "cell_absent" if allocation.get("cell_name") is not None else "target_absent"
+        sampled_after_cleanup = (
+            allocation.get(absence) is True and allocation.get("final_capture") is True
+        )
         observed = (
             allocation.get("complete") is True
             and not allocation.get("failed")
             and allocation.get("cleanup_complete") is True
             and not allocation.get("cleanup_failed")
-            and allocation.get("final_capture") is True
+            and sampled_after_cleanup
             and not allocation.get("capture_lost")
             and counts.get("allowed") == 1
             and counts.get("forbidden") == int(allocation["profile"] == "weakened")
@@ -748,13 +956,13 @@ class DevelopmentRunner:
             "forbidden_count": counts.get("forbidden"),
             "expected_behavior_observed": bool(observed),
             "cleanup_complete": allocation.get("cleanup_complete", False),
-            "sampled_after_target_cleanup": allocation.get("final_capture", False),
+            "sampled_after_target_cleanup": sampled_after_cleanup,
             "qualification": "development-only",
             "release_eligible": False,
         }
 
     def run(self, cancelled: Event):
-        if "cleanup" not in self.binaries:
+        if not self.has_cleanup_mode():
             return {
                 "profiles": [],
                 "development_campaign_completed": False,
