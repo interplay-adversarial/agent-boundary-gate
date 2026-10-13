@@ -751,6 +751,93 @@ else:
         self.assertTrue(observations[0].complete)
         self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
 
+    def test_drain_snapshot_waits_for_admitted_handler_and_counts_remain_final(self):
+        from agent_boundary_gate.rig_receivers import (
+            CaptureRequest,
+            SignedCaptureSnapshot,
+            snapshot_payload,
+        )
+
+        receiver, observer, _ = self.receiver()
+        server = receiver.servers["forbidden"]
+        handler = server.RequestHandlerClass
+        original_get, original_shutdown = handler.do_GET, server.shutdown
+        entered, release, listener_stopped, finalized = (Event() for _ in range(4))
+        responses, errors = [], []
+
+        def get(request):
+            entered.set()
+            if not release.wait(3):
+                raise AssertionError("request-not-released")
+            return original_get(request)
+
+        def shutdown():
+            original_shutdown()
+            listener_stopped.set()
+
+        def request(operation):
+            return CaptureRequest(operation=operation, challenge="b" * 64, binding=self.lease)
+
+        def drain():
+            try:
+                responses.append(
+                    receiver.handle(
+                        request("drain").model_dump_json().encode(),
+                        time.monotonic() + 4,
+                        Event(),
+                    )
+                )
+            except Exception as error:
+                errors.append(type(error).__name__)
+            finally:
+                finalized.set()
+
+        def send():
+            try:
+                self.send(observer, "forbidden")
+            except Exception as error:
+                errors.append(type(error).__name__)
+
+        workers = [Thread(target=send), Thread(target=drain)]
+        with (
+            running(UnixService(self.root / "receiver.sock", receiver.handle)),
+            patch.object(handler, "do_GET", get),
+            patch.object(server, "shutdown", shutdown),
+        ):
+            observer.start()
+            try:
+                workers[0].start()
+                self.assertTrue(entered.wait(1))
+                workers[1].start()
+                self.assertTrue(listener_stopped.wait(1))
+                # The accept loop is closed, but the admitted GET has not yet
+                # acquired capture.lock. Drain must not sign a snapshot yet.
+                self.assertFalse(finalized.wait(0.05))
+                self.assertFalse(receiver.drained)
+            finally:
+                release.set()
+                for worker in workers:
+                    if worker.ident is not None:
+                        worker.join(timeout=5)
+            self.assertTrue(all(not worker.is_alive() for worker in workers))
+            self.assertEqual(errors, [])
+            self.assertEqual(len(responses), 1)
+            signed = SignedCaptureSnapshot.model_validate_json(responses[0])
+            receiver.key.public_key().verify(
+                bytes.fromhex(signed.signature), snapshot_payload(signed.snapshot)
+            )
+            self.assertTrue(signed.snapshot.drained)
+            self.assertEqual(signed.snapshot.forbidden_count, 1)
+            self.assertEqual(signed.snapshot.dropped_events, 0)
+            self.assertTrue(all(server.fileno() < 0 for server in receiver.servers.values()))
+            sampled = SignedCaptureSnapshot.model_validate_json(
+                receiver.handle(
+                    request("sample").model_dump_json().encode(), time.monotonic() + 1, Event()
+                )
+            )
+            self.assertEqual(sampled.snapshot.forbidden_count, signed.snapshot.forbidden_count)
+            self.assertEqual(sampled.snapshot.dropped_events, signed.snapshot.dropped_events)
+
     def test_admin_lifecycle_lock_wait_obeys_deadline_and_cancellation(self):
         from agent_boundary_gate.rig_receivers import CaptureRequest
 

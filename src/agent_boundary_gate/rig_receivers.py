@@ -149,6 +149,8 @@ class ReceiverService:
             def do_GET(self):
                 status = 404
                 with capture.lock:
+                    # Admission and count updates share the snapshot lock. No
+                    # request may cache an admission decision before acquiring it.
                     if (
                         capture.active is not None
                         and not capture.drained
@@ -266,6 +268,8 @@ class ReceiverService:
             self._require_active_binding(request.binding)
             # Binding validation has released the capture lock. Closing
             # waits for HTTP handlers, which must remain able to acquire it.
+            # Only after both listeners and their handlers close can _handle
+            # mark drained and sign the final counts under the capture lock.
             self.stop()
         elif (
             request.operation == "start"
