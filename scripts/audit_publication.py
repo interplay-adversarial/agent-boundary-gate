@@ -58,6 +58,9 @@ PRIVATE_SUFFIXES = {
     ".bin",
     ".log",
     ".jsonl",
+    ".parquet",
+    ".arrow",
+    ".feather",
     ".db",
     ".sqlite3",
 }

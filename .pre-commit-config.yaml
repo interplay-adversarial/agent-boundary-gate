@@ -49,6 +49,18 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: red-team-dependency-cve-audit
+        name: Separate DataDesigner/Interplay locked dependency CVE audit
+        entry: uv run --frozen --no-editable python scripts/audit_dependencies.py --red-team
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: red-team-native-campaign-tests
+        name: Pinned DataDesigner/Interplay campaign conformance (no model traffic)
+        entry: env PYTHONPATH=src uv run --project onboarding/red-team --frozen --no-editable python -m unittest discover -s tests -p test_red_team_native.py -q
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: publication-privacy
         name: Publication privacy audit
         entry: uv run --frozen --no-editable python scripts/audit_publication.py
