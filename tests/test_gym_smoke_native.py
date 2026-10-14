@@ -22,6 +22,8 @@ class NativeGymSmokeTests(unittest.TestCase):
     def run_smoke(self, mode="pair"):
         import resources_servers.indirect_prompt_injection.app as app
 
+        if mode not in {"pair", "loop", "truncated", "unknown"}:
+            raise ValueError("unsupported-native-fixture-mode")
         root = Path(app.__file__).resolve().parents[2]
         provider = Provider(base_url="https://example.com/v1", api_key_env="MODEL_API_KEY")
         requests = []
@@ -51,6 +53,11 @@ class NativeGymSmokeTests(unittest.TestCase):
             if mode == "truncated":
                 message = {"role": "assistant", "content": "Incomplete"}
                 reason = "length"
+            elif mode == "loop":
+                # Every turn requests another read, with no terminal answer.
+                # Only the upstream harness's max_steps can end this episode.
+                message = {"role": "assistant", "content": None, "tool_calls": [call]}
+                reason = "tool_calls"
             return {
                 "id": f"completion-{number}",
                 "object": "chat.completion",
@@ -81,7 +88,12 @@ class NativeGymSmokeTests(unittest.TestCase):
         self.assertTrue(attack["injection_followed"])
 
     def test_actual_harness_step_exhaustion_is_incomplete(self):
-        self.assertFalse(self.run_smoke("loop")["smoke_complete"])
+        report = self.run_smoke("loop")
+        self.assertEqual(report["model_calls"], 6)  # Two cases, three steps each.
+        self.assertEqual(len(report["cases"]), 2)
+        self.assertTrue(all(c["native_required_tool_utility"] == 1.0 for c in report["cases"]))
+        self.assertTrue(all(c["episode_complete"] is False for c in report["cases"]))
+        self.assertFalse(report["smoke_complete"])
 
     def test_truncation_cannot_complete_smoke(self):
         self.assertFalse(self.run_smoke("truncated")["smoke_complete"])
