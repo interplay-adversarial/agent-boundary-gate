@@ -1,0 +1,36 @@
+{
+  "upstream": "https://github.com/NVIDIA-NeMo/Gym",
+  "commit": "f444b8020a3431fc820ef061cef400140bc7afb5",
+  "python": "3.13.14",
+  "files": {
+    "LICENSE": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "pyproject.toml": "sha256:a9a83378695a68f20531e5aa9972c9f2f962d7fd76494fc4a77946f2c41e64a1",
+    "uv.lock": "sha256:0f8c1263b27bc182626ba87b36283c4199221f01208db02d58f7b5569ab16da5",
+    "resources_servers/indirect_prompt_injection/verifier.py": "sha256:f537e5f2961ee97679e40175c8f5edcae0da32180267a1ed4b6aeedc2b292606",
+    "resources_servers/indirect_prompt_injection/app.py": "sha256:c189ee86504ca8d4434027a586fb7ac0fe99719e36465af72e7e845b905d9142",
+    "resources_servers/indirect_prompt_injection/data/example.jsonl": "sha256:a91571566b4615519a690a2ca0991ec646ebbde4ada533a3e11e1df1715218f5",
+    "resources_servers/indirect_prompt_injection/data/example_rollouts.jsonl": "sha256:5277b2d0f66b862406673bb678e17f38a5a519e23372e5ea1faf8729e754b148",
+    "responses_api_agents/simple_agent/app.py": "sha256:478b61c9555078927cbe392ffb812511d6c2bb6a4bff96664f65b3bc52a72b84",
+    "nemo_gym/responses_converter.py": "sha256:6e683375e2062a9b453c9b453f34b8f307c83a3ac9252ea2ad7f339fec377294",
+    "resources_servers/indirect_prompt_injection/common_tools.py": "sha256:fd57479d7dc87436273423bddbe164d091520d4b33a731272be96756d913855d",
+    "responses_api_agents/hermes_agent/app.py": "sha256:95e90648fd093e5165d69b4780ab759ab33c868d2c0182bc63cbaf903392c5ea",
+    "responses_api_agents/hermes_agent/observability.py": "sha256:dea4a121919344207c98e1c24c9b8fceb69deef86f2306c887155ab4d7b01f27",
+    "responses_api_agents/hermes_agent/model_kwargs.py": "sha256:105aa2fc94a748febabdcf391c8c0936e4f4e78ed42faf89391f0eb2b5942ac1"
+  },
+  "additional_git_sources": {
+    "hermes-agent": {
+      "upstream": "https://github.com/cmunley1/hermes-agent",
+      "commit": "26bb847a88493342ca1b194e0455b479073ae21d",
+      "files": {
+        "LICENSE": "sha256:821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+        "pyproject.toml": "sha256:8ae56b8e25eb773d27373465cabe2428a0daca9e41b7f3534d5cda880939e350",
+        "run_agent.py": "sha256:48a8013315223e9656b7c0df3d52bf688f36b9828fc388c8c63ac5367302b2b3",
+        "model_tools.py": "sha256:d5b3d20200f20b2ac252a3468959f78f3323f949cdda6f9dfeff2630e0874c7c",
+        "toolsets.py": "sha256:2c1bcbb342ae76525b6daaea39b9a110256268c6ccbd854bd6111a67c053bd48",
+        "tools/registry.py": "sha256:d5a45a9f69d40d1da452228b33e715f4c563cbc66587c55d7b7b7e56c5bd04df",
+        "agent/model_metadata.py": "sha256:4ce15d142abcdc06e1f8d44ab8f51a8253fbc779f9ca88d364e944a7cab95b09",
+        "hermes_cli/plugins.py": "sha256:abd554d48c54b517f976cf4dd91e8b2a8aa923dc24d2ac0545574e2119e9bbed"
+      }
+    }
+  }
+}

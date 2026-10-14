@@ -108,11 +108,17 @@ def summarize(report: object, expected: dict[str, Version]) -> tuple[int, dict[s
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--gym", action="store_true", help="audit the separate pinned Gym lock")
+    optional = parser.add_mutually_exclusive_group()
+    optional.add_argument("--gym", action="store_true", help="audit the separate pinned Gym lock")
+    optional.add_argument(
+        "--hermes", action="store_true", help="audit the separate Hermes pilot lock"
+    )
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
     if args.gym:
         project = project / "onboarding/gym"
+    elif args.hermes:
+        project = project / "onboarding/hermes"
     with tempfile.TemporaryDirectory(prefix="dependency-audit-") as temporary:
         requirements = Path(temporary) / "requirements.txt"
         report_path = Path(temporary) / "report.json"
@@ -128,7 +134,8 @@ def main() -> int:
                     "--format",
                     "requirements-txt",
                 ]
-                + (["--no-emit-package", "nemo-gym"] if args.gym else []),
+                + (["--no-emit-package", "nemo-gym"] if args.gym or args.hermes else [])
+                + (["--no-emit-package", "hermes-agent"] if args.hermes else []),
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -140,7 +147,9 @@ def main() -> int:
             # Filter marker branches for that interpreter before invoking an auditor
             # running in the core environment; otherwise it could scan wrong pins.
             environment = (
-                {"python_version": "3.13", "python_full_version": "3.13.14"} if args.gym else None
+                {"python_version": "3.13", "python_full_version": "3.13.14"}
+                if args.gym or args.hermes
+                else None
             )
             expected = locked_dependencies(export.stdout, marker_environment=environment)
             requirements.write_text(

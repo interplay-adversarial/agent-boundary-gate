@@ -47,7 +47,11 @@ runnable offline/loopback examples, stored evidence verification and live integr
   completed, with boundary evaluation and commercial baseline promotion pending.
 - An [optional Gym evidence bridge](docs/gym-evidence-bridge.md) correlates private
   native observations with independently authenticated boundary records. Fixture
-  mapping/fault conformance is implemented; real-agent effect routing remains planned.
+  mapping/fault conformance is implemented; authenticated real-agent mapping remains planned.
+- A [Hermes development effect pilot](docs/hermes-effect-pilot.md) uses the pinned
+  upstream host harness with a bounded synthetic toolset and remote Rust execution
+  inside disposable targets. Native conformance includes exhaustion/cancellation;
+  Hermes process containment and authenticated qualification remain open.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -178,7 +182,8 @@ criteria, implementation status and qualification blockers.
 The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
 prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
 reports. Offline onboarding, model-backed smoke and optional fixture evidence mapping
-are implemented. Real-agent effect routing is planned, and no Gym agent pairing is qualified.
+are implemented. The Hermes development pilot exercises remote synthetic effects;
+no Gym agent pairing is qualified.
 
 ## License
 

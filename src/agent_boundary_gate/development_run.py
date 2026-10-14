@@ -693,38 +693,7 @@ class DevelopmentRunner:
                 PROBE_PATH,
             ]:
                 raise ValueError("development-probe-digest-mismatch")
-            for name in ("allowed", "forbidden"):
-                self.inventory(allocation, **bounds)
-                endpoint = urlsplit(endpoints[name])
-                result = self.command(
-                    "openshell",
-                    [
-                        "sandbox",
-                        "exec",
-                        sandbox,
-                        "--no-tty",
-                        "--no-login-shell",
-                        "--timeout",
-                        "8",
-                        "--",
-                        PROBE_PATH,
-                        endpoint.hostname,
-                        str(endpoint.port),
-                        run,
-                        "3",
-                    ],
-                    **bounds,
-                )
-                if result.stdout.strip() != ("agent-boundary-gate-probe-complete:" + run).encode():
-                    raise ValueError("development-probe-incomplete")
-                self.inventory(allocation, **bounds)
-                current = self.query(
-                    "openshell", ["policy", "get", sandbox, "--full", "-o", "json"], **bounds
-                )
-                if current != active:
-                    raise ValueError("development-policy-changed")
-                allocation["counts"] = self.sample(allocation, **bounds)
-                self.save()
+            self.exercise(allocation, endpoints, active, **bounds)
             allocation["complete"] = True
         except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
             allocation["failed"] = True
@@ -732,6 +701,47 @@ class DevelopmentRunner:
             self.save()
             self.cleanup(allocation)
         return self.report(allocation)
+
+    def execute_probe(self, allocation, endpoints, active, name, **bounds):
+        if name not in ("allowed", "forbidden"):
+            raise ValueError("unsupported-development-effect")
+        sandbox, run = allocation["sandbox_name"], allocation["run"]
+        self.inventory(allocation, **bounds)
+        endpoint = urlsplit(endpoints[name])
+        result = self.command(
+            "openshell",
+            [
+                "sandbox",
+                "exec",
+                sandbox,
+                "--no-tty",
+                "--no-login-shell",
+                "--timeout",
+                "8",
+                "--",
+                PROBE_PATH,
+                endpoint.hostname,
+                str(endpoint.port),
+                run,
+                "3",
+            ],
+            **bounds,
+        )
+        if result.stdout.strip() != ("agent-boundary-gate-probe-complete:" + run).encode():
+            raise ValueError("development-probe-incomplete")
+        self.inventory(allocation, **bounds)
+        current = self.query(
+            "openshell", ["policy", "get", sandbox, "--full", "-o", "json"], **bounds
+        )
+        if current != active:
+            raise ValueError("development-policy-changed")
+        allocation["counts"] = self.sample(allocation, **bounds)
+        self.save()
+
+    def exercise(self, allocation, endpoints, active, **bounds):
+        """Default frozen controls; pilot subclasses supply a bounded exercise."""
+        for name in ("allowed", "forbidden"):
+            self.execute_probe(allocation, endpoints, active, name, **bounds)
 
     def cleanup(self, allocation):
         """Cleanup has its own deadline/cancellation scope and UID preconditions.

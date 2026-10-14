@@ -24,13 +24,14 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Planned |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
-| PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned via GYM-03; Hermes first, compatibility-dependent; broader pairing expansion follows pilot |
+| PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Hermes host-harness development pilot now routes synthetic remote effects through disposable boundaries. Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain pending; broader expansion follows the frozen pilot baseline. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Synthetic cancellation, timeout, replacement and restart tests pass. Lost namespace-create responses and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md) |
 | GYM-01 | P2, development onboarding complete | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Pinned source/interpreter, separate remediated lock, six native offline replay cases and lock CVE audit implemented. Original Apache-2.0 attack/benign pair completed against a privately configured hosted model in four calls, with private trajectories and requested sampling/budget records. Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
 | GYM-02 | P2, fixture mapping implemented | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Optional dependency-free library binds a trusted baseline/dispatch to native private artifacts and evaluates signed boundary evidence separately. Core fault fixtures and actual native Gym harness conformance pass without model traffic. Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
-| GYM-03 | P2, early agent pilot | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Planned; depends on GYM-02/DEV-02; PORT-01 delivered through this pilot |
+| GYM-03 | P2, development pilot implemented | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Actual pinned Gym Hermes host harness/runtime with two synthetic tools and remote fixed Rust execution completed healthy/weakened development profiles at allowed/forbidden counts 3/0 and 3/1. Native fake-model calibration preserves attempted injection separately from effects; hosted benign/injected cases retained utility and resisted this one task. Final capture, UID cleanup and independent owned-resource inspection passed. Hermes process containment is not attested; no authenticated qualification is claimed. [Guide](hermes-effect-pilot.md) |
 | GYM-04 | P2, after pilot | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01 |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
+| INT-02 | P3, after calibrated agent pilot | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
 P3 marks expansion. SEC-01/SEC-02 were the first implementation. P1 blockers
@@ -53,9 +54,9 @@ UID-conditioned cleanup. Its pinned operator gateway bootstrap is deployment-spe
 shared-gateway mode still requires an independent cleanup helper. GYM-01 has
 native offline verifier calibration and its own remediated dependency lock.
 The model-backed original synthetic pair completed with private provider/trajectory
-records. The optional fixture evidence bridge is implemented. Run the real-agent
-effect pilot next, retaining hosted-model attestation and commercial licensing limits.
-No step changes the frozen Rust
+records. The optional fixture evidence bridge and Hermes development effect pilot
+are implemented. Run failure drills and freeze the reviewed regression baseline next,
+retaining hosted-model attestation and commercial licensing limits. No step changes the frozen Rust
 baseline or grants qualification. Use upstream harnesses for the agent pilot.
 
 The host-side receipt, paired-capture, watchdog and `live-run` services from PR #18
@@ -71,9 +72,10 @@ inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
    Retain DEV-02's unresolved namespace-create window and qualification limits;
    authenticated external watchdog/whole-cell fault qualification remains P1 work.
 2. The optional result/evidence bridge (GYM-02) now has fixture/native conformance.
-   Implement one real-agent injection/effect pilot (GYM-03/PORT-01).
-   Hermes is the initial candidate, with
-   compatibility recorded before confirming support. The development pilot does
+   The initial Hermes host-harness injection/effect pilot (GYM-03) is exercised.
+   Its application process remains outside the selected boundary; only remote
+   synthetic effects traverse it. Generic pairing support remains separate.
+   The development pilot does
    not depend on completed commercial qualification and cannot establish it.
 3. Run development failure drills (REL-01/EVID-01), including Gym/verifier failure,
    policy mutation, receiver/storage loss, cancellation, supervisor restart and
@@ -85,9 +87,18 @@ inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
    services, then run live fault qualification (LIFE-01/LIFE-02/QUAL-01/COMPAT-03).
    This remains the commercial qualification blocker even if Gym scores improve.
 6. Extend to additional agent pairings, broader injection coverage, Rust DNS,
-   supply-chain/distribution controls and EvalHub mapping as their prerequisites
-   are met (COMPAT-04/SEC-03/DEV-01/INT-01). SEC-03 merge enforcement remains
+   supply-chain/distribution controls, EvalHub mapping and optional Interplay
+   campaign integration as their prerequisites are met
+   (COMPAT-04/SEC-03/DEV-01/INT-01/INT-02). SEC-03 merge enforcement remains
    valuable independent work once the hosted aggregate check is established.
+
+INT-02 is recorded for later implementation; it does not replace the current
+reliability drills or frozen regression work following the Hermes-first pilot. Pin
+Interplay independently from Gym, agent/model, Rust and the selected boundary.
+Keep attack discovery/tuning separate from held-out baseline cases. Interplay's
+endpoint response/judge outcomes cannot substitute for tool-effect, positive-control,
+monitoring or cleanup evidence. Initial integration should use a single supported
+attack method and private synthetic tasks before expanding method coverage.
 
 Training, adaptive attack discovery and broad harness expansion follow the frozen
 pilot. New attacks require explicit baseline promotion; runtime upgrades never

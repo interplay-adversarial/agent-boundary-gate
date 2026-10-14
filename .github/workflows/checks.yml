@@ -44,6 +44,8 @@ jobs:
         run: uv run --no-sync python -m scripts.audit_rust_probe
       - name: Separate Gym onboarding locked dependency vulnerability check
         run: uv run --no-sync python scripts/audit_dependencies.py --gym
+      - name: Separate Hermes pilot locked dependency vulnerability check
+        run: uv run --no-sync python scripts/audit_dependencies.py --hermes
       - name: Publication privacy audit
         run: python scripts/audit_publication.py
       - name: Gitleaks secret scan
@@ -86,6 +88,22 @@ jobs:
         run: onboarding/gym/.venv/bin/python scripts/gym_replay.py --upstream .private-gym-source --output "$RUNNER_TEMP/gym-replay"
       - name: Native model-smoke conformance without credentials or model traffic
         run: PYTHONPATH=src onboarding/gym/.venv/bin/python -m unittest discover -s tests -p test_gym_smoke_native.py -v
+
+  hermes-pilot:
+    name: Hermes native pilot conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13.14'
+      - name: Install separately locked Hermes and Gym runtime
+        run: |
+          python -m pip install uv==0.12.17
+          uv sync --project onboarding/hermes --frozen --no-editable
+      - name: Exercise actual Hermes with synthetic model transport and tools
+        run: PYTHONPATH=src onboarding/hermes/.venv/bin/python -m unittest discover -s tests -p test_hermes_pilot_native.py -v
 
   rust-platforms:
     name: Rust probe (${{ matrix.target }})
@@ -139,14 +157,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     if: always()
-    needs: [validate, rust-platforms, gym-onboarding]
+    needs: [validate, rust-platforms, gym-onboarding, hermes-pilot]
     steps:
       - name: Require every validation matrix entry to pass
         env:
           VALIDATION_RESULT: ${{ needs.validate.result }}
           RUST_RESULT: ${{ needs.rust-platforms.result }}
           GYM_RESULT: ${{ needs.gym-onboarding.result }}
+          HERMES_RESULT: ${{ needs.hermes-pilot.result }}
         run: |
           test "$VALIDATION_RESULT" = success
           test "$RUST_RESULT" = success
           test "$GYM_RESULT" = success
+          test "$HERMES_RESULT" = success
