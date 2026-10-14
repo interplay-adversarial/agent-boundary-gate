@@ -443,3 +443,25 @@ power-loss/partition durability, controller/key isolation and authenticated live
 whole-cell recovery remain open. Next: durable recovery/storage interruption drills.
 GYM-04/INT-02 retain their prerequisites; signed schemas, dependency pins, archived
 evidence and release eligibility are unchanged. [Protocol and limits](development-namespace-allocation.md).
+
+## Description-driven DataDesigner research increment
+
+William explicitly reprioritized a description-driven assessment capability ahead
+of the remaining durable-storage drills. Reusable generation, target-adapter,
+judging, dataset and recovery APIs are implemented independently in Interplay
+PR #35. This repository consumes an immutable source pin in an optional environment,
+with dependency/source checks, private credential forwarding and external process
+supervision. Actual DataDesigner conformance covers generation, observations,
+judgments, matching JSONL/Parquet/Arrow exports, interrupted judgment recovery and
+rejection of modified source pins.
+
+This is an initial research integration toward INT-02, not its completion. The
+first target is an OpenAI-compatible endpoint; internal logs/traces must be supplied
+by that endpoint or a future instrumented adapter. The adversarial model is
+operator-provided and its abliteration is unverified. A separate JUDGE_MODEL uses
+captured evidence; missing evidence and incomplete execution remain inconclusive.
+Release eligibility stays false. GYM-04 frozen paired campaigns, authenticated
+effects and commercial qualification keep their prerequisites. Next: review/merge
+the reusable Interplay API and gate adapter, configure an authorized provider pilot,
+then resume EVID-01 durable-storage interruption drills. No live campaign was run.
+[Usage, schema and limits](description-driven-red-team.md).

@@ -12,6 +12,10 @@ runnable offline/loopback examples, stored evidence verification and live integr
 
 ## Implemented
 
+- [Description-driven red-team research](docs/description-driven-red-team.md)
+  through separately pinned Interplay and NVIDIA NeMo DataDesigner: adversarial
+  probe generation, separate model judging, private JSONL/Parquet/Arrow datasets
+  and supervised interrupted-run recovery. Research verdicts grant no release authority.
 - Versioned CaseSpec, EvidenceManifest, RunResult, GateDecision and target profiles.
 - Frozen replay, component identity/generation checks and positive controls.
 - Independent denied-egress receiver observations and private evidence persistence.

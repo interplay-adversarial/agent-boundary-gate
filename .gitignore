@@ -27,6 +27,9 @@ results/
 output/
 *.log
 *.jsonl
+*.parquet
+*.arrow
+*.feather
 *.tar.gz
 *.whl
 build/

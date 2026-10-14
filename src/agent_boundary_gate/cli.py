@@ -40,6 +40,18 @@ def main() -> int:
     parser = SanitizedArgumentParser(description="M0 contract prototype; no release authority")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("adapters", help="implemented, simulated and planned support inventory")
+    for name in ("red-team-run", "red-team-recover"):
+        red_team = commands.add_parser(
+            name, help="optional description-driven Interplay research; no gate authority"
+        )
+        red_team.add_argument(
+            "--python", type=Path, required=True, help="separately pinned research interpreter"
+        )
+        red_team.add_argument("--output", type=Path, required=True)
+        if name == "red-team-run":
+            red_team.add_argument("--config", type=Path, required=True)
+            red_team.add_argument("--description")
+            red_team.add_argument("--success-criteria")
     development = commands.add_parser(
         "development-plan", help="prepare private Kubernetes integration resources; no live gate"
     )
@@ -104,6 +116,31 @@ def main() -> int:
     legacy.add_argument("--public-key", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.command in ("red-team-run", "red-team-recover"):
+            from agent_boundary_gate.red_team import red_team_recover, red_team_run
+
+            if args.command == "red-team-recover":
+                report = red_team_recover(args.output, args.python)
+            else:
+                cancelled = Event()
+                previous = {
+                    number: signal.signal(number, lambda *_: cancelled.set())
+                    for number in (signal.SIGINT, signal.SIGTERM)
+                }
+                try:
+                    report = red_team_run(
+                        args.config,
+                        args.output,
+                        args.python,
+                        cancelled=cancelled,
+                        description=args.description,
+                        success_criteria=args.success_criteria,
+                    )
+                finally:
+                    for number, handler in previous.items():
+                        signal.signal(number, handler)
+            print(json.dumps(report, sort_keys=True))
+            return 0 if report.get("assessment_complete") else 2
         if args.command in ("development-run", "development-recover"):
             from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
             from agent_boundary_gate.live import read_private
