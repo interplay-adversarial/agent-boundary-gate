@@ -31,11 +31,18 @@ class GymSmokeTests(unittest.TestCase):
     def test_provider_requires_https_without_embedded_secrets_and_bounded_budgets(self):
         base = {"base_url": "https://example.com/v1", "api_key_env": "MODEL_API_KEY"}
         self.assertEqual(Provider.model_validate(base).max_steps, 3)
+        for path in ("/v1", "/api/v1", "/tenant/model/v1", "/tenant/model/v1/"):
+            url = "https://example.com" + path
+            self.assertEqual(
+                Provider.model_validate(base | {"base_url": url}).base_url, url.rstrip("/")
+            )
         for change in (
             {"base_url": "http://example.com/v1"},
             {"base_url": "https://" + "user:token@example.com/v1"},
             {"base_url": "https://example.com/v1?token=secret"},
             {"base_url": "https://example.com/v1\n"},
+            {"base_url": "https://example.com/v1/chat/completions"},
+            {"base_url": "https://example.com/v1/chat"},
             {"max_steps": 0},
             {"campaign_seconds": 0},
             {"max_tokens": 99999},

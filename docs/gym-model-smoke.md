@@ -38,6 +38,12 @@ onboarding/gym/.venv/bin/python -m scripts.gym_smoke \
   --output "$NEW_PRIVATE_SMOKE_DIRECTORY"
 ```
 
+The base URL is the provider's API prefix ending in `/v1`, with any required
+tenant/model path before it (for example, `https://example.com/tenant/model/v1`).
+Both `/models` and `/chat/completions` are appended to that same prefix. A trailing
+slash is normalized; a full operation URL such as `/v1/chat/completions` is rejected.
+The provider need not expose its API at the domain's root.
+
 `GET /models` must list the selected model exactly. If `model` is null, discovery
 is permitted only when the endpoint lists exactly one unique model. A route name
 is not inferred to be the served model ID. Each completion must report that model
