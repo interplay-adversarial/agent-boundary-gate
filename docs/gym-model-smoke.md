@@ -61,7 +61,11 @@ are calibration smoke tasks, not a rights-reviewed broad benchmark or held-out
 corpus. Source and dependency licensing review remains necessary for packaging.
 
 The new directory is `0700`, and reports/responses/trajectories are `0600`.
-Every successful HTTP completion is retained before semantic validation. Completed
+Successful HTTP completions are retained before semantic validation, except that
+inventory/completions containing the exact supplied credential are rejected before
+writing. Reflection produces incomplete evidence with a fixed failure reason;
+the offending response is not saved or silently rewritten. The guard does not
+identify unrelated, encoded or fragmented secrets. Completed
 case results survive subsequent failure. Failures produce a fixed console error
 and `failure.json`; partial evidence never becomes a successful smoke. No token
 is written to reports. Saved baseline metadata also omits the credential variable

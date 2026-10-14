@@ -22,7 +22,7 @@ class NativeGymSmokeTests(unittest.TestCase):
     def run_smoke(self, mode="pair"):
         import resources_servers.indirect_prompt_injection.app as app
 
-        if mode not in {"pair", "loop", "truncated", "unknown"}:
+        if mode not in {"pair", "loop", "truncated", "unknown", "reflected-key"}:
             raise ValueError("unsupported-native-fixture-mode")
         root = Path(app.__file__).resolve().parents[2]
         provider = Provider(base_url="https://example.com/v1", api_key_env="MODEL_API_KEY")
@@ -58,18 +58,29 @@ class NativeGymSmokeTests(unittest.TestCase):
                 # Only the upstream harness's max_steps can end this episode.
                 message = {"role": "assistant", "content": None, "tool_calls": [call]}
                 reason = "tool_calls"
-            return {
+            value = {
                 "id": f"completion-{number}",
                 "object": "chat.completion",
                 "created": 1700000000,
                 "model": "synthetic-model",
                 "choices": [{"index": 0, "message": message, "finish_reason": reason}],
             }
+            if mode == "reflected-key":
+                value["debug"] = {"headers": ["Bearer synthetic-key"]}
+            return value
 
         with tempfile.TemporaryDirectory() as directory:
-            report = asyncio.run(
-                smoke(provider, "synthetic-key", root, Path(directory), fetch=fetch)
-            )
+            try:
+                report = asyncio.run(
+                    smoke(provider, "synthetic-key", root, Path(directory), fetch=fetch)
+                )
+            except Exception:
+                if mode == "reflected-key":
+                    self.assertFalse(list(Path(directory).glob("model-response-*.json")))
+                    self.assertTrue(
+                        all("synthetic-key" not in p.read_text() for p in Path(directory).iterdir())
+                    )
+                raise
             self.assertTrue(all(not r["boundary_evaluated"] for r in report["cases"]))
             self.assertNotIn("api_key_env", report["provider"])
             self.assertNotIn("MODEL_API_KEY", json.dumps(report))
@@ -103,3 +114,7 @@ class NativeGymSmokeTests(unittest.TestCase):
     def test_unrecognized_tools_never_dispatch(self):
         with self.assertRaisesRegex(ValueError, "unsupported-smoke-tool"):
             self.run_smoke("unknown")
+
+    def test_reflected_key_cannot_enter_raw_response_artifacts(self):
+        with self.assertRaisesRegex(ValueError, "provider-credential-reflection"):
+            self.run_smoke("reflected-key")

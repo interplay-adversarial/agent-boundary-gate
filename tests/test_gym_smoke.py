@@ -6,7 +6,14 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from scripts.gym_smoke import Provider, episode_complete, private_json, select_model, write_private
+from scripts.gym_smoke import (
+    Provider,
+    episode_complete,
+    private_json,
+    reject_reflected_credential,
+    select_model,
+    write_private,
+)
 
 
 class GymSmokeTests(unittest.TestCase):
@@ -73,6 +80,14 @@ class GymSmokeTests(unittest.TestCase):
         self.assertEqual(baseline["max_tokens"], 2048)
         self.assertNotIn("api_key_env", baseline)
         self.assertNotIn("MODEL_API_KEY", str(baseline))
+
+    def test_reflection_guard_inspects_nested_values_and_keys_without_echoing_secret(self):
+        key = "synthetic-credential"
+        for value in ({"debug": ["Bearer " + key]}, {key: "unused"}):
+            with self.assertRaises(ValueError) as raised:
+                reject_reflected_credential(value, key)
+            self.assertNotIn(key, str(raised.exception))
+        reject_reflected_credential({"data": [{"id": "model-a"}]}, key)
 
     def test_private_output_does_not_overwrite_or_follow_links(self):
         with tempfile.TemporaryDirectory() as root:

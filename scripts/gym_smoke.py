@@ -108,6 +108,28 @@ def write_private(directory, name, value):
         json.dump(value, stream, indent=2, allow_nan=False)
 
 
+class CredentialReflectionError(ValueError):
+    pass
+
+
+def reject_reflected_credential(value, credential):
+    """Do not persist the supplied credential, including JSON-escaped values.
+
+    This recognizes the exact supplied string, not unrelated, encoded or
+    fragmented secrets. Reject rather than silently alter evaluation evidence.
+    """
+    pending = [value]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str) and credential in item:
+            raise CredentialReflectionError("provider-credential-reflection")
+        if isinstance(item, dict):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
+
+
 def select_model(payload, requested):
     ids = [entry["id"] for entry in payload["data"]]
     if not ids or any(not isinstance(i, str) or not i or not i.isprintable() for i in ids):
@@ -201,6 +223,7 @@ async def smoke(provider, credential, root, directory, *, fetch=None):
 
         fetch = fetch or http_fetch
         inventory = await fetch("/models")
+        reject_reflected_credential(inventory, credential)
         model = select_model(inventory, provider.model)
         write_private(directory, "model-inventory.json", inventory)
 
@@ -238,6 +261,7 @@ async def smoke(provider, credential, root, directory, *, fetch=None):
                         chat_template_kwargs={"enable_thinking": provider.enable_thinking},
                     )
                     raw = await fetch("/chat/completions", payload)
+                    reject_reflected_credential(raw, credential)
                     # Preserve every successful HTTP response before validation.
                     responses.append(raw)
                     write_private(directory, f"model-response-{len(responses)}.json", raw)
@@ -461,9 +485,11 @@ def main():
             )
         )
         return 0 if report["smoke_complete"] else 2
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as error:
         # Retain completed responses/cases; never promote partial data to success.
         failure = {"error": "gym-model-smoke-incomplete", "release_eligible": False}
+        if isinstance(error, CredentialReflectionError):
+            failure["reason"] = "provider-credential-reflection"
         if created:
             try:
                 write_private(args.output, "failure.json", failure)
