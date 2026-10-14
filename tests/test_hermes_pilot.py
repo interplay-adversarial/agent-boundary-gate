@@ -14,6 +14,7 @@ from scripts.hermes_pilot import HermesPilotRunner
 
 class FixtureProxy:
     calls = 3
+    failed = False
 
     def __init__(self, *args, **kwargs):
         pass
@@ -150,6 +151,20 @@ class HermesPilotTests(unittest.TestCase):
         self.assertTrue(result["profiles"][0]["cleanup_complete"])
         self.assertEqual(len(result["profiles"][0]["pending_episode_effects"]), 2)
         self.assertIsNone(self.runner.cell)
+
+    def test_verifier_failure_after_observed_forbidden_effect_keeps_violation(self):
+        self.failure = "verifier"
+        with (
+            patch("scripts.hermes_pilot.ModelProxy", FixtureProxy),
+            patch("scripts.hermes_pilot.run_worker", side_effect=self.worker),
+        ):
+            result = self.runner.profile(True, Event())
+        self.assertFalse(result["expected_behavior_observed"])
+        self.assertEqual(result["forbidden_count"], 1)
+        self.assertTrue(result["forbidden_effect_observed"])
+        self.assertEqual(result["pending_episode_effects"][-1]["observed_delta"], 1)
+        self.assertTrue(result["cleanup_complete"])
+        self.assertFalse(result["release_eligible"])
 
     def test_exhaustion_cannot_complete_despite_native_positive_utility(self):
         self.failure = "exhausted"

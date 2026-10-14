@@ -82,10 +82,15 @@ class ModelProxy:
         self.calibration, self.fetch = calibration, fetch
         self.token, self.calls = secrets.token_hex(24), 0
         self.failed, self.closed = False, False
+        self.active = 0
         self.lock = Lock()
         proxy = self
 
         class Handler(BaseHTTPRequestHandler):
+            def setup(self):
+                self.request.settimeout(5)
+                super().setup()
+
             def log_message(self, *args):
                 pass
 
@@ -106,13 +111,21 @@ class ModelProxy:
                 if not self.authorized() or self.path != "/v1/models":
                     self.respond({"error": "unsupported-model-request"}, 403)
                     return
-                self.respond({"data": [{"id": proxy.provider.model}]})
+                with proxy.lock:
+                    if proxy.closed:
+                        self.respond({"error": "model-proxy-closed"}, 503)
+                        return
+                    self.respond({"data": [{"id": proxy.provider.model}]})
 
             def do_POST(self):
+                admitted = False
                 try:
                     self.connection.settimeout(5)
-                    if not self.authorized() or self.path != "/v1/chat/completions" or proxy.closed:
+                    if not self.authorized() or self.path != "/v1/chat/completions":
                         raise ValueError("unsupported-model-request")
+                    with proxy.lock:
+                        if proxy.closed:
+                            raise ValueError("model-proxy-closed")
                     size = int(self.headers.get("Content-Length", "0"))
                     if not 0 < size <= 512 * 1024:
                         raise ValueError("oversized-model-request")
@@ -126,6 +139,8 @@ class ModelProxy:
                         if proxy.closed or proxy.calls >= proxy.provider.max_steps + 1:
                             raise ValueError("model-call-budget-exceeded")
                         proxy.calls += 1
+                        proxy.active += 1
+                        admitted = True
                         number = proxy.calls
                     request.pop("metadata", None)
                     request.update(
@@ -159,14 +174,28 @@ class ModelProxy:
                         raise ValueError("provider-response-limit")
                     if value.get("model") != proxy.provider.model:
                         raise ValueError("provider-model-identity-mismatch")
-                    if proxy.closed:
-                        raise ValueError("model-proxy-closed")
-                    write_private(proxy.directory, f"model-request-{number}.json", request)
-                    write_private(proxy.directory, f"model-response-{number}.json", value)
-                    self.respond(value)
+                    # Admission and final publication share the shutdown fence.
+                    # Provider I/O stays outside the lock: a blocked request cannot
+                    # prevent closure, and a late response cannot persist/escape it.
+                    with proxy.lock:
+                        if proxy.closed:
+                            raise ValueError("model-proxy-closed")
+                        write_private(proxy.directory, f"model-request-{number}.json", request)
+                        write_private(proxy.directory, f"model-response-{number}.json", value)
+                        self.respond(value)
+                        proxy.active -= 1
+                        admitted = False
                 except Exception:
-                    proxy.failed = True
-                    self.respond({"error": "model-proxy-incomplete"}, 502)
+                    with proxy.lock:
+                        proxy.failed = True
+                    try:
+                        self.respond({"error": "model-proxy-incomplete"}, 502)
+                    except OSError:
+                        pass
+                finally:
+                    if admitted:
+                        with proxy.lock:
+                            proxy.active -= 1
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.daemon_threads = True
@@ -210,7 +239,10 @@ class ModelProxy:
         return self
 
     def __exit__(self, *args):
-        self.closed = True
+        with self.lock:
+            self.closed = True
+            if self.active:
+                self.failed = True
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
@@ -291,15 +323,41 @@ def run_worker(provider, proxy, directory, rollout_id, dispatch_tool, *, deadlin
             raise ValueError("hermes-episode-incomplete")
         return private_json(directory / "episode.json", max_bytes=2 * 1024 * 1024)
     finally:
-        if process.poll() is None:
+        cleanup_failed = False
+        try:
             os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            cleanup_failed = True
+        if process.poll() is None:
             try:
                 process.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=2)
+                pass
+        # A completed/failed direct child may leave same-group descendants.
+        # Always kill the remaining group; direct-child exit is not containment.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            cleanup_failed = True
+            if process.poll() is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    cleanup_failed = True
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            cleanup_failed = True
         process.stdin.close()
         process.stdout.close()
+        if cleanup_failed:
+            raise ValueError("hermes-worker-process-group-cleanup-unconfirmed")
 
 
 class HermesPilotRunner(DevelopmentRunner):
@@ -385,6 +443,8 @@ class HermesPilotRunner(DevelopmentRunner):
                     cancelled=bounds["cancelled"],
                 )
             native = packet["native_verifier"]
+            if proxy.failed:
+                raise ValueError("hermes-model-proxy-incomplete")
             observations = packet["observations"]
             completed = (
                 packet["response"]["status"] == "completed"

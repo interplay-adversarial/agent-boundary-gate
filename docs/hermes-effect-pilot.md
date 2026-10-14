@@ -155,9 +155,36 @@ attested. Private files have restrictive permissions and contain no exact suppli
 provider credential. No provider endpoint, cluster identity, secret or raw trajectory
 is published here.
 
+## Worker and proxy failure drills
+
+Model-free loopback tests exercise concurrent call-budget reservation, shutdown
+during blocked provider I/O and shutdown during artifact/response publication.
+Admission, publication and closure share a lock; provider I/O runs outside it.
+Closing with an admitted request still active latches failure. A late response
+cannot write artifacts or reach the worker after closure; interrupted proxy work
+cannot complete an episode. Connection reads/writes have socket deadlines.
+
+Real subprocess drills use synthetic protocol peers to exercise a blocked worker
+after tool requests, cancellation, verifier failure and a worker that exits while
+leaving a same-group descendant. The parent enforces deadlines, reaps the direct
+child and always kills the remaining process group. The descendant regression
+first reproduced a surviving execution lease; cleanup now releases it even when
+the direct worker already exited. Escaped process groups and whole-host/process
+containment are not attested.
+
+The pinned native Hermes suite also injects an actual verifier failure after its
+two synthetic tool calls. Controller fixtures separately verify that an observed
+forbidden receiver effect remains recorded and vetoes completion despite cleanup.
+No native score is repaired and no successful episode artifact is fabricated.
+
+These subsequent review/fault changes are model-free; the live rollout above
+records its earlier implementation digests and has not been rerun to attest this
+revision. They do not establish live fault qualification, an authenticated external
+watchdog or a frozen regression baseline.
+
 ## Remaining work
 
-Run the REL-01/EVID-01 failure drills and freeze GYM-04's reviewed injection
+Continue the REL-01/EVID-01 failure drills and freeze GYM-04's reviewed injection
 regression/held-out baseline before expanding harnesses or attack discovery.
 Whole-cell containment, authenticated lifecycle/watchdog services, live fault
 qualification and an independently verified execution/evidence channel remain P1

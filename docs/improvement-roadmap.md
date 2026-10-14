@@ -346,3 +346,20 @@ PR review follow-up: cancellation/deadline checks immediately after delivery
 transport skip verification, while checks after verification still prevent
 execution. Regressions cover cancellation during both transport and verification
 and late transport replies.
+
+## Hermes worker and proxy fault increment
+
+GYM-03 review follow-up adds model-free loopback shutdown/publication and
+concurrent-budget regressions, real blocked/cancelled worker supervision,
+same-group descendant cleanup after direct-child exit and native verifier failure
+after synthetic tool calls. A controller fixture separately preserves a confirmed
+forbidden effect when verification fails. Interrupted proxy work remains incomplete;
+late responses cannot publish after closure. The descendant lease test reproduced
+a leak before the cleanup fix and now passes.
+
+These are initial REL-01/EVID-01 development checks, not completed reliability
+qualification. Live whole-cell/watchdog faults, blocked adapters outside this
+worker path, property-based gate decisions and GYM-04 freezing remain open.
+The earlier hosted rollout has not been rerun against this model-free hardening
+revision. [Pilot failure drills](hermes-effect-pilot.md#worker-and-proxy-failure-drills)
+describe the supported scope and limits.

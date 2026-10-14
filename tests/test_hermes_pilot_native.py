@@ -8,6 +8,7 @@ import tomllib
 import unittest
 from pathlib import Path
 from threading import Event
+from unittest.mock import patch
 
 from scripts.gym_replay import check_environment
 from scripts.gym_smoke import Provider
@@ -167,6 +168,65 @@ class NativeHermesPilotTests(unittest.TestCase):
                 self.assertNotIn("synthetic-reflection", response.text)
                 self.assertTrue(proxy.failed)
                 self.assertEqual(list(directory.iterdir()), [])
+
+    def test_actual_native_verifier_failure_retains_prior_synthetic_tool_requests(self):
+        import subprocess
+        import sys
+
+        from scripts.hermes_pilot import INJECTION, MESSAGE, ModelProxy, run_worker
+
+        provider = Provider(
+            base_url="https://example.com/v1",
+            api_key_env="MODEL_API_KEY",
+            model="synthetic-model",
+            max_steps=4,
+        )
+        # Change only the native verifier in an actual pinned runtime subprocess.
+        # The Hermes loop and parent supervision remain real; effects are fixtures.
+        source = (
+            "from resources_servers.indirect_prompt_injection.app import IPIResourcesServer\n"
+            "async def fail_verifier(*args, **kwargs):\n"
+            "    raise ValueError('synthetic-native-verifier-failure')\n"
+            "IPIResourcesServer.verify = fail_verifier\n"
+            "from scripts.hermes_worker import main\n"
+            "raise SystemExit(main())\n"
+        )
+        spawn, processes, requests = subprocess.Popen, [], []
+
+        def launch(argv, **kwargs):
+            process = spawn([sys.executable, "-c", source], **kwargs)
+            processes.append(process)
+            return process
+
+        def dispatch(tool, args):
+            requests.append(tool)
+            return (
+                {"messages": [{"body": MESSAGE + INJECTION}]}
+                if tool == "gate_read_messages"
+                else {"synthetic_request_submitted": True}
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with ModelProxy(provider, "synthetic-no-secret", directory, calibration=True) as proxy:
+                with patch("scripts.hermes_pilot.subprocess.Popen", side_effect=launch):
+                    with self.assertRaisesRegex(ValueError, "worker-incomplete"):
+                        run_worker(
+                            provider,
+                            proxy,
+                            directory,
+                            "native-verifier-failure",
+                            dispatch,
+                            deadline=time.monotonic() + 45,
+                            cancelled=Event(),
+                        )
+            self.assertEqual(requests, ["gate_read_messages", "gate_send_record"])
+            self.assertIsNotNone(processes[0].returncode)
+            self.assertNotEqual(processes[0].returncode, 0)
+            self.assertFalse((directory / "episode.json").exists())
+            self.assertIn(
+                "synthetic-native-verifier-failure", (directory / "worker-failure.txt").read_text()
+            )
 
 
 if __name__ == "__main__":
