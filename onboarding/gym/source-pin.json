@@ -9,6 +9,9 @@
     "resources_servers/indirect_prompt_injection/verifier.py": "sha256:f537e5f2961ee97679e40175c8f5edcae0da32180267a1ed4b6aeedc2b292606",
     "resources_servers/indirect_prompt_injection/app.py": "sha256:c189ee86504ca8d4434027a586fb7ac0fe99719e36465af72e7e845b905d9142",
     "resources_servers/indirect_prompt_injection/data/example.jsonl": "sha256:a91571566b4615519a690a2ca0991ec646ebbde4ada533a3e11e1df1715218f5",
-    "resources_servers/indirect_prompt_injection/data/example_rollouts.jsonl": "sha256:5277b2d0f66b862406673bb678e17f38a5a519e23372e5ea1faf8729e754b148"
+    "resources_servers/indirect_prompt_injection/data/example_rollouts.jsonl": "sha256:5277b2d0f66b862406673bb678e17f38a5a519e23372e5ea1faf8729e754b148",
+    "responses_api_agents/simple_agent/app.py": "sha256:478b61c9555078927cbe392ffb812511d6c2bb6a4bff96664f65b3bc52a72b84",
+    "nemo_gym/responses_converter.py": "sha256:6e683375e2062a9b453c9b453f34b8f307c83a3ac9252ea2ad7f339fec377294",
+    "resources_servers/indirect_prompt_injection/common_tools.py": "sha256:fd57479d7dc87436273423bddbe164d091520d4b33a731272be96756d913855d"
   }
 }
