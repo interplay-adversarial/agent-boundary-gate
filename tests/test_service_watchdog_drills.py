@@ -625,5 +625,44 @@ class ServiceWatchdogDrills(unittest.TestCase):
     def test_receiver_sigkill_retains_violation_in_signed_terminal_and_gate(self):
         self.terminal_after_service_death("receiver")
 
+    def test_sigkill_authority_terminates_active_inspector_before_fresh_recovery(self):
+        child = self.authority()
+        self.register_due()
+        (self.root / "block-cleanup").touch()
+        watchdog = self.launch("watchdog", self.watchdog_config)
+        entered = self.root / "cleanup-entered.json"
+        self.wait(entered.exists)
+        inspector_pid = json.loads(entered.read_text())["pid"]
+
+        def alive():
+            try:
+                os.kill(inspector_pid, 0)
+                return True
+            except ProcessLookupError:
+                return False
+
+        # Regression teardown owns this exact checkpoint PID even on the old
+        # implementation, which leaks the inspector after authority SIGKILL.
+        def stop_leaked_inspector():
+            if alive():
+                os.kill(inspector_pid, signal.SIGKILL)
+
+        self.addCleanup(stop_leaked_inspector)
+        self.assertTrue(alive())
+        self.stop_child(child, abrupt=True)
+        self.wait(lambda: not alive(), timeout=2)
+        self.assertFalse(self.destroyed())
+        self.assertIsNone(self.journal.inspect(self.lease.lease_id)["receipt_ref"])
+        self.assertEqual(json.loads(self.inventory.read_text())["state"], "ready")
+        (self.root / "block-cleanup").unlink()
+        time.sleep(0.1)
+        self.assertEqual(json.loads(self.inventory.read_text())["cleanup_calls"], 0)
+        self.stop_child(watchdog)
+        self.reconcile_socket(Path(self.authority_config.socket_path), child)
+        self.authority()
+        self.launch("watchdog", self.watchdog_config)
+        self.wait(self.destroyed)
+        self.assert_cleanup_proof()
+
     def test_authority_sigkill_retains_violation_and_withholds_cleanup_in_signed_gate(self):
         self.terminal_after_service_death("authority")

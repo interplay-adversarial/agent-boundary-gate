@@ -64,7 +64,10 @@ and the baseline pins for the full lease lifetime.
 The authority requires a pinned operator-owned executable implementing
 `InspectionRequest -> CellInspection` as bounded JSON on stdin/stdout. The host
 service hashes and snapshots the executable before every invocation, runs it
-without a shell, and kills its process group on cancellation/deadline. Host
+without a shell, and uses a separate pipe-liveness supervisor to kill its process
+group on caller death, cancellation or deadline, including a suspended caller.
+[Supervision limits](command-parent-death-supervision.md) still require an
+independent deployment owner for escaped groups and supervisor failure. Host
 interpreters, dynamic libraries, helper programs and environment are additional
 trusted dependencies; an executable digest does not pin those dependencies.
 

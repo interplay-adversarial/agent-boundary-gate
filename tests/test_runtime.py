@@ -602,13 +602,23 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(caught.exception.reason, "output-limit")
 
     def test_process_group_cleanup_denial_is_reported(self):
+        # Denial must occur in the separate command owner, not in the caller.
+        supervisor = self.folder / "denied-supervisor.py"
+        supervisor.write_text(
+            "import sys\nfrom unittest.mock import patch\n"
+            "from agent_boundary_gate.process_supervisor import supervise\n"
+            "with patch('agent_boundary_gate.process_supervisor.os.killpg', "
+            "side_effect=PermissionError):\n"
+            "    sys.exit(supervise(int(sys.argv[1]), int(sys.argv[2]), "
+            "int(sys.argv[3]), float(sys.argv[4]), sys.argv[5:]))\n"
+        )
         with (
-            patch("agent_boundary_gate.process.os.killpg", side_effect=PermissionError),
+            patch("agent_boundary_gate.process._SUPERVISOR", supervisor),
             self.assertRaises(AttemptStopped) as caught,
         ):
             bounded_process(
                 [sys.executable, "-c", "import time; time.sleep(60)"],
-                deadline=time.monotonic() + 0.08,
+                deadline=time.monotonic() + 0.5,
                 cancelled=Event(),
             )
         self.assertEqual(caught.exception.reason, "process-group-cleanup-not-confirmed")

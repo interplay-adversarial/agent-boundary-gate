@@ -34,10 +34,15 @@ The private evidence store retains bounded untrusted receipts as it does for
 `AuthorityClient`. `live-run` still uses its configured Unix authority socket;
 this alternate provider is an explicit library composition.
 
-The parent enforces the caller's monotonic execution deadline and cancellation,
-kills the local process group and reaps the direct child. Group cleanup failure
+The parent bounds output and cancellation. A separate pipe-liveness supervisor
+owns the command group and enforces the same monotonic deadline independently
+of caller suspension or death. Closing the ownership pipe terminates the group;
+normal completion also terminates remaining same-group descendants and reaps
+the direct command before returning. Group cleanup failure
 is reported rather than silently accepted. Cleanup receives the existing fresh
 cleanup budget; an earlier replay cancellation cannot bypass cleanup.
+See [parent-death supervision](command-parent-death-supervision.md) for failure
+drills, polling/host scheduling limits and deployment obligations.
 Stdout now uses a finite OS pipe rather than a polling-limited temporary file.
 Retained output defaults to 64 KiB; explicit limits must be positive integers
 at most 16 MiB (the development runner uses 1 MiB). Stderr is discarded. Input

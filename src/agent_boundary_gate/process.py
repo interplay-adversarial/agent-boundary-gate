@@ -1,14 +1,18 @@
-"""Bounded subprocesses; cancellation terminates the local process group."""
+"""Bounded commands with an independent pipe-liveness process owner."""
 
 import math
 import os
 import select
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Event
+
+_SUPERVISOR = Path(__file__).with_name("process_supervisor.py")
 
 
 class AttemptStopped(Exception):
@@ -48,14 +52,41 @@ def bounded_process(
         if input_data is not None:
             request.write(input_data)
             request.seek(0)
-        child = subprocess.Popen(
-            argv,
-            stdin=request if input_data is not None else subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-            env=env,
-        )
+        # A separate session survives caller/group SIGKILL. Only this caller
+        # holds the writer; exec children cannot inherit it. EOF lets the owner
+        # terminate the command's separate group even when our finally is lost.
+        reader, writer = os.pipe()
+        try:
+            status_reader, status_writer = os.pipe()
+        except BaseException:
+            os.close(reader)
+            os.close(writer)
+            raise
+        try:
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(_SUPERVISOR),
+                    str(reader),
+                    str(request.fileno()),
+                    str(status_writer),
+                    str(deadline),
+                    *argv,
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+                pass_fds=(reader, request.fileno(), status_writer),
+                env=env,
+            )
+        except BaseException:
+            os.close(writer)
+            os.close(status_reader)
+            raise
+        finally:
+            os.close(reader)
+            os.close(status_writer)
         try:
             os.set_blocking(child.stdout.fileno(), False)
             output = bytearray()
@@ -82,26 +113,27 @@ def bounded_process(
                 else:
                     select.select([child.stdout], [], [], delay)
         finally:
-            # A child may leave descendants after exiting; kill the whole group.
+            # Close ownership first, so cancellation lets the supervisor kill
+            # and reap its command rather than killing the owner prematurely.
+            os.close(writer)
             cleanup_failed = False
             try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            except PermissionError:
-                cleanup_failed = True
-                # Reap the direct child even if group cleanup could not be confirmed.
-                if child.poll() is None:
-                    try:
-                        child.kill()
-                    except ProcessLookupError:
-                        pass
-                    except PermissionError:
-                        cleanup_failed = True
-            try:
-                child.wait(timeout=5)
+                child.wait(timeout=6)
             except subprocess.TimeoutExpired:
                 cleanup_failed = True
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                    child.wait(timeout=1)
+                except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                    pass
             child.stdout.close()
+            os.set_blocking(status_reader, False)
+            try:
+                status = os.read(status_reader, 2)
+            except BlockingIOError:
+                status = b""
+            finally:
+                os.close(status_reader)
+            cleanup_failed |= status != b"0"
             if cleanup_failed:
                 raise AttemptStopped("process-group-cleanup-not-confirmed")
