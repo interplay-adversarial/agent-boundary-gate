@@ -54,14 +54,17 @@ complete final capture before reporting expected **development** behavior.
 These tests add process-death coverage beyond in-process cleanup mocks; they do
 not qualify whole-cell containment, a live API, storage durability under power
 loss, partitioned-node termination or an authenticated external watchdog. The
-namespace-create registration window is intentionally unresolved. Signed wire
+direct namespace-create registration window remains unresolved; the optional
+[independent allocator](development-namespace-allocation.md) handles controller
+response loss only when it retains the authoritative API UID. Signed wire
 contracts and archived evidence remain unchanged.
 
 Subsequent increments add [generated gate decisions](gate-decision-invariants.md),
 [command-provider deadlines and receiver bounds](adapter-deadlines-and-resource-bounds.md)
 and [sixteen service/watchdog process drills](service-watchdog-failure-drills.md).
-Remaining REL-01/EVID-01 work includes active-inspector parent death/process-tree
-supervision, host power-loss durability and separately provisioned live fault
+Local [active-inspector parent death](command-parent-death-supervision.md) is covered.
+Remaining REL-01/EVID-01 work includes escaped processes/owner failure,
+host power-loss durability and separately provisioned live fault
 qualification. Gym/verifier and model-worker
 faults belong to the optional pilot track; its native findings must stay separate
 from effects. A frozen regression/private CI baseline (GYM-04) follows review of

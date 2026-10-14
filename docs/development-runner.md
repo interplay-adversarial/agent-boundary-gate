@@ -1,5 +1,12 @@
 # Packaged OpenShell development runner
 
+For controller death or lost namespace response delivery, the optional
+[independent namespace allocator](development-namespace-allocation.md) records
+API-returned UIDs outside the controller journal. Configure its private socket
+before starting the campaign. Recovery uses exact-intent lookup and UID-conditioned
+cleanup; missing API UID records remain unresolved, and interrupted evaluations
+cannot become expected behavior merely because cleanup succeeds.
+
 `development-run` provisions fresh paired receivers and runs healthy/weakened
 Rust HTTP controls against a disposable target cell or an operator-selected
 existing gateway. It snapshots

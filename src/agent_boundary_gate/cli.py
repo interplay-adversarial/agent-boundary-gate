@@ -57,6 +57,7 @@ def main() -> int:
         ("authority-serve", "host-side receipt authority; requires independent inspector"),
         ("receiver-serve", "host-side paired receivers with private signed capture control"),
         ("watchdog", "separate host-side process for expired/lost cell recovery"),
+        ("development-allocation-serve", "independent private development namespace UID ledger"),
     ):
         command = commands.add_parser(name, help=help_text)
         command.add_argument("--config", type=Path, required=True)
@@ -140,10 +141,16 @@ def main() -> int:
             config = DevelopmentConfig.model_validate_json(read_private(args.config))
             print(json.dumps(prepare(config, args.output), indent=2))
             return 0
-        if args.command in ("authority-serve", "receiver-serve", "watchdog"):
+        if args.command in (
+            "authority-serve",
+            "receiver-serve",
+            "watchdog",
+            "development-allocation-serve",
+        ):
             from agent_boundary_gate.host_services import (
                 run_watchdog,
                 serve_authority,
+                serve_namespace_allocator,
                 serve_receivers,
             )
 
@@ -151,6 +158,7 @@ def main() -> int:
                 "authority-serve": serve_authority,
                 "receiver-serve": serve_receivers,
                 "watchdog": run_watchdog,
+                "development-allocation-serve": serve_namespace_allocator,
             }[args.command](args.config)
             return 0
         if args.command in ("live-run", "live-suite"):

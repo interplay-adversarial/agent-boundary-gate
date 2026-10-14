@@ -444,7 +444,11 @@ class DevelopmentCellTests(unittest.TestCase):
         with FakeRunner(config, output) as runner:
             runner.run(Event())
             original_json = config.model_dump_json(
-                exclude={"cell_bootstrap_executable", "cell_bootstrap_digest"}
+                exclude={
+                    "cell_bootstrap_executable",
+                    "cell_bootstrap_digest",
+                    "namespace_allocator_socket",
+                }
             )
             runner.state["config_digest"] = bytes_digest(original_json.encode())
             runner.save()
