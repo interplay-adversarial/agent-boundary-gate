@@ -15,6 +15,7 @@ from typing import Literal
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import TypeAdapter
 
+from agent_boundary_gate.command_transport import CommandTransport
 from agent_boundary_gate.contracts import Digest, Identifier
 from agent_boundary_gate.doctor import read_regular_input
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
@@ -282,3 +283,15 @@ class AuthorityClient:
         if request.purpose != "cleanup":
             raise ValueError("cleanup-request-required")
         return self.fetch(request, deadline=deadline, cancelled=cancelled)
+
+
+class CommandAuthorityClient(AuthorityClient):
+    """Library composition for signed receipt/delivery/monitor command providers.
+
+    Trust still comes from independently configured verifier keys and bindings,
+    never from command completion. Each command must consult external authority;
+    process-local state is not retained between invocations.
+    """
+
+    def __init__(self, command: CommandTransport, store: EvidenceStore | None = None):
+        self.client, self.store = CommandTransport.model_validate(command), store
