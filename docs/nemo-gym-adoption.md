@@ -1,8 +1,9 @@
 # NeMo Gym onboarding and adoption plan
 
-Recorded: 2026-10-12. Updated: 2026-10-13. Status: onboarding in progress;
-offline native verifier calibration and the packaged development runner are
-implemented. No model-backed Gym integration or agent pairing is qualified.
+Recorded: 2026-10-12. Updated: 2026-10-13. Status: development onboarding complete;
+offline native verifier calibration, one hosted-model synthetic smoke and the
+packaged development runner are implemented. No model-backed Gym integration or
+agent pairing is qualified.
 
 ## Decision and verified starting point
 
@@ -79,9 +80,13 @@ commit/interpreter, remediates the dependency graph in a separate lock, and
 replays six synthetic cases through the actual native verifier. The
 [development runner](development-runner.md) packages paired Rust controls and
 registered-allocation recovery. It requires an external identity-bound cleanup
-helper; name-based target deletion has been removed and live helper support is
-pending. Model/provider selection and the model-backed
-smoke, dataset rights and any image deployment remain open GYM-01 work.
+helper in shared-gateway mode. [Disposable target cells](disposable-development-cells.md)
+instead use UID-conditioned namespace retirement and an operator-pinned gateway
+bootstrap. A [model smoke](gym-model-smoke.md) completed the original Apache-2.0
+benign/attack pair in four hosted-model calls, with explicit served alias and
+private provider/trajectory records. Hosted weights/sampling remain unattested;
+commercial dependency/corpus rights and any future image deployment need separate
+review. The optional evidence bridge is next.
 
 | ID | Deliverable | Exit criteria and dependencies |
 | --- | --- | --- |
