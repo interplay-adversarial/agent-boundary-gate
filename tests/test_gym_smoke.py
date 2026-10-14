@@ -10,6 +10,7 @@ from scripts.gym_smoke import (
     Provider,
     episode_complete,
     private_json,
+    reject_reflected_bytes,
     reject_reflected_credential,
     select_model,
     write_private,
@@ -88,6 +89,15 @@ class GymSmokeTests(unittest.TestCase):
                 reject_reflected_credential(value, key)
             self.assertNotIn(key, str(raised.exception))
         reject_reflected_credential({"data": [{"id": "model-a"}]}, key)
+        with self.assertRaises(ValueError):
+            reject_reflected_credential({"debug": 1700000000}, "1700000000")
+
+    def test_non_json_reflection_is_rejected_without_echoing_body_or_credential(self):
+        key = "synthetic-credential"
+        with self.assertRaises(ValueError) as raised:
+            reject_reflected_bytes(("<html>Bearer " + key + "</html>").encode(), key)
+        self.assertEqual(str(raised.exception), "provider-credential-reflection")
+        reject_reflected_bytes(b"malformed but credential-free", key)
 
     def test_private_output_does_not_overwrite_or_follow_links(self):
         with tempfile.TemporaryDirectory() as root:

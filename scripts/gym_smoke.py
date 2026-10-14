@@ -112,12 +112,20 @@ class CredentialReflectionError(ValueError):
     pass
 
 
+def reject_reflected_bytes(value, credential):
+    if credential.encode() in value:
+        raise CredentialReflectionError("provider-credential-reflection")
+
+
 def reject_reflected_credential(value, credential):
     """Do not persist the supplied credential, including JSON-escaped values.
 
     This recognizes the exact supplied string, not unrelated, encoded or
     fragmented secrets. Reject rather than silently alter evaluation evidence.
     """
+    # Include scalars in their persisted representation; recursive string
+    # inspection below also recognizes JSON-escaped credential text.
+    reject_reflected_bytes(json.dumps(value, allow_nan=False).encode(), credential)
     pending = [value]
     while pending:
         item = pending.pop()
@@ -217,6 +225,7 @@ async def smoke(provider, credential, root, directory, *, fetch=None):
                     raw.extend(chunk)
                     if len(raw) > 2 * 1024 * 1024:
                         raise ValueError("model-response-too-large")
+                reject_reflected_bytes(raw, credential)
                 if reply.status != 200:
                     raise ValueError("model-http-failed")
                 return json.loads(raw)

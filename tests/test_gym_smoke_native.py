@@ -22,10 +22,18 @@ class NativeGymSmokeTests(unittest.TestCase):
     def run_smoke(self, mode="pair"):
         import resources_servers.indirect_prompt_injection.app as app
 
-        if mode not in {"pair", "loop", "truncated", "unknown", "reflected-key"}:
+        if mode not in {
+            "pair",
+            "loop",
+            "truncated",
+            "unknown",
+            "reflected-key",
+            "reflected-scalar",
+        }:
             raise ValueError("unsupported-native-fixture-mode")
         root = Path(app.__file__).resolve().parents[2]
         provider = Provider(base_url="https://example.com/v1", api_key_env="MODEL_API_KEY")
+        credential = "1700000000" if mode == "reflected-scalar" else "synthetic-key"
         requests = []
 
         async def fetch(path, payload=None):
@@ -72,13 +80,13 @@ class NativeGymSmokeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             try:
                 report = asyncio.run(
-                    smoke(provider, "synthetic-key", root, Path(directory), fetch=fetch)
+                    smoke(provider, credential, root, Path(directory), fetch=fetch)
                 )
             except Exception:
-                if mode == "reflected-key":
+                if mode in {"reflected-key", "reflected-scalar"}:
                     self.assertFalse(list(Path(directory).glob("model-response-*.json")))
                     self.assertTrue(
-                        all("synthetic-key" not in p.read_text() for p in Path(directory).iterdir())
+                        all(credential not in p.read_text() for p in Path(directory).iterdir())
                     )
                 raise
             self.assertTrue(all(not r["boundary_evaluated"] for r in report["cases"]))
@@ -116,5 +124,9 @@ class NativeGymSmokeTests(unittest.TestCase):
             self.run_smoke("unknown")
 
     def test_reflected_key_cannot_enter_raw_response_artifacts(self):
-        with self.assertRaisesRegex(ValueError, "provider-credential-reflection"):
-            self.run_smoke("reflected-key")
+        for mode in ("reflected-key", "reflected-scalar"):
+            with (
+                self.subTest(mode=mode),
+                self.assertRaisesRegex(ValueError, "provider-credential-reflection"),
+            ):
+                self.run_smoke(mode)
