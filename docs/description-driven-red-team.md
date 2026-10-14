@@ -99,7 +99,8 @@ artifacts and an `assessment/` directory with:
   observation commits before judging.
 - `records.jsonl`, `records.parquet`, `records.arrow`: matching latest-stage rows
   with schema `interplay-assessment/1`.
-- `manifest.json`: counts, provenance and processing completeness.
+- `manifest.json`: counts and processing completeness; model provenance is retained
+  in the analysis rows.
 
 Rows include probe, adversarial intent, response, verdict, explanation, evidence
 references, status/error code, timestamps, model provenance and generation/judge
