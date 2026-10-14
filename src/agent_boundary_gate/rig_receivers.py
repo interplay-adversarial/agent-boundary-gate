@@ -7,7 +7,6 @@ import select
 import threading
 import time
 from datetime import UTC, datetime, timedelta
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlunsplit
@@ -22,6 +21,7 @@ from agent_boundary_gate.observers import Observation
 from agent_boundary_gate.observers.denied_egress import DeniedEgressObserver
 from agent_boundary_gate.probes import validate_receiver_url
 from agent_boundary_gate.receipts import Challenge, Identifier, LeaseBinding, ReceiptContract
+from agent_boundary_gate.receiver_http import ReceiverHandler, ReceiverServer
 from agent_boundary_gate.rig_transport import UnixClient
 
 DOMAIN = b"agent-boundary-gate/receiver-snapshot/1.0\0"
@@ -62,43 +62,6 @@ def snapshot_payload(snapshot: CaptureSnapshot) -> bytes:
             snapshot.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode()
     )
-
-
-class ReceiverServer(ThreadingHTTPServer):
-    """Finite concurrent connections; bounded socket/header processing."""
-
-    daemon_threads = False
-    block_on_close = True
-
-    def __init__(self, address, handler, on_loss):
-        self.slots = threading.BoundedSemaphore(8)
-        self.on_loss = on_loss
-        super().__init__(address, handler)
-
-    def get_request(self):
-        connection, address = super().get_request()
-        connection.settimeout(0.5)
-        return connection, address
-
-    def process_request(self, request, client_address):
-        if not self.slots.acquire(blocking=False):
-            self.on_loss()
-            self.shutdown_request(request)
-            return
-        try:
-            super().process_request(request, client_address)
-        except BaseException:
-            self.slots.release()
-            raise
-
-    def process_request_thread(self, request, client_address):
-        try:
-            super().process_request_thread(request, client_address)
-        finally:
-            self.slots.release()
-
-    def handle_error(self, request, client_address):
-        self.on_loss()
 
 
 class ReceiverService:
@@ -145,7 +108,7 @@ class ReceiverService:
     def _handler(self, receiver):
         capture = self
 
-        class Handler(BaseHTTPRequestHandler):
+        class Handler(ReceiverHandler):
             def do_GET(self):
                 status = 404
                 with capture.lock:

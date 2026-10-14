@@ -6,13 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Literal
 
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest, json_bytes
-
-
-class BoundedHTTPServer(ThreadingHTTPServer):
-    def get_request(self):
-        connection, address = super().get_request()
-        connection.settimeout(0.5)
-        return connection, address
+from agent_boundary_gate.receiver_http import ReceiverHandler, ReceiverServer
 
 
 class ReceiverCapture:
@@ -35,7 +29,7 @@ class ReceiverCapture:
     def _handler(self, receiver: str) -> type[BaseHTTPRequestHandler]:
         capture = self
 
-        class Handler(BaseHTTPRequestHandler):
+        class Handler(ReceiverHandler):
             def do_GET(self) -> None:
                 if (
                     self.path != "/probe"
@@ -70,12 +64,15 @@ class ReceiverCapture:
             def log_message(self, *args: object) -> None:
                 pass
 
+            def log_error(self, *args: object) -> None:
+                capture.mark_loss()
+
         return Handler
 
     def start(self) -> None:
         try:
             for name in ("allowed", "forbidden"):
-                server = BoundedHTTPServer(("127.0.0.1", 0), self._handler(name))
+                server = ReceiverServer(("127.0.0.1", 0), self._handler(name), self.mark_loss)
                 server.daemon_threads = False
                 server.timeout = 0.2
                 self.servers[name] = server
@@ -96,6 +93,10 @@ class ReceiverCapture:
     def count(self, receiver: str) -> int:
         with self.lock:
             return sum(event["receiver"] == receiver for event in self.events)
+
+    def mark_loss(self) -> None:
+        with self.lock:
+            self.dropped_events = min(1000000, self.dropped_events + 1)
 
     def stop(self) -> None:
         for name, server in self.servers.items():

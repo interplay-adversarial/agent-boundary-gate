@@ -20,6 +20,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - [Generated decision invariants](docs/gate-decision-invariants.md) for weighted
   results, incomplete evidence, veto-only exceptions and latched monitor histories.
 - Bounded execution, cancellation, teardown receipts and terminal records.
+- [Supervised command providers and receiver resource bounds](docs/adapter-deadlines-and-resource-bounds.md)
+  with blocked-provider, output-flood, slow-header and admission-loss drills.
 - An OpenShell CLI backend and a loopback simulation backend.
 - Challenge-bound signed broker receipts with scoped trust and lease/attempt checks.
 - Unknown-by-default monitoring, signed heartbeat freshness and latched loss/incidents.
