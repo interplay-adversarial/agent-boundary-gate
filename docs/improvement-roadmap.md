@@ -27,7 +27,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Planned via GYM-03; Hermes first, compatibility-dependent; broader pairing expansion follows pilot |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Synthetic cancellation, timeout, replacement and restart tests pass. Lost namespace-create responses and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md) |
 | GYM-01 | P2, development onboarding complete | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Pinned source/interpreter, separate remediated lock, six native offline replay cases and lock CVE audit implemented. Original Apache-2.0 attack/benign pair completed against a privately configured hosted model in four calls, with private trajectories and requested sampling/budget records. Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
-| GYM-02 | P2, next bridge | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Planned; depends on GYM-01 |
+| GYM-02 | P2, fixture mapping implemented | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Optional dependency-free library binds a trusted baseline/dispatch to native private artifacts and evaluates signed boundary evidence separately. Core fault fixtures and actual native Gym harness conformance pass without model traffic. Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
 | GYM-03 | P2, early agent pilot | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Planned; depends on GYM-02/DEV-02; PORT-01 delivered through this pilot |
 | GYM-04 | P2, after pilot | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01 |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
@@ -53,8 +53,9 @@ UID-conditioned cleanup. Its pinned operator gateway bootstrap is deployment-spe
 shared-gateway mode still requires an independent cleanup helper. GYM-01 has
 native offline verifier calibration and its own remediated dependency lock.
 The model-backed original synthetic pair completed with private provider/trajectory
-records. Implement the optional evidence bridge next, retaining hosted-model
-attestation and commercial licensing limits. No step changes the frozen Rust
+records. The optional fixture evidence bridge is implemented. Run the real-agent
+effect pilot next, retaining hosted-model attestation and commercial licensing limits.
+No step changes the frozen Rust
 baseline or grants qualification. Use upstream harnesses for the agent pilot.
 
 The host-side receipt, paired-capture, watchdog and `live-run` services from PR #18
@@ -69,8 +70,9 @@ inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
    the separate dependency baseline.
    Retain DEV-02's unresolved namespace-create window and qualification limits;
    authenticated external watchdog/whole-cell fault qualification remains P1 work.
-2. Implement the optional result/evidence bridge (GYM-02), then one real-agent
-   injection/effect pilot (GYM-03/PORT-01). Hermes is the initial candidate, with
+2. The optional result/evidence bridge (GYM-02) now has fixture/native conformance.
+   Implement one real-agent injection/effect pilot (GYM-03/PORT-01).
+   Hermes is the initial candidate, with
    compatibility recorded before confirming support. The development pilot does
    not depend on completed commercial qualification and cannot establish it.
 3. Run development failure drills (REL-01/EVID-01), including Gym/verifier failure,

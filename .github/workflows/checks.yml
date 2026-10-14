@@ -85,7 +85,7 @@ jobs:
       - name: Replay synthetic cases through upstream native verifier
         run: onboarding/gym/.venv/bin/python scripts/gym_replay.py --upstream .private-gym-source --output "$RUNNER_TEMP/gym-replay"
       - name: Native model-smoke conformance without credentials or model traffic
-        run: onboarding/gym/.venv/bin/python -m unittest discover -s tests -p test_gym_smoke_native.py -v
+        run: PYTHONPATH=src onboarding/gym/.venv/bin/python -m unittest discover -s tests -p test_gym_smoke_native.py -v
 
   rust-platforms:
     name: Rust probe (${{ matrix.target }})

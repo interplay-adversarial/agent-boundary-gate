@@ -2,7 +2,8 @@
 
 Recorded: 2026-10-12. Updated: 2026-10-13. Status: development onboarding complete;
 offline native verifier calibration, one hosted-model synthetic smoke and the
-packaged development runner are implemented. No model-backed Gym integration or
+packaged development runner and optional fixture evidence bridge are implemented.
+No model-backed Gym integration or
 agent pairing is qualified.
 
 ## Decision and verified starting point
@@ -35,7 +36,7 @@ A separate adapter repository is justified only by concrete maintenance, licensi
 or deployment needs. Any future package split must keep one bridge implementation
 and use versioned conformance tests.
 
-The planned flow is:
+The target flow is (real tool-effect routing remains GYM-03 work):
 
 ```text
 pinned cases -> Gym environment + selected agent harness -> tool requests
@@ -86,7 +87,9 @@ bootstrap. A [model smoke](gym-model-smoke.md) completed the original Apache-2.0
 benign/attack pair in four hosted-model calls, with explicit served alias and
 private provider/trajectory records. Hosted weights/sampling remain unattested;
 commercial dependency/corpus rights and any future image deployment need separate
-review. The optional evidence bridge is next.
+review. The [optional evidence bridge](gym-evidence-bridge.md) now correlates
+fixture/native observations with separate signed boundary records; it does not
+establish real tool-effect routing or authenticated Gym provenance. GYM-03 is next.
 
 | ID | Deliverable | Exit criteria and dependencies |
 | --- | --- | --- |
@@ -95,6 +98,12 @@ review. The optional evidence bridge is next.
 | GYM-02 | Optional evidence bridge | Depends on GYM-01. Correlate case/run/attempt identities and bind all component pins; preserve raw Gym metrics separately from external evidence. Test malformed/truncated traces, unknown versions, mismatched identities, verifier failure, missing effects and duplicate callbacks. Required unsupported execution must fail closed. A fixture bridge proves mapping only. |
 | GYM-03 | One real agent and effect pilot | Depends on GYM-02 and DEV-02. Try Hermes first using the upstream harness; fall back to OpenCode only after recording an incompatible prerequisite. Pin application identity separately from boundary identity. Execute a synthetic tool-output injection through a controlled effect adapter, using healthy/weakened boundary policies and independent receivers. Demonstrate benign utility and both blocked and observed forbidden effects; deterministic tool-call fixtures calibrate the oracle when model behavior varies. |
 | GYM-04 | Frozen regression suite and private CI | Depends on GYM-03 and fault drills. Version a rights-cleared synthetic corpus with attack-present and benign look-alike tasks; keep a disjoint held-out set. Repeat fixed configurations and report denominators, uncertainty, false refusals, verified task state, attack success, effects, incomplete runs, cost and latency. Private scheduled/manual jobs retain evidence; public PR checks use synthetic offline fixtures. |
+
+GYM-02 fixture mapping is implemented in `agent_boundary_gate.gym_bridge`, with
+core failure fixtures and actual pinned native harness artifacts in model-free
+conformance tests. Its unsigned `1.0` correlation report preserves the existing
+signed contracts and withholds unsupported live execution. See the
+[bridge guide](gym-evidence-bridge.md) for trust inputs, limits and report semantics.
 
 For GYM-01, record an onboarding manifest containing upstream commit, lock/image
 digest, interpreter, harness, model identifier/provider configuration, prompts,

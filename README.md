@@ -45,6 +45,9 @@ runnable offline/loopback examples, stored evidence verification and live integr
   A [private model-backed smoke workflow](docs/gym-model-smoke.md) adds bounded
   provider discovery and native harness/tool conformance; one hosted-model smoke
   completed, with boundary evaluation and commercial baseline promotion pending.
+- An [optional Gym evidence bridge](docs/gym-evidence-bridge.md) correlates private
+  native observations with independently authenticated boundary records. Fixture
+  mapping/fault conformance is implemented; real-agent effect routing remains planned.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -174,8 +177,8 @@ See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for accep
 criteria, implementation status and qualification blockers.
 The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
 prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
-reports. Offline onboarding is implemented; the model-backed smoke and bridge are
-still planned, and no Gym agent pairing is currently qualified.
+reports. Offline onboarding, model-backed smoke and optional fixture evidence mapping
+are implemented. Real-agent effect routing is planned, and no Gym agent pairing is qualified.
 
 ## License
 

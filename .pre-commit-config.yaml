@@ -51,7 +51,7 @@ repos:
         always_run: true
       - id: gym-native-smoke-tests
         name: Pinned Gym native model-smoke conformance (no model traffic)
-        entry: uv run --project onboarding/gym --frozen --no-editable python -m unittest discover -s tests -p test_gym_smoke_native.py -q
+        entry: env PYTHONPATH=src uv run --project onboarding/gym --frozen --no-editable python -m unittest discover -s tests -p test_gym_smoke_native.py -q
         language: system
         pass_filenames: false
         always_run: true
