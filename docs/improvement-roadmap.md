@@ -22,7 +22,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Host services and live-run/campaign composition implemented in PR #18; independent provisioning/inspection and authenticated live qualification pending |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, native Linux CI, digest-verified staging and signed immutable-delivery backend admission implemented; hostname/DNS, live provisioning/issuer, release provenance and qualification pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
-| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Development controller drills exercise real SIGKILL/restart/locking with a separately persisted synthetic backend, policy/supervisor mutation, receiver rollback/replacement, journal outage and cancellation. Incomplete execution and observed violations survive recovery. Property-based decisions, blocked-adapter deadlines and live fault qualification remain pending. [Drills](development-failure-drills.md) |
+| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Eleven generated decision properties now cover signed weighted/duplicate results, incomplete evidence, exceptions, proof availability and monitor histories; production policy is unchanged. Controller/worker fault drills preserve incomplete outcomes and violations through recovery. Broader blocked-adapter deadlines, resource bounds and live fault qualification remain pending. [Invariants](gate-decision-invariants.md), [drills](development-failure-drills.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Hermes host-harness development pilot now routes synthetic remote effects through disposable boundaries. Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain pending; broader expansion follows the frozen pilot baseline. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Synthetic cancellation, timeout, replacement and restart tests pass. Lost namespace-create responses and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md) |
@@ -363,7 +363,23 @@ a leak before the cleanup fix and now passes.
 
 These are initial REL-01/EVID-01 development checks, not completed reliability
 qualification. Live whole-cell/watchdog faults, blocked adapters outside this
-worker path, property-based gate decisions and GYM-04 freezing remain open.
+worker path and GYM-04 freezing remain open. The generated decision increment
+below addresses the initial property-based gate coverage.
 The earlier hosted rollout has not been rerun against this model-free hardening
 revision. [Pilot failure drills](hermes-effect-pilot.md#worker-and-proxy-failure-drills)
 describe the supported scope and limits.
+
+## Generated decision invariant increment
+
+REL-01 now includes eleven bounded Hypothesis property groups with deterministic
+generation, shrinking, real signed wire records and explicit edge examples.
+Required vetoes and incident precedence survive contradictory/partial results;
+exceptions cannot repair scores or missing proof; record order cannot change
+decisions; signed monitor histories cannot resume after loss. Optional diagnostics
+remain degradation, and every evaluated decision stays release-ineligible.
+
+No production policy or signed wire contract changed. The new pinned dependency
+is development-only; separate Gym/Hermes/Rust baselines are unchanged. The suite
+is not exhaustive or live qualification. Broader blocked-adapter deadlines,
+resource bounds and independent live failure criteria remain open before treating
+REL-01 complete. [Covered properties and limits](gate-decision-invariants.md).

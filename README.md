@@ -17,6 +17,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - Independent denied-egress receiver observations and private evidence persistence.
 - Ed25519 authentication using externally supplied trusted verifier keys.
 - Incident precedence, retained violations, required-evidence checks and veto-only exceptions.
+- [Generated decision invariants](docs/gate-decision-invariants.md) for weighted
+  results, incomplete evidence, veto-only exceptions and latched monitor histories.
 - Bounded execution, cancellation, teardown receipts and terminal records.
 - An OpenShell CLI backend and a loopback simulation backend.
 - Challenge-bound signed broker receipts with scoped trust and lease/attempt checks.
