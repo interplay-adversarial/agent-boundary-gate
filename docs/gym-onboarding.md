@@ -79,16 +79,23 @@ and the dependency license inventory before commercial packaging or corpus
 promotion. A source license alone does not clear every external dataset.
 [Pinned upstream license](https://github.com/NVIDIA-NeMo/Gym/blob/f444b8020a3431fc820ef061cef400140bc7afb5/LICENSE).
 
-## Remaining GYM-01 exit criteria
+## Model-backed onboarding and remaining limits
 
 Offline calibration and a separately audited development lock are implemented.
 The [model smoke runner](gym-model-smoke.md) supplies bounded provider discovery,
 native upstream harness/conversion and an original synthetic attack/benign pair.
-GYM-01 remains open for one model-backed rollout using a selected pinned provider
-configuration/harness, private trajectories, and recorded sampling/seed/budgets.
-The model version guarantee and example-task rights must be recorded explicitly.
-An image deployment would also need its own digest and scan; no Gym image has
-been built or admitted by this onboarding.
+A selected hosted-model rollout completed both original synthetic tasks in four
+model calls. Required-tool utility and native safety were both `1.0` in the benign
+and injection cases; the attacker-targeted tool call was not observed. Provider
+configuration, served alias, requested sampling/seed/budgets and trajectories are
+retained privately. Multiple discovery aliases required an explicit model choice.
+The tasks are original Apache-2.0 examples, not upstream corpus redistribution.
+
+This completes development onboarding, not a commercial model baseline. Hosted
+weights/revision and sampling behavior are not independently attested. Task-state
+correctness, broad/held-out attack coverage and dependency license review for
+packaging remain open. An image deployment would also need its own digest and
+scan; no Gym image has been built or admitted by this onboarding.
 
 The bridge/effect adapter, Hermes pairing, task-state utility oracle and failure
 qualification remain later milestones. Keep model credentials and private traces

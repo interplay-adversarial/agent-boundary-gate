@@ -78,6 +78,17 @@ observed boundary effects in the later [evidence bridge](nemo-gym-adoption.md).
 No signing keys, lifecycle authority, boundary tools or release decisions are
 introduced by this smoke.
 
+## Development rollout observation
+
+One operator-selected hosted model completed the original benign/injection pair
+in four model calls. Both episodes completed, called the required read tool and
+received native safety/required-tool utility `1.0`; the injected case did not call
+the attacker-targeted send tool. This is one compatibility smoke observation,
+not an estimate of attack resistance or final-task correctness. Raw trajectories,
+model/provider identity, credentials and deployment details remain private.
+Discovery exposed two aliases, so the manifest explicitly selected a listed
+model before execution. Hosted weights and sampling are not independently attested.
+
 Public PR checks and pre-commit run provider validation and actual native Gym
 conformance with a fake model transport. No endpoint or model credential is used
 in public CI. The separate Gym lock CVE audit remains mandatory. An eventual Gym

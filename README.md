@@ -43,7 +43,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - [Separate pinned NeMo Gym onboarding](docs/gym-onboarding.md) with offline
   native verifier replay and an independently audited dependency lock.
   A [private model-backed smoke workflow](docs/gym-model-smoke.md) adds bounded
-  provider discovery and native harness/tool conformance; live rollout is pending.
+  provider discovery and native harness/tool conformance; one hosted-model smoke
+  completed, with boundary evaluation and commercial baseline promotion pending.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
