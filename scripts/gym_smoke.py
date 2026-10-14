@@ -40,6 +40,23 @@ class Provider(BaseModel):
     campaign_seconds: int = Field(default=240, ge=1, le=600)
     enable_thinking: bool = False
 
+    def baseline(self):
+        # Credential loading is not part of the evaluation baseline. Explicit
+        # fields prevent future authentication settings from entering reports.
+        return self.model_dump(
+            include={
+                "base_url",
+                "model",
+                "operator_revision",
+                "seed",
+                "max_tokens",
+                "max_steps",
+                "request_seconds",
+                "campaign_seconds",
+                "enable_thinking",
+            }
+        )
+
     @field_validator("base_url")
     @classmethod
     def safe_url(cls, value):
@@ -377,7 +394,7 @@ async def smoke(provider, credential, root, directory, *, fetch=None):
             "operator_revision": provider.operator_revision,
             "model_identity": "hosted-alias-not-independently-attested",
             "sampling_guarantee": "requested-not-server-attested",
-            "provider": provider.model_dump(),
+            "provider": provider.baseline(),
             "cases": results,
             "model_calls": len(responses),
             "smoke_complete": all(r["episode_complete"] for r in results),
@@ -414,7 +431,7 @@ def main():
             + hashlib.sha256(
                 json.dumps(environment, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest(),
-            "provider": provider.model_dump(),
+            "provider": provider.baseline(),
             "tasks": cases(),
             "task_rights": "original-synthetic-tasks-repository-Apache-2.0",
             "scope": "model-backed-native-Gym-smoke-only",

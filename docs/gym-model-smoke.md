@@ -64,7 +64,9 @@ The new directory is `0700`, and reports/responses/trajectories are `0600`.
 Every successful HTTP completion is retained before semantic validation. Completed
 case results survive subsequent failure. Failures produce a fixed console error
 and `failure.json`; partial evidence never becomes a successful smoke. No token
-is written to reports. Console summaries exclude endpoint, model output and
+is written to reports. Saved baseline metadata also omits the credential variable
+name; it contains only explicitly selected evaluation settings. Console summaries
+exclude endpoint, model output and
 private trajectories. Existing output directories are rejected before traffic.
 
 `smoke.json` binds the upstream/source pin, isolated lock, installed inventory,

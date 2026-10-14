@@ -65,6 +65,15 @@ class GymSmokeTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 select_model(value, requested)
 
+    def test_saved_baseline_has_evaluation_parameters_without_credential_references(self):
+        provider = Provider(base_url="https://example.com/v1", api_key_env="MODEL_API_KEY")
+        baseline = provider.baseline()
+        self.assertEqual(baseline["base_url"], provider.base_url)
+        self.assertEqual(baseline["seed"], 17)
+        self.assertEqual(baseline["max_tokens"], 2048)
+        self.assertNotIn("api_key_env", baseline)
+        self.assertNotIn("MODEL_API_KEY", str(baseline))
+
     def test_private_output_does_not_overwrite_or_follow_links(self):
         with tempfile.TemporaryDirectory() as root:
             directory = Path(root)

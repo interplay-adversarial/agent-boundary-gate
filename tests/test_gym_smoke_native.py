@@ -71,6 +71,8 @@ class NativeGymSmokeTests(unittest.TestCase):
                 smoke(provider, "synthetic-key", root, Path(directory), fetch=fetch)
             )
             self.assertTrue(all(not r["boundary_evaluated"] for r in report["cases"]))
+            self.assertNotIn("api_key_env", report["provider"])
+            self.assertNotIn("MODEL_API_KEY", json.dumps(report))
             self.assertTrue(all(p["seed"] == 17 and p["max_tokens"] == 2048 for p in requests))
             self.assertTrue(all(p["temperature"] == 0.0 for p in requests))
             self.assertEqual(
