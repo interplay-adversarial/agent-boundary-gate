@@ -128,6 +128,15 @@ agent-boundary-gate receiver-serve --config "$PRIVATE_RECEIVER_CONFIG"
 agent-boundary-gate watchdog --config "$PRIVATE_WATCHDOG_CONFIG"
 ```
 
+Watchdog timing is explicit trusted configuration: `heartbeat_ttl` (60 seconds),
+`cleanup_budget` (45), `claim_ttl` (60), `retry_delay` (5), and `poll_interval` (1).
+Defaults preserve prior behavior; each value is finite, positive and at most 60,
+and cleanup budget must fit strictly inside claim TTL. Restarting a watchdog
+never renews an existing lease. Measure latency and leave room for proof
+persistence/commit; short fixture timers are not qualified live budgets.
+[Service/watchdog drills](service-watchdog-failure-drills.md) exercise actual
+entry points with synthetic inventory, including process death and storage errors.
+
 These are separate foreground commands, not one shell sequence. The authority
 socket is also the watchdog cleanup transport. A target-side sandbox deletion
 is followed by actual whole-cell cleanup through the inspector.

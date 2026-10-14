@@ -26,6 +26,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - Challenge-bound signed broker receipts with scoped trust and lease/attempt checks.
 - Unknown-by-default monitoring, signed heartbeat freshness and latched loss/incidents.
 - A private durable lease journal and restartable cleanup recovery worker.
+- [Separate service and watchdog process drills](docs/service-watchdog-failure-drills.md)
+  cover death/restart, stale claims, identity replacement and unconfirmed storage failures.
 - A [read-only OpenShell compatibility doctor](docs/compatibility-doctor.md) with sanitized reports.
 - An [independently versioned experimental Rust HTTP probe](docs/rust-probe-usage.md),
   with shared Python/Perl/Rust conformance and no OpenShell runtime dependency.
