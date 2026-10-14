@@ -57,9 +57,12 @@ loss, partitioned-node termination or an authenticated external watchdog. The
 namespace-create registration window is intentionally unresolved. Signed wire
 contracts and archived evidence remain unchanged.
 
-Remaining REL-01/EVID-01 work includes blocked-adapter external deadlines,
-property-based gate decisions, authenticated evidence/observer delivery failures
-and separately provisioned live fault qualification. Gym/verifier and model-worker
+Subsequent increments add [generated gate decisions](gate-decision-invariants.md),
+[command-provider deadlines and receiver bounds](adapter-deadlines-and-resource-bounds.md)
+and [sixteen service/watchdog process drills](service-watchdog-failure-drills.md).
+Remaining REL-01/EVID-01 work includes active-inspector parent death/process-tree
+supervision, host power-loss durability and separately provisioned live fault
+qualification. Gym/verifier and model-worker
 faults belong to the optional pilot track; its native findings must stay separate
 from effects. A frozen regression/private CI baseline (GYM-04) follows review of
 the pilot and failure criteria, rather than treating this small suite as exhaustive.

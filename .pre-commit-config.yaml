@@ -15,7 +15,7 @@ repos:
         always_run: true
       - id: unit-tests
         name: Unit and loopback integration tests
-        entry: uv run --frozen --no-editable python -m unittest discover -s tests -q
+        entry: env PYTHONPATH=src uv run --frozen --no-editable python -m unittest discover -s tests -q
         language: system
         pass_filenames: false
         always_run: true

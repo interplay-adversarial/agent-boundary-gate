@@ -6,10 +6,10 @@ from threading import Event
 from typing import Annotated
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from agent_boundary_gate.evidence import EvidenceStore
-from agent_boundary_gate.live import PublicKeyHex, public_key, read_private
+from agent_boundary_gate.live import Budget, PublicKeyHex, public_key, read_private
 from agent_boundary_gate.receipts import Identifier, LeaseBinding, ReceiptContract, ReceiptVerifier
 from agent_boundary_gate.recovery import LeaseJournal, RecoveryWorker, utc_now
 from agent_boundary_gate.rig_authority import (
@@ -50,11 +50,24 @@ class ReceiverConfig(ReceiptContract):
 
 
 class WatchdogConfig(ReceiptContract):
+    """Trusted unsigned host configuration; signed receipt schemas are unchanged."""
+
     authority_socket: str
     authority_identity: Identifier
     cleanup_public_key: PublicKeyHex
     journal_directory: str
     leases: Annotated[tuple[LeaseBinding, ...], Field(min_length=1, max_length=128)]
+    heartbeat_ttl: Budget = 60.0
+    cleanup_budget: Budget = 45.0
+    claim_ttl: Budget = 60.0
+    retry_delay: Budget = 5.0
+    poll_interval: Budget = 1.0
+
+    @model_validator(mode="after")
+    def claim_covers_cleanup(self):
+        if self.cleanup_budget >= self.claim_ttl:
+            raise ValueError("cleanup-budget-must-fit-claim")
+        return self
 
 
 def _signals(stop: Event):
@@ -122,7 +135,7 @@ def run_watchdog(path: Path):
     # Registration precedes controller execution; re-registration never renews
     # an expired/lost lease. Allocation-before-registration is still a provisioner obligation.
     for lease in config.leases:
-        journal.register(lease, now=utc_now(), heartbeat_ttl=60)
+        journal.register(lease, now=utc_now(), heartbeat_ttl=config.heartbeat_ttl)
     worker = RecoveryWorker(
         journal,
         AuthorityClient(Path(config.authority_socket)),
@@ -130,13 +143,14 @@ def run_watchdog(path: Path):
             readiness_keys={},
             cleanup_keys={config.authority_identity: public_key(config.cleanup_public_key)},
         ),
-        cleanup_budget=45,
-        claim_ttl=60,
+        cleanup_budget=config.cleanup_budget,
+        claim_ttl=config.claim_ttl,
+        retry_delay=config.retry_delay,
     )
     stop = Event()
     previous = _signals(stop)
     try:
-        worker.run(stop)
+        worker.run(stop, poll_interval=config.poll_interval)
     finally:
         for number, handler in previous.items():
             signal.signal(number, handler)
