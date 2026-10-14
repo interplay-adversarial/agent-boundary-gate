@@ -28,6 +28,9 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - A private durable lease journal and restartable cleanup recovery worker.
 - [Separate service and watchdog process drills](docs/service-watchdog-failure-drills.md)
   cover death/restart, stale claims, identity replacement and unconfirmed storage failures.
+- [Command parent-death supervision](docs/command-parent-death-supervision.md)
+  terminates active inspector groups after authority death and enforces deadlines
+  while the caller is suspended; fresh signed recovery proof is still required.
 - A [read-only OpenShell compatibility doctor](docs/compatibility-doctor.md) with sanitized reports.
 - An [independently versioned experimental Rust HTTP probe](docs/rust-probe-usage.md),
   with shared Python/Perl/Rust conformance and no OpenShell runtime dependency.

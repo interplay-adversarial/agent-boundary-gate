@@ -25,7 +25,7 @@ renews an existing lease. Operators must measure latency and leave room for
 proof persistence and journal commit; short fixture timers are not qualified live
 budgets. Receipt freshness and ownership checks still reject late results.
 
-## Sixteen drill groups
+## Seventeen drill groups
 
 `tests/test_service_watchdog_drills.py` owns each service process group, with
 bounded admission, checkpoint and reap waits. Keys, configuration, synthetic
@@ -51,6 +51,9 @@ survives separately from the recovery journal. The groups cover:
     violation and incomplete source; gate evaluation withholds pass.
 16. Authority death after a forbidden effect: a signed terminal retains violation,
     monitor loss and unconfirmed cleanup; prior good evidence cannot create pass.
+17. Authority SIGKILL with an active inspector: the separate command supervisor
+    terminates/reaps the inspector; unblocking the old request cannot mutate
+    inventory. Cleanup remains unconfirmed until restart obtains fresh proof.
 
 Terminal drills use a synthetic boundary driver. Actual OpenShell provider deadline
 coverage remains in [adapter bounds](adapter-deadlines-and-resource-bounds.md).
@@ -79,7 +82,9 @@ destruction or key isolation from a live controller. Arbitrary Python handlers a
 trusted host filesystem operations remain cooperative. Recovery and storage
 restoration cannot repair interrupted evaluation or erase a prior violation.
 
-Authority SIGKILL with an active inspector, escaped/new-session descendants,
+Active-inspector authority SIGKILL is now covered by
+[command parent-death supervision](command-parent-death-supervision.md).
+Escaped/new-session descendants, command-supervisor death,
 host reboot/power-loss durability, node partitions and live orphan-cell/watchdog
 qualification remain open. Deployment needs independently owned process-tree
 supervision including inspector groups, authenticated narrow liveness authority
