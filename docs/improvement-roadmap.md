@@ -25,7 +25,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Eleven generated decision properties, controller/worker drills and eleven command/HTTP bounds groups are implemented. Seventeen real host-service/watchdog groups cover death/suspension/restart, claim/UID authority, storage failures and signed violation retention. Five command-owner groups cover caller death/suspension, admission, signal outcomes and missing cleanup status. Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Hermes host-harness development pilot now routes synthetic remote effects through disposable boundaries. Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain pending; broader expansion follows the frozen pilot baseline. |
-| DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Synthetic cancellation, timeout, replacement and restart tests pass. Lost namespace-create responses and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md) |
+| DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Optional independent namespace allocator retains API UIDs before delivery; eleven groups cover controller response loss, conservative unresolved creates, UID races and restart. API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
 | GYM-01 | P2, development onboarding complete | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Pinned source/interpreter, separate remediated lock, six native offline replay cases and lock CVE audit implemented. Original Apache-2.0 attack/benign pair completed against a privately configured hosted model in four calls, with private trajectories and requested sampling/budget records. Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
 | GYM-02 | P2, fixture mapping implemented | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Optional dependency-free library binds a trusted baseline/dispatch to native private artifacts and evaluates signed boundary evidence separately. Core fault fixtures and actual native Gym harness conformance pass without model traffic. Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
 | GYM-03 | P2, development pilot implemented | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Actual pinned Gym Hermes host harness/runtime with two synthetic tools and remote fixed Rust execution completed healthy/weakened development profiles at allowed/forbidden counts 3/0 and 3/1. Native fake-model calibration preserves attempted injection separately from effects; hosted benign/injected cases retained utility and resisted this one task. Final capture, UID cleanup and independent owned-resource inspection passed. Hermes process containment is not attested; no authenticated qualification is claimed. [Guide](hermes-effect-pilot.md) |
@@ -69,7 +69,7 @@ inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
    native conformance. Hosted weights/sampling are not independently attested;
    baseline promotion needs separate review. Retain offline calibration and
    the separate dependency baseline.
-   Retain DEV-02's unresolved namespace-create window and qualification limits;
+   Retain DEV-02's unresolved API-response/allocator-commit window and qualification limits;
    authenticated external watchdog/whole-cell fault qualification remains P1 work.
 2. The optional result/evidence bridge (GYM-02) now has fixture/native conformance.
    The initial Hermes host-harness injection/effect pilot (GYM-03) is exercised.
@@ -83,7 +83,7 @@ inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
    The initial [controller drill suite](development-failure-drills.md) adds twelve
    model-free cases, including six real process-death checkpoints against synthetic
    runtime/receiver storage. Gym/verifier faults, external watchdog and live
-   qualification remain separate; the namespace-registration window stays open.
+   qualification remain separate; namespace ownership without a retained API UID stays unresolved.
 4. Freeze a reviewed injection regression suite with benign controls and private
    CI reporting (GYM-04). Require all pilot and fault criteria before expanding.
 5. Advance the P1 containment track throughout: independently contain the whole
@@ -417,3 +417,29 @@ lost namespace-create responses and safe exact-UID reconciliation, while indepen
 live qualification proceeds separately. GYM-04 still depends on development fault
 criteria; Interplay remains deferred INT-02. Release eligibility stays false.
 [Command ownership and limits](command-parent-death-supervision.md).
+
+## Independent namespace UID allocation increment
+
+DEV-02/EVID-01 now have an optional private allocation service, independently owned
+from the controller. Controller intent commits precede requests; service intent
+commits precede API creation; authoritative API UIDs commit before response delivery.
+Recovery only looks up the exact original intent and verifies current UID/absence,
+then uses the existing mutation UID precondition. It neither repeats creation nor
+adopts a name/label. Both cell and receiver namespace response loss are supported;
+partial receiver registration still preserves capture loss and incomplete evaluation.
+
+Eleven groups use actual service/controller processes, Unix transport, fsynced
+records and a separately retained synthetic Namespace API. Controller SIGKILL
+after API create demonstrates fresh lookup and cleanup without bootstrap/replay.
+API response loss, allocator death before commit, storage commit failure, intent
+conflicts, capacity and get/delete replacement remain conservative. Original
+direct-create journals/config digests retain their behavior; this does not retrofit
+ownership onto old uncertain allocations. No live environment was changed.
+
+This closes only the controller delivery/registration gap when the independent
+allocator durably records the API-returned UID. API response loss and allocator
+pre-commit death still need independent operator provenance. Grant-create windows,
+power-loss/partition durability, controller/key isolation and authenticated live
+whole-cell recovery remain open. Next: durable recovery/storage interruption drills.
+GYM-04/INT-02 retain their prerequisites; signed schemas, dependency pins, archived
+evidence and release eligibility are unchanged. [Protocol and limits](development-namespace-allocation.md).

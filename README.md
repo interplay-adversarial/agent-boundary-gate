@@ -48,6 +48,9 @@ runnable offline/loopback examples, stored evidence verification and live integr
   allocation journals, paired Rust controls, final capture and recovery;
   [disposable target allocation and UID-conditioned namespace cleanup](docs/disposable-development-cells.md),
   with [controller death, storage loss and recovery drills](docs/development-failure-drills.md).
+  An optional [independent namespace allocator](docs/development-namespace-allocation.md)
+  retains API-returned UIDs before delivery and reconciles controller response loss
+  without name-based adoption or retrying uncertain creates.
   Cell execution requires an operator-owned pinned gateway bootstrap; shared-gateway
   execution requires a separately implemented identity-bound cleanup helper.
 - [Separate pinned NeMo Gym onboarding](docs/gym-onboarding.md) with offline

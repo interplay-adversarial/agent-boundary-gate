@@ -30,6 +30,7 @@ from agent_boundary_gate.development import (
 )
 from agent_boundary_gate.doctor import read_regular_input
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.namespace_allocation import NamespaceAllocationClient, NamespaceIntent
 from agent_boundary_gate.probe_delivery import PROBE_PATH
 from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import ReceiptContract
@@ -49,6 +50,7 @@ class DevelopmentRunConfig(ReceiptContract):
     cleanup_digest: Digest | None = None
     cell_bootstrap_executable: Path | None = None
     cell_bootstrap_digest: Digest | None = None
+    namespace_allocator_socket: Path | None = None
     context: Annotated[str, Field(min_length=1, max_length=200)]
     gateway: Annotated[str, Field(min_length=1, max_length=200)]
     probe_digest: Digest
@@ -78,6 +80,8 @@ def _config_digest(config: DevelopmentRunConfig) -> str:
         if config.cell_bootstrap_executable is None
         else set()
     )
+    if config.namespace_allocator_socket is None:
+        exclude.add("namespace_allocator_socket")
     return bytes_digest(config.model_dump_json(exclude=exclude).encode())
 
 
@@ -176,6 +180,21 @@ class DevelopmentRunner:
                         receiver_image=config.receiver_image,
                         workload_image=config.workload_image,
                     )
+                    intents = allocation.get("namespace_intents", {})
+                    if not isinstance(intents, dict) or not set(intents) <= {"cell", "receiver"}:
+                        raise ValueError("development-recovery-namespace-intent-invalid")
+                    for role, value in intents.items():
+                        intent = NamespaceIntent.model_validate(value)
+                        if (
+                            config.namespace_allocator_socket is None
+                            or intent.role != role
+                            or intent.config_digest != self.state["config_digest"]
+                            or intent.context != config.context
+                            or intent.run != allocation["run"]
+                            or intent.namespace
+                            != allocation.get("cell_name" if role == "cell" else "run")
+                        ):
+                            raise ValueError("development-recovery-namespace-intent-invalid")
             else:
                 self.state = {
                     "version": "1",
@@ -186,6 +205,11 @@ class DevelopmentRunner:
                 }
                 self.save()
             self.binaries = {}
+            self.namespace_allocator = (
+                NamespaceAllocationClient(config.namespace_allocator_socket)
+                if config.namespace_allocator_socket is not None
+                else None
+            )
             for name, source, expected in (
                 ("openshell", config.openshell_executable, config.openshell_digest),
                 ("kubernetes", config.kubernetes_executable, config.kubernetes_digest),
@@ -315,10 +339,10 @@ class DevelopmentRunner:
             raise ValueError("development-cell-protected-namespace")
         allocation["pending"] = "cell-namespace"
         self.save()
-        current = self.query(
-            "kubernetes",
-            ["create", "-f", "-", "-o", "json"],
-            data={
+        current = self.create_namespace(
+            allocation,
+            "cell",
+            {
                 "apiVersion": "v1",
                 "kind": "Namespace",
                 "metadata": {"name": name, "labels": {RUN_LABEL: allocation["run"]}},
@@ -352,6 +376,58 @@ class DevelopmentRunner:
         if response != {**request, "ready": True} or response.get("ready") is not True:
             raise ValueError("development-cell-bootstrap-response-mismatch")
         self.inspect_cell(allocation, **bounds)
+        allocation["pending"] = None
+        self.save()
+
+    def create_namespace(self, allocation, role, manifest, **bounds):
+        if self.namespace_allocator is not None:
+            intent = NamespaceIntent(
+                operation_id=secrets.token_hex(16),
+                config_digest=self.state["config_digest"],
+                context=self.config.context,
+                run=allocation["run"],
+                namespace=manifest["metadata"]["name"],
+                role=role,
+            )
+            allocation.setdefault("namespace_intents", {})[role] = intent.model_dump(mode="json")
+            # Commit the unique intent before the independent service sees it.
+            self.save()
+            record = self.namespace_allocator.call(
+                "create", intent, deadline=bounds["deadline"], cancelled=bounds["cancelled"]
+            )
+            return {"metadata": {"name": intent.namespace, "uid": record.uid}}
+        return self.query(
+            "kubernetes",
+            ["create", "-f", "-", "-o", "json"],
+            data=manifest,
+            **bounds,
+        )
+
+    def reconcile_namespace(self, allocation, role, **bounds):
+        value = allocation.get("namespace_intents", {}).get(role)
+        if self.namespace_allocator is None or value is None:
+            raise ValueError("development-allocation-unresolved")
+        intent = NamespaceIntent.model_validate(value)
+        if (
+            intent.role != role
+            or intent.config_digest != self.state["config_digest"]
+            or intent.context != self.config.context
+            or intent.run != allocation["run"]
+            or intent.namespace != allocation.get("cell_name" if role == "cell" else "run")
+        ):
+            raise ValueError("development-recovery-namespace-intent-invalid")
+        record = self.namespace_allocator.call("lookup", intent, **bounds)
+        current = self.query(
+            "kubernetes",
+            ["get", "namespace", intent.namespace, "--ignore-not-found", "-o", "json"],
+            **bounds,
+        )
+        if current and current.get("metadata", {}).get("uid") != record.uid:
+            raise ValueError("development-namespace-reconciliation-replaced")
+        key = "cell_uid" if role == "cell" else "namespace_uid"
+        allocation[key] = record.uid
+        allocation["reconciled_namespace"] = role
+        allocation["retired_pending"] = allocation["pending"]
         allocation["pending"] = None
         self.save()
 
@@ -522,12 +598,7 @@ class DevelopmentRunner:
             manifest = resources(config)
             allocation["pending"] = "namespace"
             self.save()
-            created = self.query(
-                "kubernetes",
-                ["create", "-f", "-", "-o", "json"],
-                data=manifest["items"][0],
-                **bounds,
-            )
+            created = self.create_namespace(allocation, "receiver", manifest["items"][0], **bounds)
             allocation["namespace_uid"] = created["metadata"]["uid"]
             allocation["pending"] = None
             self.save()
@@ -752,6 +823,8 @@ class DevelopmentRunner:
         bounds = {"deadline": time.monotonic() + self.config.cleanup_seconds, "cancelled": Event()}
         try:
             cell_mode = allocation.get("cell_name") is not None
+            if allocation.get("pending") == "cell-namespace" and not allocation.get("cell_uid"):
+                self.reconcile_namespace(allocation, "cell", **bounds)
             if allocation.get("cell_name") and not allocation.get("cell_uid"):
                 raise ValueError("development-cell-allocation-unresolved")
             # Registered cell ownership precedes bootstrap/sandbox requests. Even
@@ -760,6 +833,8 @@ class DevelopmentRunner:
                 self.retire_cell(allocation, **bounds)
             if cell_mode and allocation.get("cell_absent") is not True:
                 raise ValueError("development-cell-absence-unconfirmed")
+            if allocation.get("pending") == "namespace" and not allocation.get("namespace_uid"):
+                self.reconcile_namespace(allocation, "receiver", **bounds)
             pending = allocation.get("pending")
             if (
                 allocation.get("cell_uid")

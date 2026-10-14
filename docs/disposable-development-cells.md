@@ -83,11 +83,15 @@ may contain both fields; cell cleanup uses `cell_absent` and does not reinterpre
 the older field as additional attestation.
 
 A timed-out bootstrap or sandbox create can be retired because its enclosing cell
-UID was already committed. If namespace creation itself loses its response before
-registration, recovery refuses name-based adoption/deletion and needs operator
-reconciliation. Resource labels cannot resolve that uncertain-create window.
+UID was already committed. Optional [independent namespace allocation](development-namespace-allocation.md)
+retains the API-returned UID before delivery, allowing exact-intent lookup after
+controller response loss. Without that record, recovery refuses name-based
+adoption/deletion and needs operator reconciliation. Resource labels cannot resolve
+an uncertain API response or allocator death before UID commit.
 Retired inner-create intents are preserved as `retired_pending` in the journal,
-while receiver/grant create uncertainty remains pending outside the retired cell.
+while grant create uncertainty remains pending outside the retired cell. Receiver
+namespace response loss can use the allocator record; partial receiver inventory
+still latches capture loss and cannot produce expected behavior.
 Retirement never clears the failed evaluation flag.
 
 Cleanup has a fresh cancellation scope and deadline. Restart recovery never reruns

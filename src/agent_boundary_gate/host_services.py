@@ -154,3 +154,17 @@ def run_watchdog(path: Path):
     finally:
         for number, handler in previous.items():
             signal.signal(number, handler)
+
+
+def serve_namespace_allocator(path: Path):
+    from agent_boundary_gate.namespace_allocation import (
+        NamespaceAllocator,
+        NamespaceAllocatorConfig,
+    )
+
+    config = NamespaceAllocatorConfig.model_validate_json(read_private(path))
+    allocator = NamespaceAllocator(config)
+    try:
+        _serve(UnixService(config.socket_path, allocator.handle, budget=55))
+    finally:
+        allocator.close()
