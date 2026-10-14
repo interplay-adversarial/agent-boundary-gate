@@ -37,7 +37,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
   These development observations issue no gate receipts or release claims.
 - A [packaged development runner](docs/development-runner.md) with private
   allocation journals, paired Rust controls, final capture and recovery;
-  [disposable target allocation and UID-conditioned namespace cleanup](docs/disposable-development-cells.md).
+  [disposable target allocation and UID-conditioned namespace cleanup](docs/disposable-development-cells.md),
+  with [controller death, storage loss and recovery drills](docs/development-failure-drills.md).
   Cell execution requires an operator-owned pinned gateway bootstrap; shared-gateway
   execution requires a separately implemented identity-bound cleanup helper.
 - [Separate pinned NeMo Gym onboarding](docs/gym-onboarding.md) with offline
