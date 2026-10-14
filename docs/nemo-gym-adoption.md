@@ -2,7 +2,8 @@
 
 Recorded: 2026-10-12. Updated: 2026-10-13. Status: development onboarding complete;
 offline native verifier calibration, one hosted-model synthetic smoke and the
-packaged development runner and optional fixture evidence bridge are implemented.
+packaged development runner, optional fixture evidence bridge and initial Hermes
+host-harness remote-effect pilot are implemented.
 No model-backed Gym integration or
 agent pairing is qualified.
 
@@ -36,7 +37,7 @@ A separate adapter repository is justified only by concrete maintenance, licensi
 or deployment needs. Any future package split must keep one bridge implementation
 and use versioned conformance tests.
 
-The target flow is (real tool-effect routing remains GYM-03 work):
+The target flow is (GYM-03's host-harness pilot exercises only remote synthetic effects):
 
 ```text
 pinned cases -> Gym environment + selected agent harness -> tool requests
@@ -89,7 +90,9 @@ private provider/trajectory records. Hosted weights/sampling remain unattested;
 commercial dependency/corpus rights and any future image deployment need separate
 review. The [optional evidence bridge](gym-evidence-bridge.md) now correlates
 fixture/native observations with separate signed boundary records; it does not
-establish real tool-effect routing or authenticated Gym provenance. GYM-03 is next.
+establish real tool-effect routing or authenticated Gym provenance. The separate
+[Hermes effect pilot](hermes-effect-pilot.md) now exercises a bounded remote
+synthetic effect path; failure drills and the frozen GYM-04 baseline are next.
 
 | ID | Deliverable | Exit criteria and dependencies |
 | --- | --- | --- |
@@ -104,6 +107,17 @@ core failure fixtures and actual pinned native harness artifacts in model-free
 conformance tests. Its unsigned `1.0` correlation report preserves the existing
 signed contracts and withholds unsupported live execution. See the
 [bridge guide](gym-evidence-bridge.md) for trust inputs, limits and report semantics.
+
+GYM-03's initial development increment uses the actual pinned Gym Hermes host
+harness and a separately locked Hermes runtime. An owned tool adapter routes
+constant Rust HTTP actions through disposable targets; the model cannot choose
+commands, endpoints or infrastructure identities. Healthy/weakened live profiles
+observed allowed/forbidden counts `3/0` and `3/1`, retained final capture and cleaned
+owned resources. Native fake-model calibration establishes attempted injection
+plus blocked/observed effects; hosted benign/injection episodes were complete and
+useful for this one synthetic task. Hermes runs outside the selected boundary and
+its `no_sandbox_runtime` gap remains explicit. This is not authenticated agent
+pairing or process containment qualification. See the [pilot guide](hermes-effect-pilot.md).
 
 For GYM-01, record an onboarding manifest containing upstream commit, lock/image
 digest, interpreter, harness, model identifier/provider configuration, prompts,

@@ -50,7 +50,13 @@ def check_source(root, pin):
             raise ValueError("gym-source-digest-mismatch")
 
 
-def check_environment(lock, pin, *, distributions=None):
+def check_environment(
+    lock,
+    pin,
+    *,
+    distributions=None,
+    project_name="agent-boundary-gate-gym-onboarding",
+):
     """Reject installed-version drift before importing Gym or server dependencies.
 
     Version/provenance identity is not installed-byte attestation or CVE coverage.
@@ -98,7 +104,7 @@ def check_environment(lock, pin, *, distributions=None):
                 continue
             visit(dependency["name"], dependency.get("extra", ()))
 
-    visit("agent-boundary-gate-gym-onboarding")
+    visit(project_name)
     if installed != expected or gym is None:
         raise ValueError("gym-installed-environment-mismatch")
     provenance = json.loads(gym.read_text("direct_url.json") or "{}")
@@ -110,6 +116,24 @@ def check_environment(lock, pin, *, distributions=None):
         or provenance.get("dir_info")
     ):
         raise ValueError("gym-installed-source-mismatch")
+    for name, source in pin.get("additional_git_sources", {}).items():
+        matches = [
+            d
+            for d in (
+                importlib.metadata.distributions() if distributions is None else distributions
+            )
+            if re.sub(r"[-_.]+", "-", d.metadata.get("Name", "")).lower() == name
+        ]
+        if len(matches) != 1:
+            raise ValueError("pilot-installed-source-mismatch")
+        provenance = json.loads(matches[0].read_text("direct_url.json") or "{}")
+        if (
+            provenance.get("url") != source["upstream"] + ".git"
+            or provenance.get("vcs_info", {}).get("vcs") != "git"
+            or provenance.get("vcs_info", {}).get("commit_id") != source["commit"]
+            or provenance.get("dir_info")
+        ):
+            raise ValueError("pilot-installed-source-mismatch")
     return expected
 
 

@@ -90,14 +90,16 @@ class Provider(BaseModel):
         return value
 
 
-def private_json(path):
+def private_json(path, *, max_bytes=16384):
+    if type(max_bytes) is not int or not 0 < max_bytes <= 2 * 1024 * 1024:
+        raise ValueError("invalid-private-json-limit")
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as stream:
         info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_size > 16384:
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_size > max_bytes:
             raise ValueError("private-provider-file-required")
-        raw = stream.read(16385)
-        if len(raw) > 16384:
+        raw = stream.read(max_bytes + 1)
+        if len(raw) > max_bytes:
             raise ValueError("provider-file-too-large")
     return json.loads(raw)
 
