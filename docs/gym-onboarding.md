@@ -82,6 +82,8 @@ promotion. A source license alone does not clear every external dataset.
 ## Remaining GYM-01 exit criteria
 
 Offline calibration and a separately audited development lock are implemented.
+The [model smoke runner](gym-model-smoke.md) supplies bounded provider discovery,
+native upstream harness/conversion and an original synthetic attack/benign pair.
 GYM-01 remains open for one model-backed rollout using a selected pinned provider
 configuration/harness, private trajectories, and recorded sampling/seed/budgets.
 The model version guarantee and example-task rights must be recorded explicitly.

@@ -61,7 +61,10 @@ remain available. They do not supply a hypervisor provisioner or independent cel
 inspector. LIFE-01/LIFE-02/QUAL-01/COMPAT-03 remain partially implemented.
 
 1. Complete GYM-01 with one selected model/provider configuration,
-   private smoke traces and task-rights review; retain offline calibration and
+   private smoke traces and task-rights review; the [model smoke runner](gym-model-smoke.md)
+   implements bounded native harness/provider integration and original synthetic
+   tasks, with model-free conformance. Live provider rollout remains pending.
+   Retain offline calibration and
    the separate dependency baseline.
    Retain DEV-02's unresolved namespace-create window and qualification limits;
    authenticated external watchdog/whole-cell fault qualification remains P1 work.
