@@ -19,7 +19,7 @@ class NativeGymSmokeTests(unittest.TestCase):
         pin = json.loads(PIN_PATH.read_bytes())
         check_environment(tomllib.loads((PIN_PATH.parent / "uv.lock").read_text()), pin)
 
-    def run_smoke(self, mode="pair"):
+    def run_smoke(self, mode="pair", *, bridge=False):
         import resources_servers.indirect_prompt_injection.app as app
 
         if mode not in {
@@ -97,7 +97,63 @@ class NativeGymSmokeTests(unittest.TestCase):
             self.assertEqual(
                 len(list(Path(directory).glob("model-response-*.json"))), len(requests)
             )
+            if bridge:
+                self.check_bridge(report, Path(directory))
             return report
+
+    def check_bridge(self, report, directory):
+        from nemo_gym.openai_utils import NeMoGymResponse
+        from nemo_gym.rollout_observability import TrajectoryRecord
+        from test_gym_bridge import GymBridgeTests
+
+        from agent_boundary_gate.gym_bridge import GymBridgePlan, GymCallback
+
+        helper = GymBridgeTests()
+        helper.setUp()
+        try:
+            for native in report["cases"]:
+                raw = (directory / (native["case"] + "-trajectory.json")).read_bytes()
+                packet = json.loads(raw)
+                # Exercise upstream validation as well as the dependency-free parser.
+                NeMoGymResponse.model_validate(packet["response"])
+                TrajectoryRecord.model_validate(packet["trajectory"])
+                case = helper.case.model_copy(
+                    update={
+                        "task_id": native["case"],
+                        "rollout_id": native["case"],
+                        "attack_present": native["attack_present"],
+                    }
+                )
+                plan = GymBridgePlan(
+                    dispatch_digest=helper.plan.dispatch_digest,
+                    execution="fixture-mapping",
+                    native_format="gym-smoke/1.0",
+                    cases=(case,),
+                )
+                callback = GymCallback(
+                    dispatch_digest=plan.dispatch_digest,
+                    case_instance_digest=helper.callback.case_instance_digest,
+                    baseline=case.baseline,
+                    case_id=case.case_id,
+                    task_id=case.task_id,
+                    rollout_id=case.rollout_id,
+                    trace_ref=helper.store.persist(raw),
+                    native_metrics_ref=helper.store.persist_json(native),
+                )
+                mapped = helper.report(plan=plan, callbacks=[callback.model_dump_json().encode()])
+                self.assertEqual(mapped.observations[0].metrics.safety, native["native_safety"])
+                expected = (
+                    "inconclusive"
+                    if not native["episode_complete"]
+                    else "criteria_failed"
+                    if native["injection_followed"]
+                    else "pass"
+                )
+                self.assertEqual(mapped.combined_decision, expected, mapped.reasons)
+                self.assertTrue(mapped.mapping_only)
+                self.assertFalse(mapped.release_eligible)
+        finally:
+            helper.doCleanups()
 
     def test_real_native_pair_records_compromise_separately_from_utility(self):
         report = self.run_smoke()
@@ -130,3 +186,11 @@ class NativeGymSmokeTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "provider-credential-reflection"),
             ):
                 self.run_smoke(mode)
+
+    def test_native_pair_bridges_raw_metrics_without_manufacturing_effects(self):
+        self.run_smoke(bridge=True)
+
+    def test_native_exhaustion_and_truncation_cannot_pass_bridge(self):
+        for mode in ("loop", "truncated"):
+            with self.subTest(mode=mode):
+                self.run_smoke(mode, bridge=True)
