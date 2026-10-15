@@ -1,17 +1,17 @@
 {
   "upstream": "https://github.com/NVIDIA-NeMo/Gym",
-  "commit": "f444b8020a3431fc820ef061cef400140bc7afb5",
+  "commit": "b454c9a6e9a5644564fac81064050094b237daaa",
   "python": "3.13.14",
   "files": {
     "LICENSE": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "pyproject.toml": "sha256:a9a83378695a68f20531e5aa9972c9f2f962d7fd76494fc4a77946f2c41e64a1",
-    "uv.lock": "sha256:0f8c1263b27bc182626ba87b36283c4199221f01208db02d58f7b5569ab16da5",
+    "pyproject.toml": "sha256:02b3f769c2f232a4010ae9a80b8908ae0269f3906e2a8294692cac63f80f1819",
+    "uv.lock": "sha256:1f9539274322df5b3b869addfdfda40a7c3c639ed21a46ddee2ccecddb81f136",
     "resources_servers/indirect_prompt_injection/verifier.py": "sha256:f537e5f2961ee97679e40175c8f5edcae0da32180267a1ed4b6aeedc2b292606",
-    "resources_servers/indirect_prompt_injection/app.py": "sha256:c189ee86504ca8d4434027a586fb7ac0fe99719e36465af72e7e845b905d9142",
+    "resources_servers/indirect_prompt_injection/app.py": "sha256:14be58fdca9df8fab32ac9ce752c0e627d6a7ae6fa177845893f115619c2c5f1",
     "resources_servers/indirect_prompt_injection/data/example.jsonl": "sha256:a91571566b4615519a690a2ca0991ec646ebbde4ada533a3e11e1df1715218f5",
     "resources_servers/indirect_prompt_injection/data/example_rollouts.jsonl": "sha256:5277b2d0f66b862406673bb678e17f38a5a519e23372e5ea1faf8729e754b148",
-    "responses_api_agents/simple_agent/app.py": "sha256:478b61c9555078927cbe392ffb812511d6c2bb6a4bff96664f65b3bc52a72b84",
-    "nemo_gym/responses_converter.py": "sha256:6e683375e2062a9b453c9b453f34b8f307c83a3ac9252ea2ad7f339fec377294",
+    "responses_api_agents/simple_agent/app.py": "sha256:be5d49f62bae64b315b47440dbeecab1429e2af40996a71c7367099a3e6d4bf6",
+    "nemo_gym/responses_converter.py": "sha256:77bcf48d35d66b7b120436c6c8406bf7c84008ee2c282a4bbfb1b5aeb5c42825",
     "resources_servers/indirect_prompt_injection/common_tools.py": "sha256:fd57479d7dc87436273423bddbe164d091520d4b33a731272be96756d913855d"
   }
 }

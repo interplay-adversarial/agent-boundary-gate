@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: NVIDIA-NeMo/Gym
-          ref: f444b8020a3431fc820ef061cef400140bc7afb5
+          ref: b454c9a6e9a5644564fac81064050094b237daaa
           path: .private-gym-source
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
