@@ -3,7 +3,7 @@ name = "agent-boundary-gate-gym-onboarding"
 version = "0.1.0"
 requires-python = "==3.13.14"
 dependencies = [
-  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@f444b8020a3431fc820ef061cef400140bc7afb5",
+  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@b454c9a6e9a5644564fac81064050094b237daaa",
 ]
 
 [tool.uv]

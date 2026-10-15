@@ -3,7 +3,7 @@ name = "agent-boundary-gate-hermes-pilot"
 version = "0.1.0"
 requires-python = "==3.13.14"
 dependencies = [
-  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@f444b8020a3431fc820ef061cef400140bc7afb5",
+  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@b454c9a6e9a5644564fac81064050094b237daaa",
   "hermes-agent @ git+https://github.com/cmunley1/hermes-agent.git@26bb847a88493342ca1b194e0455b479073ae21d",
   "pydantic==2.14.0",
   "cryptography==50.0.2",

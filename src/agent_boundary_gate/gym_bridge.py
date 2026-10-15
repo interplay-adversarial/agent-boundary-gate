@@ -29,7 +29,7 @@ from agent_boundary_gate.gate_policy import evaluate
 MAX_CALLBACKS = 128
 MAX_ARTIFACT_BYTES = 1024 * 1024
 MAX_BRIDGE_BYTES = 16 * 1024 * 1024
-GYM_COMMIT = "f444b8020a3431fc820ef061cef400140bc7afb5"
+GYM_COMMIT = "b454c9a6e9a5644564fac81064050094b237daaa"
 
 
 class BridgeModel(BaseModel):

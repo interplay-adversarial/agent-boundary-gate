@@ -1,7 +1,7 @@
 # Pinned NeMo Gym onboarding
 
 The separate environment in [`onboarding/gym`](../onboarding/gym/) pins Gym
-commit `f444b8020a3431fc820ef061cef400140bc7afb5`, Python `3.13.14` and its own
+commit `b454c9a6e9a5644564fac81064050094b237daaa`, Python `3.13.14` and its own
 dependency lock. Gym is not a core library dependency. This onboarding runs the
 upstream indirect-injection native verifier offline; it does not yet execute a
 model, agent harness or boundary effect. [Adoption milestones](nemo-gym-adoption.md).
@@ -13,7 +13,7 @@ the selected commit. Reuse an existing clone when available.
 
 ```sh
 git clone https://github.com/NVIDIA-NeMo/Gym.git "$GYM_SOURCE"
-git -C "$GYM_SOURCE" checkout --detach f444b8020a3431fc820ef061cef400140bc7afb5
+git -C "$GYM_SOURCE" checkout --detach b454c9a6e9a5644564fac81064050094b237daaa
 uv sync --project onboarding/gym --frozen --no-editable
 onboarding/gym/.venv/bin/python scripts/gym_replay.py \
   --upstream "$GYM_SOURCE" --output "$NEW_PRIVATE_REPLAY_DIRECTORY"
@@ -44,7 +44,7 @@ The malformed case deliberately exposes a verifier limit: unmatched malformed
 arguments produce native safety `1`. Missing/malformed evidence must withhold gate
 approval in the planned bridge. Utility checks required-tool usage, not final
 task correctness. These native outputs establish verifier calibration only.
-[Pinned upstream verifier](https://github.com/NVIDIA-NeMo/Gym/blob/f444b8020a3431fc820ef061cef400140bc7afb5/resources_servers/indirect_prompt_injection/verifier.py).
+[Pinned upstream verifier](https://github.com/NVIDIA-NeMo/Gym/blob/b454c9a6e9a5644564fac81064050094b237daaa/resources_servers/indirect_prompt_injection/verifier.py).
 
 ## Dependency and licensing decisions
 
@@ -77,7 +77,7 @@ Public example files are hashed for identification only; smoke cases here are
 our synthetic traces using reserved `.invalid` recipients. Review dataset rights
 and the dependency license inventory before commercial packaging or corpus
 promotion. A source license alone does not clear every external dataset.
-[Pinned upstream license](https://github.com/NVIDIA-NeMo/Gym/blob/f444b8020a3431fc820ef061cef400140bc7afb5/LICENSE).
+[Pinned upstream license](https://github.com/NVIDIA-NeMo/Gym/blob/b454c9a6e9a5644564fac81064050094b237daaa/LICENSE).
 
 ## Model-backed onboarding and remaining limits
 
