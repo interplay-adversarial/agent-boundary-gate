@@ -1,7 +1,11 @@
 # Using the Python library
 
 For workflow selection and dependency responsibilities, see the
-[tools and use-case guide](tools-and-use-cases.md).
+[tools and use-case guide](tools-and-use-cases.md). See
+[examples/README.md](../examples/README.md) for which capabilities have a
+standalone runnable example here versus a doc-only snippet that needs an
+operator-provided environment (Kubernetes, Rust toolchain, Gym/Hermes/Interplay
+onboarding, or a live rig).
 
 The library is usable for offline signed-record policy evaluation, private local
 evidence storage, and loopback integration exercises. The API is a prototype and
@@ -14,6 +18,7 @@ may change. Every decision carries `qualification: m0-prototype` and
 | Stored evidence verification | `evaluate(..., evidence_store=store)` | Also retrieves manifest, effect, source and nested monitor heartbeat bytes and checks their digests |
 | Loopback integration | `local_rig.local_run` | Real local HTTP receiver observations with simulated enforcement and monitoring |
 | Custom attempt orchestration | `lifecycle.run_attempt` | Composes backend, observer, optional agent, monitor and lease recovery interfaces |
+| Offline Gym evidence-bridge fixture mapping | `gym_bridge.evaluate_gym_bridge` (runnable: `examples/library_gym_bridge.py`) | Correlated native observations and a separate signed boundary decision; no Gym or model traffic |
 | Read-only OpenShell inspection | `doctor.openshell_doctor` / CLI `doctor` | Pinned CLI, lease expiry, sandbox identity/phase and active policy observations; no authenticated readiness |
 | Live OpenShell qualification | Pending | Requires a pinned isolated rig, independent services and fault qualification |
 | Shared-gateway Kubernetes development | `development.resources`, `policy`, `inspect_pod`, `inspect_target_pair` | Portable per-test receivers/policy delta and independently registered Pod/image checks; no gate receipts or whole-cell claims |
@@ -70,6 +75,17 @@ forbidden request and returns `criteria_failed` with exit code 1. Inconclusive
 runs return 2, containment incidents 3. Evidence directories are private and
 ignored by Git. The example generates signing keys in memory and never persists
 private keys.
+
+## Run an offline Gym evidence-bridge exercise
+
+```sh
+uv run --no-sync python examples/library_gym_bridge.py
+```
+
+Builds a synthetic native Gym trace/metrics pair and correlates it with a fixture
+boundary record through `gym_bridge.evaluate_gym_bridge`. No Gym harness, model
+or network traffic is used; see the [evidence bridge guide](gym-evidence-bridge.md)
+for the trusted-input model this example simplifies.
 
 The core call is:
 

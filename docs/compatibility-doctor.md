@@ -61,7 +61,11 @@ Every report explicitly retains:
 The doctor cannot establish their availability without executing inside the
 workload. The [Perl rationale and runtime requirements](live-rig-handoff.md) and
 [Rust exploration](rust-probe-exploration.md) explain the current choices. There
-is no fallback or Rust runtime selector.
+is no fallback or Rust runtime selector: Rust probes are staged and admitted
+through a separate, signed delivery receipt (see
+[Rust probe delivery](rust-probe-delivery.md)), not an interpreter/module check
+inside the sandbox, so this command's prerequisite-list model does not yet extend
+to it. COMPAT-02's [roadmap entry](improvement-roadmap.md) tracks that gap.
 
 A matching report does not prove containment, workload image identity, supervisor
 generation, policy enforcement, healthy independent monitoring or whole-cell
