@@ -4,6 +4,7 @@ import json
 import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Final, Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -21,6 +22,20 @@ from agent_boundary_gate.evidence import EvidenceStore
 
 MAX_EVIDENCE_READS = 1024
 MAX_EVIDENCE_BYTES = 32 * 1024 * 1024
+
+# `development_run.py`, `red_team.py` and `campaign.py` produce dev-run,
+# research-campaign and live-fault-profile results that don't fit `GateDecision`
+# (no Dispatch/SignedRecord/evidence model, and each uses its own `qualification`
+# label), so they can't share `evaluate()`. They do all share this one invariant:
+# this M0 prototype never marks a result release-eligible. Centralizing the
+# marker and its read-side check here means a future shared-contract change
+# touches one place instead of every hand-written call site.
+RELEASE_INELIGIBLE: Final[dict[str, Literal[False]]] = {"release_eligible": False}
+
+
+def is_release_ineligible(value: object) -> bool:
+    """True only for the exact Phase 0 marker; never for a missing or truthy value."""
+    return value is False
 
 
 class _EvidenceReader:
