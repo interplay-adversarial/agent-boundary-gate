@@ -17,7 +17,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; real host-service/watchdog death/restart drills and bounded configurable watchdog timers implemented with synthetic cell authority. Local command supervision now terminates active inspectors after authority SIGKILL. Live deployment, escaped-process/supervisor-failure handling and orphan-cell qualification pending. [Drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | QUAL-01 | P1 | Whole-cell containment and live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Development healthy/weakened Rust exercise completed in PR #19; whole-cell containment, authenticated deployment and fault qualification pending; depends on LIFE-01/LIFE-02 |
-| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and diagnostics implemented; independently pinned Rust image exercised against actual healthy/weakened policies in PR #19; qualified delivery and lifecycle budgets pending. The default `probe_runtime="python3"` path does not bound `action.timeout_seconds` the way Perl/Rust do; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). |
+| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and diagnostics implemented; independently pinned Rust image exercised against actual healthy/weakened policies in PR #19; qualified delivery and lifecycle budgets pending. The Python probe's fail-open timeout/attempt validation gap is fixed; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
 | COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Host services and live-run/campaign composition implemented in PR #18; independent provisioning/inspection and authenticated live qualification pending |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, native Linux CI, digest-verified staging and signed immutable-delivery backend admission implemented; hostname/DNS, live provisioning/issuer, release provenance and qualification pending |
@@ -493,16 +493,18 @@ A documentation/example audit also checked cross-cutting cohesion of the probe
 runtimes and the various "produce a result" entry points. Two findings affect
 code, not just docs, and are recorded here rather than fixed silently:
 
-- **Python probe timeout is unbounded; Perl and Rust fail closed.**
-  `OpenShellBackend.replay` passes `action.timeout_seconds` straight through to
-  the Python probe (`backends/openshell.py:224`, `probes.py:7-18`) with no bound
-  check; an out-of-range value is swallowed by the probe's broad exception
-  handler and still emits the completion marker. The Perl probe's own argument
-  regex rejects `seconds` outside `1..30` (`probes.py:31`) and the Rust path is
-  checked before the subprocess even starts (`backends/openshell.py:244-247`).
-  `tests/test_probe_conformance.py`'s malformed-argument test
-  (`:76-117`) only exercises Rust and Perl, not Python, so this gap has no
-  regression coverage. This is on `probe_runtime="python3"`, the default.
+- **Python probe timeout was unbounded; Perl and Rust fail closed.** Fixed
+  2026-10-15: the embedded Python probe (`probes.py:7-18`) now validates argv
+  itself before importing `urllib` or building a request, matching the Perl
+  probe's own fail-closed contract — `attempt_id` against the same identifier
+  pattern and `seconds` against `1..30`, writing `invalid-probe-input` to
+  stderr and exiting non-zero on either. `backends/openshell.py:224` is
+  unchanged; the fix lives in the probe itself so all three runtimes are
+  independently defensive regardless of what the caller passes.
+  `tests/test_probe_conformance.py` gained
+  `test_python_probe_rejects_malformed_attempt_and_timeout_before_connecting_or_completion`,
+  closing the coverage gap the malformed-argument test (`:76-117`) left for
+  Python.
 - **Only two of six result-producing entry points route through
   `gate_policy.evaluate`/`GateDecision`.** `live.live_run` and
   `gym_bridge.evaluate_gym_bridge` call `gate_policy.evaluate`; `development_run.py`,

@@ -116,6 +116,36 @@ class ProbeTests(unittest.TestCase):
                         with self.assertRaises(BlockingIOError):
                             receiver.accept()
 
+    def test_python_probe_rejects_malformed_attempt_and_timeout_before_connecting_or_completion(
+        self,
+    ):
+        with socket.socket() as receiver:
+            receiver.bind(("127.0.0.1", 0))
+            receiver.listen()
+            receiver.setblocking(False)
+            url = f"http://127.0.0.1:{receiver.getsockname()[1]}/probe"
+            valid = [url, "probe-test", "1"]
+            mutations = (
+                (1, "probe-test\r\nInjected: value"),
+                (1, ""),
+                (1, "a" * 129),
+                (2, "0"),
+                (2, "31"),
+                (2, "1.5"),
+                (2, "1\n"),
+            )
+            for index, value in mutations:
+                arguments = valid.copy()
+                arguments[index] = value
+                argv = [sys.executable, "-c", PROBE, *arguments]
+                with self.subTest(arguments=repr(arguments)):
+                    result = subprocess.run(argv, capture_output=True, timeout=5)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, b"")
+                    self.assertEqual(result.stderr, b"invalid-probe-input\n")
+                    with self.assertRaises(BlockingIOError):
+                        receiver.accept()
+
     def test_probes_correlate_direct_request_and_do_not_follow_redirect_or_proxy(self):
         events = []
 
