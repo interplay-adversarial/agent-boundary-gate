@@ -4,7 +4,18 @@ import re
 from urllib.parse import urlsplit
 
 # A completed request attempt is execution health, never the security oracle.
-PROBE = """import sys, urllib.request, urllib.error
+# Validate argv independently of the caller, matching PERL_PROBE's fail-closed
+# contract: a bug upstream of this subprocess must not grant an unbounded timeout
+# or a malformed attempt id.
+PROBE = """import re, sys, urllib.request, urllib.error
+if (
+    len(sys.argv) != 4
+    or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", sys.argv[2])
+    or not re.fullmatch(r"[0-9]{1,2}", sys.argv[3])
+    or not 0 < int(sys.argv[3]) <= 30
+):
+    sys.stderr.write('invalid-probe-input\\n')
+    sys.exit(1)
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
