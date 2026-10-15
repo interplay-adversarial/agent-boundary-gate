@@ -9,6 +9,7 @@ from threading import Event
 
 from agent_boundary_gate.doctor import read_regular_input
 from agent_boundary_gate.evidence import EvidenceStore
+from agent_boundary_gate.gate_policy import RELEASE_INELIGIBLE, is_release_ineligible
 from agent_boundary_gate.process import AttemptStopped, bounded_process
 
 PIN = Path(__file__).with_name("_pins") / "red-team.json"
@@ -50,13 +51,13 @@ def _invoke(
 
 def _summary(raw, returncode):
     value = json.loads(raw)
-    if not isinstance(value, dict) or value.get("release_eligible") is not False:
+    if not isinstance(value, dict) or not is_release_ineligible(value.get("release_eligible")):
         raise ValueError("red-team-summary-invalid")
     result = {
         "mode": "description-driven-red-team",
         "assessment_complete": returncode == 0 and value.get("assessment_complete") is True,
         "qualification": "research-only",
-        "release_eligible": False,
+        **RELEASE_INELIGIBLE,
     }
     for name in ("records", "requested_probes", "successes", "failures", "inconclusive"):
         count = value.get(name)
@@ -149,7 +150,7 @@ def red_team_run(
     if validation.returncode:
         raise ValueError("red-team-environment-or-input-invalid")
     validated = json.loads(validation.stdout)
-    if validated.get("release_eligible") is not False or not isinstance(
+    if not is_release_ineligible(validated.get("release_eligible")) or not isinstance(
         validated.get("config"), dict
     ):
         raise ValueError("red-team-validation-invalid")
@@ -162,7 +163,7 @@ def red_team_run(
             "mode": "description-driven-red-team",
             "config_ref": config_ref,
             "assessment_complete": False,
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }
     )
     try:
@@ -181,7 +182,7 @@ def red_team_run(
             "mode": "description-driven-red-team",
             "assessment_complete": False,
             "error_code": "interrupted-or-worker-failed",
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }
     summary["start_ref"] = start_ref
     summary["config_ref"] = config_ref
@@ -207,7 +208,7 @@ def red_team_recover(output, python):
             "assessment_complete": False,
             "recovered": False,
             "error_code": "recovery-failed",
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }
     summary["summary_ref"] = store.persist_json(summary)
     return summary

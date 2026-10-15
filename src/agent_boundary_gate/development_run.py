@@ -30,6 +30,7 @@ from agent_boundary_gate.development import (
 )
 from agent_boundary_gate.doctor import read_regular_input
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.gate_policy import RELEASE_INELIGIBLE
 from agent_boundary_gate.namespace_allocation import NamespaceAllocationClient, NamespaceIntent
 from agent_boundary_gate.probe_delivery import PROBE_PATH
 from agent_boundary_gate.process import AttemptStopped, bounded_process
@@ -201,7 +202,7 @@ class DevelopmentRunner:
                     "config_digest": _config_digest(config),
                     "allocations": [],
                     "qualification": "development-only",
-                    "release_eligible": False,
+                    **RELEASE_INELIGIBLE,
                 }
                 self.save()
             self.binaries = {}
@@ -1043,7 +1044,7 @@ class DevelopmentRunner:
             "cleanup_complete": allocation.get("cleanup_complete", False),
             "sampled_after_target_cleanup": sampled_after_cleanup,
             "qualification": "development-only",
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }
 
     def run(self, cancelled: Event):
@@ -1052,7 +1053,7 @@ class DevelopmentRunner:
                 "profiles": [],
                 "development_campaign_completed": False,
                 "error": "identity-bound-cleanup-required",
-                "release_eligible": False,
+                **RELEASE_INELIGIBLE,
             }
         profiles = []
         for weakened in (False, True):
@@ -1066,7 +1067,7 @@ class DevelopmentRunner:
             "profiles": profiles,
             "development_campaign_completed": len(profiles) == 2
             and all(p["expected_behavior_observed"] for p in profiles),
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }
 
     def recover(self):
@@ -1077,5 +1078,5 @@ class DevelopmentRunner:
                 a.get("cleanup_complete") is True for a in self.state["allocations"]
             ),
             "qualification": "development-only",
-            "release_eligible": False,
+            **RELEASE_INELIGIBLE,
         }

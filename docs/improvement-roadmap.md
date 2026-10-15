@@ -23,12 +23,12 @@ only what remains open.
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Trusted lease issuance, broker transport and real independent attestations remain open (receipt verifier/backend merged in PR #8). |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Live deployment, escaped-process/supervisor-failure handling and orphan-cell qualification remain open. [Drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | QUAL-01 | P1 | Whole-cell containment and live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Whole-cell containment, authenticated deployment and fault qualification remain open; depends on LIFE-01/LIFE-02. |
-| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Qualified delivery and measured lifecycle budgets remain open. The Python probe's fail-open timeout/attempt validation gap is fixed; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). |
+| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Qualified delivery and measured lifecycle budgets remain open. |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Runtime prerequisites are reported but unverified; workload/image qualification and latency measurements remain open. |
 | COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Independent provisioning/inspection and authenticated live qualification remain open. |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | Hostname/DNS support, deployed artifact delivery, reproducible build-image/linker pins, signed release provenance and the live baseline/target qualification matrix remain open. |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Independent proof interpretation, issuer verification and remote authority remain open. |
-| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. Three of six result-producing modules (`development_run.py`, `red_team.py`, `campaign.py`) still hand-write the release-ineligible convention instead of sharing `gate_policy.evaluate`/`GateDecision`; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
+| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned; not started. |
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain open; broader expansion follows the frozen pilot baseline. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open; shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
@@ -121,9 +121,8 @@ service transports and independent deployment/fault tests.
 
 **COMPAT-01/COMPAT-02**: explicit Python/Perl/Rust probe selection, direct
 HTTP without proxy/redirect behavior and phase-scoped CLI failure reasons are
-implemented; the Python probe's fail-open gap is fixed (see the
-[cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15)).
-Qualified delivery and measured lifecycle budgets remain open. COMPAT-02's
+implemented. Qualified delivery and measured lifecycle budgets remain open.
+COMPAT-02's
 [CLI/library doctor](compatibility-doctor.md) covers read-only CLI/lease/policy
 inspection; runtime/module availability is explicitly unverified (no workload
 execution occurs), and authenticated readiness, image qualification and
@@ -177,29 +176,6 @@ feedback; [guide](description-driven-red-team.md)): a future NeMo Gym
 `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider
 pilot and instrumented target adapters remain open. EVID-01 durable-storage
 interruption drills remain the next reliability-track item.
-
-## Probe and gate-decision cohesion audit (2026-10-15)
-
-A documentation/example audit checked cross-cutting cohesion of the probe
-runtimes and the various "produce a result" entry points. One finding still
-affects code:
-
-- **Only two of six result-producing entry points route through
-  `gate_policy.evaluate`/`GateDecision`.** `live.live_run` and
-  `gym_bridge.evaluate_gym_bridge` call `gate_policy.evaluate`; `development_run.py`,
-  `red_team.py` and `campaign.py` never import `gate_policy` and instead hand-write
-  `"release_eligible": False` into plain dicts at nine separate call sites
-  (`development_run.py:204,1046,1055,1069,1080`; `red_team.py:59,165,184,210`;
-  `campaign.py:104`), with `red_team.py:53,152` and `campaign.py:28` re-implementing
-  ad hoc checks of that same convention on the read side. No outcome is wrong
-  today, but a future shared-contract change (e.g. adding `qualification` the way
-  `GateDecision` already has it) would need nine uncoordinated hand-edits across
-  three files instead of one typed change.
-
-(The audit's other finding — the Python probe's unbounded timeout — was fixed
-the same day, PR #38.)
-
-Neither finding changes schemas, defaults or release eligibility.
 
 ## Dependency and pin freshness audit (2026-10-15)
 

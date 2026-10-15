@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from agent_boundary_gate.gate_policy import RELEASE_INELIGIBLE, is_release_ineligible
 from agent_boundary_gate.live import LiveConfig, live_run, read_private
 from agent_boundary_gate.receipts import ReceiptContract
 
@@ -25,7 +26,7 @@ class CampaignPlan(ReceiptContract):
 
 
 def matches(scenario: Scenario, report: dict) -> bool:
-    if report["release_eligible"] or report["cleanup"] != "destroyed":
+    if not is_release_ineligible(report["release_eligible"]) or report["cleanup"] != "destroyed":
         return False
     if scenario == "healthy":
         return (
@@ -101,6 +102,6 @@ def live_campaign(plan: CampaignPlan, output: Path) -> tuple[dict, int]:
         "expectations_met": passed,
         "profiles": entries,
         "qualification": "unqualified-live",
-        "release_eligible": False,
+        **RELEASE_INELIGIBLE,
     }
     return summary, 0 if passed else 2
