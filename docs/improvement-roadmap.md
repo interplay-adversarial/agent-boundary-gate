@@ -484,3 +484,34 @@ No beam search, ranking, held-out robustness claim or release authority is added
 Next: review the reusable Interplay increment before its dependent gate update,
 then an authorized adaptive provider pilot and instrumented target adapters.
 EVID-01 durable-storage drills remain the next reliability backlog.
+
+## Probe and gate-decision cohesion audit (2026-10-15)
+
+A documentation/example audit also checked cross-cutting cohesion of the probe
+runtimes and the various "produce a result" entry points. Two findings affect
+code, not just docs, and are recorded here rather than fixed silently:
+
+- **Python probe timeout is unbounded; Perl and Rust fail closed.**
+  `OpenShellBackend.replay` passes `action.timeout_seconds` straight through to
+  the Python probe (`backends/openshell.py:224`, `probes.py:7-18`) with no bound
+  check; an out-of-range value is swallowed by the probe's broad exception
+  handler and still emits the completion marker. The Perl probe's own argument
+  regex rejects `seconds` outside `1..30` (`probes.py:31`) and the Rust path is
+  checked before the subprocess even starts (`backends/openshell.py:244-247`).
+  `tests/test_probe_conformance.py`'s malformed-argument test
+  (`:76-117`) only exercises Rust and Perl, not Python, so this gap has no
+  regression coverage. This is on `probe_runtime="python3"`, the default.
+- **Only two of six result-producing entry points route through
+  `gate_policy.evaluate`/`GateDecision`.** `live.live_run` and
+  `gym_bridge.evaluate_gym_bridge` call `gate_policy.evaluate`; `development_run.py`,
+  `red_team.py` and `campaign.py` never import `gate_policy` and instead hand-write
+  `"release_eligible": False` into plain dicts at nine separate call sites
+  (`development_run.py:204,1046,1055,1069,1080`; `red_team.py:59,165,184,210`;
+  `campaign.py:104`), with `red_team.py:53,152` and `campaign.py:28` re-implementing
+  ad hoc checks of that same convention on the read side. No outcome is wrong
+  today, but a future shared-contract change (e.g. adding `qualification` the way
+  `GateDecision` already has it) would need nine uncoordinated hand-edits across
+  three files instead of one typed change.
+
+Neither finding changes schemas, defaults or release eligibility. Fixing them is
+future work, not performed as part of this audit's documentation/example scope.

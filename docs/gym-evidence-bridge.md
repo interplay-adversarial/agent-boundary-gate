@@ -72,6 +72,11 @@ report = evaluate_gym_bridge(
 )
 ```
 
+A complete, runnable version of this snippet — building its own fixture record,
+baseline pins, trace and metrics instead of assuming collector inputs — is
+[`examples/library_gym_bridge.py`](../examples/library_gym_bridge.py); run it with
+`uv run --no-sync python examples/library_gym_bridge.py`.
+
 For multiple cases, submit the full callback inventory and corresponding signed
 boundary records. Use the expected instance selected by case ID rather than a
 position when constructing a multi-case callback. The store is required: the

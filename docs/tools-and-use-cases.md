@@ -21,6 +21,8 @@ not qualify a live agent/boundary pairing.
 | Does an operator-owned OpenShell environment execute the fixed controls? | `development-plan`, `development-run` | Private resources, paired controls, journals, capture and cleanup report | Development evidence; no authenticated gate receipts |
 | Can uncertain namespace ownership be reconciled? | `development-allocation-serve`, `development-recover` | Independently retained API UID/exact-intent lookup and UID-conditioned cleanup | Missing authoritative UID remains unresolved; no name-based adoption |
 | Can live services compose a monitored attempt? | `live-run`, `live-suite`, authority/receiver/watchdog commands | Experimental signed lifecycle/effect records and sanitized reports | Independent inspector/provisioner and qualification remain required |
+| Is this environment compatible before I attempt a readiness/cleanup cycle? | `agent-boundary-gate doctor` / `doctor.openshell_doctor` | Sanitized CLI/lease/policy/sandbox compatibility report | Read-only, no execution; cannot verify Rust probe prerequisites (no fallback/Rust selector) |
+| Should I pick the Python, Perl or Rust probe path? | `OpenShellBackend(probe_runtime=...)` | Interpreter/module check (Python/Perl) or signed delivery admission (Rust) | See [Rust usage](rust-probe-usage.md), [Rust delivery](rust-probe-delivery.md); DNS/hostname support is [open design work](rust-probe-exploration.md) |
 | How does a model behave under generated/adaptive probes? | `red-team-run` / `red_team_run` | Interplay research rows and private control artifacts | Supervised research; no automatic tool instrumentation or signed effect conversion |
 | Does a Gym verifier recognize a synthetic tool trace? | `scripts/gym_replay.py` | Native safety/utility/reward calibration | Offline synthetic replay, not a model or boundary test |
 | Can a model drive the Gym tool harness? | `scripts.gym_smoke` | Native trajectories and benign/injected task scores | Synthetic in-process tools; `boundary_evaluated: false` |
@@ -152,6 +154,8 @@ Follow each linked guide for its pinned sources, isolated installation and opera
 inputs. Do not combine the optional locks or update Gym/Hermes pins when changing
 Interplay. General task correctness and required-tool usage are different utility
 claims; the native verifier does not replace an independent state/effect oracle.
+See the [Gym adoption plan](nemo-gym-adoption.md) for how these paths sequence
+into the GYM-01 through GYM-04 milestones and what each one still needs.
 
 A Gym/Hermes `TargetAdapter` for the new Interplay assessment loop is still planned.
 The existing Hermes pilot does not automatically consume generated adaptive probes.

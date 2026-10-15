@@ -1,9 +1,13 @@
-# Standalone Rust HTTP probe exploration
+# Standalone Rust HTTP probe: remaining design work
 
-Status: IP-literal prototype implemented, 2026-10-12. This document retains the
-exploration and remaining requirements; see the [usage guide](rust-probe-usage.md)
-for the implementation. No live qualification is delivered. Python remains the default; Perl supports
-images that lack Python but provide its required modules. See the
+Status: IP-literal prototype implemented, 2026-10-12. The [usage guide](rust-probe-usage.md)
+documents the shipped CLI/backend behavior and the
+[delivery guide](rust-probe-delivery.md) documents staging and admission; **this
+document is the design record for what COMPAT-04 still has open** (hostname/DNS
+resolution, reproducible builds, distribution provenance) — read it when picking
+up that roadmap item, not as background on something already finished. No live
+qualification is delivered. Python remains the default; Perl supports images
+that lack Python but provide its required modules. See the
 [live-rig handoff](live-rig-handoff.md) for that compatibility rationale.
 
 ## Proposed scope
