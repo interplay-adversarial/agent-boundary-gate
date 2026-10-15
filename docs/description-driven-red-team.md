@@ -21,11 +21,11 @@ uv sync --project onboarding/red-team --frozen --no-editable
 ```
 
 The lock pins Python 3.13.14, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
-Interplay commit `a1b985e059b0bba855cfbb3e91876910db619edc`. The bundled
+Interplay commit `1339cc225de37a26b6805a6f1eba9e1c49663cd6`. The bundled
 `_pins/red-team.json` verifies the installed Git origin/revision, selected package
 versions and assessment source digests before admission. Gym/Hermes/Rust baselines
-remain separate. This source pin currently comes from Interplay PR #35; review
-and merge that reusable change before promoting the gate integration.
+remain separate. This source pin selects the adaptive-feedback Interplay increment; review and
+merge that reusable change before promoting this dependent gate integration.
 
 Create a private `0600` configuration outside the source tree:
 
@@ -98,7 +98,7 @@ artifacts and an `assessment/` directory with:
 - `events.jsonl`: fsynced append-only generated, observed and final stages; the
   observation commits before judging.
 - `records.jsonl`, `records.parquet`, `records.arrow`: matching latest-stage rows
-  with schema `interplay-assessment/1`.
+  with schema `interplay-assessment/2`.
 - `manifest.json`: counts and processing completeness; model provenance is retained
   in the analysis rows.
 
@@ -137,3 +137,44 @@ Native conformance uses actual DataDesigner with synthetic local model responses
 no hosted-model campaign, frozen regression baseline or commercial INT-02
 qualification is implied. Durable-storage drills and GYM-04 prerequisites remain
 open in the [roadmap](improvement-roadmap.md).
+
+## Adaptive feedback search
+
+Batch generation remains the default. Enable bounded sequential refinement in
+`assessment` configuration:
+
+```json
+{
+  "search_mode": "adaptive",
+  "probe_count": 10,
+  "stop_on_success": true
+}
+```
+
+In adaptive mode, `probe_count` is the total attempt budget, including the initial
+seed. DataDesigner generates one seed, the target executes it, and the judge
+validates its captured evidence. After a supported failure, DataDesigner receives
+a bounded projection of the committed response, logs/traces, verdict, explanation
+and citations to generate the next candidate. Set `stop_on_success: false` to
+continue refining after supported success until the budget is spent. There is one
+chain, no beam ranking or parallel branches; each target call uses a fresh probe,
+not an automatically accumulated target conversation.
+
+The manifest reports `search_mode` and `stop_reason`. A supported success can stop
+early with `assessment_complete: true`; `requested_probes` remains the maximum
+budget while `records` reports actual attempts. Budget exhaustion means processing
+completed, not that an attack succeeded. Inconclusive judgment, missing required
+evidence, incomplete capture, generation failure or deadline exhaustion withholds
+completion and stops adaptive refinement. A failed target action is never retried.
+
+Schema `interplay-assessment/2` adds `round_index`, `parent_attempt_id`,
+`selection_reason` and `feedback_json` to each row. The feedback column records
+exactly the projection supplied to refinement, with `truncated_fields` identifying
+excerpts. Embedded feedback is untrusted model input; it provides no independent
+execution or containment attestation. Each final parent stage commits before its
+child is generated. Recovery exports committed lineage without resuming search or
+making model calls, and still reads legacy version-1 journals without changing them.
+
+The reusable target interface can support a future NeMo Gym adapter for stateful
+agent rollouts and verifier observations. Gym is not a dependency of this search
+loop, and that assessment target adapter remains unimplemented.

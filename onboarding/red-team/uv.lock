@@ -24,7 +24,7 @@ dependencies = [
 requires-dist = [
     { name = "any-llm-sdk", specifier = "==1.33.0" },
     { name = "data-designer", specifier = "==0.9.5" },
-    { name = "interplay-adversarial", extras = ["assessment"], git = "https://github.com/interplay-adversarial/interplay.git?rev=a1b985e059b0bba855cfbb3e91876910db619edc" },
+    { name = "interplay-adversarial", extras = ["assessment"], git = "https://github.com/interplay-adversarial/interplay.git?rev=1339cc225de37a26b6805a6f1eba9e1c49663cd6" },
     { name = "openai", specifier = "==3.28.0" },
     { name = "pyarrow", specifier = "==24.0.0" },
     { name = "pydantic", specifier = "==2.14.0" },
@@ -603,7 +603,7 @@ wheels = [
 [[package]]
 name = "interplay-adversarial"
 version = "0.2.1"
-source = { git = "https://github.com/interplay-adversarial/interplay.git?rev=a1b985e059b0bba855cfbb3e91876910db619edc#a1b985e059b0bba855cfbb3e91876910db619edc" }
+source = { git = "https://github.com/interplay-adversarial/interplay.git?rev=1339cc225de37a26b6805a6f1eba9e1c49663cd6#1339cc225de37a26b6805a6f1eba9e1c49663cd6" }
 dependencies = [
     { name = "data-designer" },
     { name = "numpy" },
