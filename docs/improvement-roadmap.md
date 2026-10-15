@@ -32,8 +32,8 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | GYM-04 | P2, after pilot | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01 |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
 | INT-02 | P3, after calibrated agent pilot | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream now ships a `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) this adapter would build on once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
-| RT-01 | P2, implemented | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | Merged in PR #33/#34 ([guide](description-driven-red-team.md)). Reusable Interplay generation/judging/search API and the gate's `onboarding/red-team` consumption are implemented; a future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. The pinned Interplay commit is now ~27 commits/2 releases behind upstream `main`; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) before bumping it. |
-| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Identified 2026-10-15; core/dev-group patch bumps (pydantic/ruff/pre-commit/hypothesis) landed the same day. Onboarding pins (interplay-adversarial, pyarrow, NeMo Gym, hermes-agent) remain open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) for what each needs verified first. |
+| RT-01 | P2, implemented | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | Merged in PR #33/#34 ([guide](description-driven-red-team.md)). Reusable Interplay generation/judging/search API and the gate's `onboarding/red-team` consumption are implemented; a future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. The pinned Interplay commit was bumped 2026-10-15 to `v0.3.1`; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Identified 2026-10-15; core/dev-group patch bumps (pydantic/ruff/pre-commit/hypothesis) and the `interplay-adversarial` pin (to `v0.3.1`) landed the same day. Remaining onboarding pins (pyarrow, NeMo Gym, hermes-agent) are still open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) for what each needs verified first. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
 P3 marks expansion. SEC-01/SEC-02 were the first implementation. P1 blockers
@@ -537,14 +537,23 @@ None of these gaps was a known vulnerability (`scripts/audit_dependencies.py`
 reports zero advisories against the current 46 scanned dependencies); they
 were routine patch/minor bumps.
 
-**`interplay-adversarial` is used correctly, but the pin is stale.** The gate
-only consumes the `[assessment]` extra (`interplay/assessment/{designer,runner,
-endpoint,models,storage,cli}.py`, hash-pinned in
-`src/agent_boundary_gate/_pins/red-team.json`) for DataDesigner-based generation
-and judging — it never imports `interplay.red_teaming`. The pinned commit
-(`1339cc2`, interplay PR #36, package version `0.2.1`) is exactly interplay's
-`main` as of RT-01's integration. Upstream `main` is now at tag `v0.3.1`
-(commit `e03063a`), 27 commits/5 merged PRs ahead:
+**`interplay-adversarial` was used correctly, and the stale pin is fixed.**
+Bumped 2026-10-15: `src/agent_boundary_gate/_pins/red-team.json` and
+`onboarding/red-team/pyproject.toml` now pin `e03063a` (tag `v0.3.1`, package
+`0.3.1`); `storage.py`'s hash was regenerated (the only pinned file that
+changed — see below), the other six pinned files hashed identically before
+and after, confirming they're untouched between the two commits. Both
+`scripts/audit_dependencies.py --red-team` (99 dependencies, zero gaps/
+vulnerabilities) and the native `test_red_team_native.py` conformance suite
+(run under `onboarding/red-team`'s own Python 3.13.14 venv, per
+`.github/workflows/checks.yml`'s `red-team-campaigns` job) pass against the
+new pin. The gate only consumes the `[assessment]` extra
+(`interplay/assessment/{designer,runner,endpoint,models,storage,cli}.py`) for
+DataDesigner-based generation and judging — it never imports
+`interplay.red_teaming`. The old pinned commit (`1339cc2`, interplay PR #36,
+package version `0.2.1`) was exactly interplay's `main` as of RT-01's
+integration; at the time of the bump, upstream `main` was 27 commits/5 merged
+PRs ahead of it:
 
 - All of PRs #37-#56 are new work in `interplay/red_teaming/` (the TAP, GOAT,
   SLIP, Crescendo, Multimodal and PAIR attack runners, a shared authenticated
@@ -563,10 +572,10 @@ and judging — it never imports `interplay.red_teaming`. The pinned commit
   `interplay/red_teaming/base.py`, a module the gate never imports. It does
   not affect any `red-team-run`/`red-team-recover` campaign run against the
   current pin.
-- Bumping the pin is worth doing to stay within the project's tracked 0.3.x
-  line and because INT-02 (Interplay attack campaign integration) would start
-  from whatever `red_teaming` looks like at adoption time, but it is not
-  required to fix a defect in RT-01's current integration.
+- Bumping the pin keeps the project within the tracked 0.3.x line and gives
+  INT-02 (Interplay attack campaign integration) a current `red_teaming`
+  baseline to start from when it begins; it was not fixing a defect in RT-01's
+  prior integration.
 
 **`onboarding/red-team`'s other pinned packages** have more room:
 `pyarrow` 24.0.0 vs. latest 26.0.0 (two major versions), `any-llm-sdk` 1.33.0 vs.
