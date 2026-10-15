@@ -1,5 +1,8 @@
 # Using the Python library
 
+For workflow selection and dependency responsibilities, see the
+[tools and use-case guide](tools-and-use-cases.md).
+
 The library is usable for offline signed-record policy evaluation, private local
 evidence storage, and loopback integration exercises. The API is a prototype and
 may change. Every decision carries `qualification: m0-prototype` and

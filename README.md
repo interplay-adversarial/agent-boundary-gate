@@ -7,7 +7,9 @@ through signed, versioned contracts. OpenShell is the first implementation backe
 **Prototype:** release authorization remains disabled. OpenShell has not been
 qualified against a live target. Hermes, OpenCode and OpenClaw adapters are planned.
 
-Start with the [Python library guide](docs/library-usage.md) for supported APIs,
+Start with the [tools, library APIs and use-case guide](docs/tools-and-use-cases.md)
+for workflow selection across boundary evidence, adaptive assessments and native
+agent testing. Use the [Python library guide](docs/library-usage.md) for supported APIs,
 runnable offline/loopback examples, stored evidence verification and live integration prerequisites.
 
 ## Implemented
