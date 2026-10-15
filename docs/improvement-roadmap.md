@@ -1,6 +1,6 @@
 # Agent Boundary Gate improvement roadmap
 
-Recorded: 2026-10-11. Reprioritized: 2026-10-12. Updated: 2026-10-13. Scope: portable gate core, built-in adapters and qualification.
+Recorded: 2026-10-11. Reprioritized: 2026-10-12. Updated: 2026-10-13. Refreshed: 2026-10-15 (added RT-01/DEP-01, updated SEC-03/INT-02, dependency and pin freshness audit). Scope: portable gate core, built-in adapters and qualification.
 
 The project remains an M0 prototype. All decisions retain
 `qualification: m0-prototype` and `release_eligible: false`. Completing a local
@@ -13,16 +13,16 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | --- | --- | --- | --- | --- |
 | SEC-01 | P2, first implementation | Exact-version dependency auditing | Every applicable locked runtime/dev package name and version is audited; duplicates, extra packages, missing versions, mismatches and skipped entries fail closed; failures preserve reported advisories. | Merged in PR #2; regression tests pass |
 | SEC-02 | P2, first implementation | Continuous security checks | Daily and manual audits, Python 3.12/3.13 PR validation, weekly uv/Actions update proposals and a stable aggregate check; automation becomes active after merge. | Merged in PR #2; hosted Python 3.12/3.13 checks pass; first scheduled runs/update proposals not yet observed |
-| SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Planned |
+| SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset after confirming its hosted status; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Ruleset `protect-main` (id 24908536, active since 2026-10-12) requires the `Required checks` aggregate status check, blocks deletion/force-push, and requires a PR with resolved threads; verified via the GitHub API on 2026-10-15. Dependabot security updates (`automated-security-fixes`) remain disabled, no `dependency-review` Action is configured, and build-tool/platform-marker/runtime-image auditing remain separate, unimplemented work. |
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Receipt verifier/backend increment merged in PR #8; trusted issuance/transport and live attestation pending |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Monitor/journal/recovery increment merged in PR #9; real host-service/watchdog death/restart drills and bounded configurable watchdog timers implemented with synthetic cell authority. Local command supervision now terminates active inspectors after authority SIGKILL. Live deployment, escaped-process/supervisor-failure handling and orphan-cell qualification pending. [Drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | QUAL-01 | P1 | Whole-cell containment and live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Development healthy/weakened Rust exercise completed in PR #19; whole-cell containment, authenticated deployment and fault qualification pending; depends on LIFE-01/LIFE-02 |
-| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and diagnostics implemented; independently pinned Rust image exercised against actual healthy/weakened policies in PR #19; qualified delivery and lifecycle budgets pending |
+| COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Python/Perl selection and diagnostics implemented; independently pinned Rust image exercised against actual healthy/weakened policies in PR #19; qualified delivery and lifecycle budgets pending. The default `probe_runtime="python3"` path does not bound `action.timeout_seconds` the way Perl/Rust do; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Read-only CLI/lease/policy inspection implemented; runtime prerequisites reported but unverified, workload/image qualification and latency measurements pending |
 | COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Host services and live-run/campaign composition implemented in PR #18; independent provisioning/inspection and authenticated live qualification pending |
 | COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | IP-literal prototype, native Linux CI, digest-verified staging and signed immutable-delivery backend admission implemented; hostname/DNS, live provisioning/issuer, release provenance and qualification pending |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Bounded local retrieval and signed-reference integrity increment implemented; independent proof interpretation/issuer verification and remote authority pending |
-| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Eleven generated decision properties, controller/worker drills and eleven command/HTTP bounds groups are implemented. Seventeen real host-service/watchdog groups cover death/suspension/restart, claim/UID authority, storage failures and signed violation retention. Five command-owner groups cover caller death/suspension, admission, signal outcomes and missing cleanup status. Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
+| REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Eleven generated decision properties, controller/worker drills and eleven command/HTTP bounds groups are implemented. Seventeen real host-service/watchdog groups cover death/suspension/restart, claim/UID authority, storage failures and signed violation retention. Five command-owner groups cover caller death/suspension, admission, signal outcomes and missing cleanup status. Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. Three of six result-producing modules (`development_run.py`, `red_team.py`, `campaign.py`) still hand-write the release-ineligible convention instead of sharing `gate_policy.evaluate`/`GateDecision`; see the [cohesion audit](#probe-and-gate-decision-cohesion-audit-2026-10-15). [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned |
 | PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Hermes host-harness development pilot now routes synthetic remote effects through disposable boundaries. Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain pending; broader expansion follows the frozen pilot baseline. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | Disposable gateway namespace allocation/UID-conditioned cleanup implemented and live paired controls exercised; pinned operator bootstrap required. Optional independent namespace allocator retains API UIDs before delivery; eleven groups cover controller response loss, conservative unresolved creates, UID races and restart. API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open. Shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
@@ -31,7 +31,9 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | GYM-03 | P2, development pilot implemented | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Actual pinned Gym Hermes host harness/runtime with two synthetic tools and remote fixed Rust execution completed healthy/weakened development profiles at allowed/forbidden counts 3/0 and 3/1. Native fake-model calibration preserves attempted injection separately from effects; hosted benign/injected cases retained utility and resisted this one task. Final capture, UID cleanup and independent owned-resource inspection passed. Hermes process containment is not attested; no authenticated qualification is claimed. [Guide](hermes-effect-pilot.md) |
 | GYM-04 | P2, after pilot | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01 |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
-| INT-02 | P3, after calibrated agent pilot | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. |
+| INT-02 | P3, after calibrated agent pilot | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream now ships a `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) this adapter would build on once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
+| RT-01 | P2, implemented | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | Merged in PR #33/#34 ([guide](description-driven-red-team.md)). Reusable Interplay generation/judging/search API and the gate's `onboarding/red-team` consumption are implemented; a future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. The pinned Interplay commit is now ~27 commits/2 releases behind upstream `main`; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) before bumping it. |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Identified 2026-10-15, not yet acted on; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) for the current drift and what each bump needs verified first. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
 P3 marks expansion. SEC-01/SEC-02 were the first implementation. P1 blockers
@@ -515,3 +517,78 @@ code, not just docs, and are recorded here rather than fixed silently:
 
 Neither finding changes schemas, defaults or release eligibility. Fixing them is
 future work, not performed as part of this audit's documentation/example scope.
+
+## Dependency and pin freshness audit (2026-10-15)
+
+Checked every pinned package/commit against its upstream latest, and specifically
+whether the new `interplay-adversarial` release is used correctly. Nothing here
+changed `uv.lock`, a source pin or a hash; it is a record of what to verify before
+each bump, not a bump itself.
+
+**Core and dev-group packages** (`pyproject.toml`) are all current or one patch
+behind: `pydantic` 2.14.0 vs. latest 2.14.1, `ruff` 0.17.0 vs. 0.17.1, `pre-commit`
+4.6.2 vs. 4.7.0, `hypothesis` 6.169.0 vs. 6.169.4. `cryptography` 50.0.2 and
+`pip-audit` 2.10.1 already match latest. None of these gaps is a known
+vulnerability (`scripts/audit_dependencies.py` reports zero advisories against
+the current 46 scanned dependencies); they're routine patch/minor bumps.
+
+**`interplay-adversarial` is used correctly, but the pin is stale.** The gate
+only consumes the `[assessment]` extra (`interplay/assessment/{designer,runner,
+endpoint,models,storage,cli}.py`, hash-pinned in
+`src/agent_boundary_gate/_pins/red-team.json`) for DataDesigner-based generation
+and judging — it never imports `interplay.red_teaming`. The pinned commit
+(`1339cc2`, interplay PR #36, package version `0.2.1`) is exactly interplay's
+`main` as of RT-01's integration. Upstream `main` is now at tag `v0.3.1`
+(commit `e03063a`), 27 commits/5 merged PRs ahead:
+
+- All of PRs #37-#56 are new work in `interplay/red_teaming/` (the TAP, GOAT,
+  SLIP, Crescendo, Multimodal and PAIR attack runners, a shared authenticated
+  transport, a configurable judge panel with Krippendorff's-alpha IRR
+  reporting) plus two releases (0.3.0, 0.3.1) and a docs restructure. None of
+  it touches the `assessment` extra's public surface except one file.
+- The one relevant change is PR #44's `90c7616`, which generalizes
+  `interplay/assessment/storage.py`'s `AssessmentStore`/`to_arrow` to accept a
+  `record_cls` (so the new `red_teaming` result sink can reuse its locking/
+  atomic-export discipline) with backward-compatible defaults — not a bug,
+  and it doesn't change gate's existing calls, but it does mean the pin's
+  hashes in `_pins/red-team.json` need regenerating once bumped.
+- A real correctness bug was fixed upstream in this window
+  (`f37eea0`, "evidence-cited judging always returned inconclusive" — a
+  sync-API-in-an-async-context bug in `JudgeScorer`) but it lives entirely in
+  `interplay/red_teaming/base.py`, a module the gate never imports. It does
+  not affect any `red-team-run`/`red-team-recover` campaign run against the
+  current pin.
+- Bumping the pin is worth doing to stay within the project's tracked 0.3.x
+  line and because INT-02 (Interplay attack campaign integration) would start
+  from whatever `red_teaming` looks like at adoption time, but it is not
+  required to fix a defect in RT-01's current integration.
+
+**`onboarding/red-team`'s other pinned packages** have more room:
+`pyarrow` 24.0.0 vs. latest 26.0.0 (two major versions), `any-llm-sdk` 1.33.0 vs.
+1.36.0, `openai` 3.28.0 vs. 3.31.0. `data-designer`/`data-designer-config`/
+`data-designer-engine` 0.9.5 already match latest. A `pyarrow` major-version jump
+needs its own compatibility check against `interplay/assessment/storage.py`'s
+`to_arrow` schema construction before bumping.
+
+**`onboarding/gym` and `onboarding/hermes`'s NeMo Gym pin** (`f444b802`) is 61
+commits behind `NVIDIA-NeMo/Gym`'s `main` as of 2026-10-15. Of the gate's
+exactly hash-pinned files, only `nemo_gym/responses_converter.py` changed
+upstream, adding an opt-in `drop_unrepresentable_request_fields` parameter
+(backward-compatible default `False`) for degrading Responses-only request
+fields when talking to a Chat Completions backend — useful for broadening
+`gym-model-smoke.md`'s provider support later, not a fix for anything currently
+broken.
+
+**`onboarding/hermes`'s `hermes-agent` pin** (`cmunley1/hermes-agent@26bb847`,
+dated 2026-05-07) is reported by GitHub's compare API as **diverged** from that
+fork's current `main` (132 ahead, 9 behind), not a clean fast-forward ancestor.
+Nine commits reachable from the pin are no longer reachable from `main`,
+consistent with history having been rewritten on that personal fork at some
+point since May. Re-pinning this one needs the commit range inspected by hash,
+not just advanced to `main` HEAD, since the usual "pin predates main" assumption
+does not hold here.
+
+None of these findings block current functionality; `scripts/audit_dependencies.py`
+and the Rust/CVE audits stay green because none of the drift above is a known
+vulnerability. They are recorded so a future pin bump starts from a known list
+of what changed and what to re-verify, instead of rediscovering it.
