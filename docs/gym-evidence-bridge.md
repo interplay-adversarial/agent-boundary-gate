@@ -66,9 +66,15 @@ callback = GymCallback(
     native_metrics_ref=store.persist(native_result_bytes),
 )
 report = evaluate_gym_bridge(
-    plan, dispatch, [callback.model_dump_json().encode()], signed_records, keys,
-    now=authorization_time, job_complete=True,
-    server_aggregate=boundary_aggregate, evidence_store=store,
+    plan,
+    dispatch,
+    [callback.model_dump_json().encode()],
+    signed_records,
+    keys,
+    now=authorization_time,
+    job_complete=True,
+    server_aggregate=boundary_aggregate,
+    evidence_store=store,
 )
 ```
 

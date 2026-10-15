@@ -33,7 +33,7 @@ Built-in adapters remain in this repository under [ADR-0002](adr/0002-portable-a
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned |
 | INT-02 | P3, after calibrated agent pilot | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream now ships a `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) this adapter would build on once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | RT-01 | P2, implemented | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | Merged in PR #33/#34 ([guide](description-driven-red-team.md)). Reusable Interplay generation/judging/search API and the gate's `onboarding/red-team` consumption are implemented; a future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. The pinned Interplay commit is now ~27 commits/2 releases behind upstream `main`; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) before bumping it. |
-| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Identified 2026-10-15, not yet acted on; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) for the current drift and what each bump needs verified first. |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Identified 2026-10-15; core/dev-group patch bumps (pydantic/ruff/pre-commit/hypothesis) landed the same day. Onboarding pins (interplay-adversarial, pyarrow, NeMo Gym, hermes-agent) remain open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15) for what each needs verified first. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
 P3 marks expansion. SEC-01/SEC-02 were the first implementation. P1 blockers
@@ -527,12 +527,15 @@ whether the new `interplay-adversarial` release is used correctly. Nothing here
 changed `uv.lock`, a source pin or a hash; it is a record of what to verify before
 each bump, not a bump itself.
 
-**Core and dev-group packages** (`pyproject.toml`) are all current or one patch
-behind: `pydantic` 2.14.0 vs. latest 2.14.1, `ruff` 0.17.0 vs. 0.17.1, `pre-commit`
-4.6.2 vs. 4.7.0, `hypothesis` 6.169.0 vs. 6.169.4. `cryptography` 50.0.2 and
-`pip-audit` 2.10.1 already match latest. None of these gaps is a known
-vulnerability (`scripts/audit_dependencies.py` reports zero advisories against
-the current 46 scanned dependencies); they're routine patch/minor bumps.
+**Core and dev-group packages** (`pyproject.toml`) are now current: `pydantic`
+2.14.0 -> 2.14.1, `ruff` 0.17.0 -> 0.17.1, `pre-commit` 4.6.2 -> 4.7.0,
+`hypothesis` 6.169.0 -> 6.169.4 (bumped 2026-10-15, `uv.lock` regenerated,
+`pydantic-core` followed transitively to 2.50.1; `docs/gym-evidence-bridge.md`'s
+embedded snippet reformatted to match ruff 0.17.1's line-wrapping, no content
+change). `cryptography` 50.0.2 and `pip-audit` 2.10.1 already match latest.
+None of these gaps was a known vulnerability (`scripts/audit_dependencies.py`
+reports zero advisories against the current 46 scanned dependencies); they
+were routine patch/minor bumps.
 
 **`interplay-adversarial` is used correctly, but the pin is stale.** The gate
 only consumes the `[assessment]` extra (`interplay/assessment/{designer,runner,
