@@ -30,6 +30,7 @@ class RedTeamNativeTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.calls = []
+        self.requests = []
         self.hold_judge = Event()
         self.release = Event()
         owner = self
@@ -41,6 +42,7 @@ class RedTeamNativeTests(unittest.TestCase):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 owner.calls.append(body["model"])
+                owner.requests.append(body)
                 model = body["model"]
                 if model == "adversarial-model":
                     value = {
@@ -173,3 +175,32 @@ class RedTeamNativeTests(unittest.TestCase):
                 red_team_run(self.config, self.root / "campaign", Path(sys.executable))
         self.assertFalse(self.calls)
         self.assertFalse((self.root / "campaign").exists())
+
+    def test_native_adaptive_refinement_lineage_and_early_stop(self):
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        self.values["assessment"].update(
+            search_mode="adaptive", stop_on_success=False, probe_count=2
+        )
+        self.save_config()
+        result = red_team_run(self.config, self.root / "adaptive", Path(sys.executable))
+        self.assertTrue(result["assessment_complete"], result)
+        output = self.root / "adaptive/assessment"
+        rows = [json.loads(line) for line in (output / "records.jsonl").read_text().splitlines()]
+        self.assertEqual(rows[1]["parent_attempt_id"], rows[0]["attempt_id"])
+        self.assertEqual(rows[1]["round_index"], 1)
+        self.assertIn("SYNTHETIC-CANARY", json.dumps(self.requests[3]))
+        self.assertIn("parent_attempt_id", json.dumps(self.requests[3]))
+        self.assertEqual(self.calls, ["adversarial-model", "target-model", "judge-model"] * 2)
+        self.assertEqual(pq.read_table(output / "records.parquet").to_pylist(), rows)
+        self.assertEqual(pa.ipc.open_file(output / "records.arrow").read_all().to_pylist(), rows)
+        calls = len(self.calls)
+        self.values["assessment"].update(stop_on_success=True, probe_count=5)
+        self.save_config()
+        result = red_team_run(self.config, self.root / "early-stop", Path(sys.executable))
+        self.assertTrue(result["assessment_complete"], result)
+        self.assertEqual(result["records"], 1)
+        self.assertEqual(result["requested_probes"], 5)
+        self.assertEqual(result["stop_reason"], "success")
+        self.assertEqual(len(self.calls), calls + 3)

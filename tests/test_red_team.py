@@ -100,3 +100,29 @@ class RedTeamTests(unittest.TestCase):
     def test_raw_analytics_files_are_rejected_as_publication_inputs(self):
         for name in ("records.jsonl", "records.parquet", "records.arrow", "records.feather"):
             self.assertTrue(audit_blob(name, b"synthetic"))
+
+    def test_adaptive_early_success_requires_valid_mode_reason_and_counts(self):
+        value = {
+            "assessment_complete": True,
+            "release_eligible": False,
+            "records": 2,
+            "requested_probes": 5,
+            "successes": 1,
+            "failures": 1,
+            "inconclusive": 0,
+            "search_mode": "adaptive",
+            "stop_reason": "success",
+        }
+        result = _summary(json.dumps(value).encode(), 0)
+        self.assertTrue(result["assessment_complete"])
+        self.assertEqual(result["stop_reason"], "success")
+        for change in (
+            {"search_mode": "batch"},
+            {"stop_reason": "attempt-budget"},
+            {"successes": 0, "failures": 2},
+            {"records": 6},
+            {"search_mode": "unknown"},
+            {"stop_reason": "unknown"},
+        ):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                _summary(json.dumps(value | change).encode(), 0)

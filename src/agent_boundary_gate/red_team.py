@@ -64,11 +64,43 @@ def _summary(raw, returncode):
             if type(count) is not int or not 0 <= count <= 50:
                 raise ValueError("red-team-summary-invalid")
             result[name] = count
+    if "search_mode" in value:
+        if value["search_mode"] not in ("batch", "adaptive"):
+            raise ValueError("red-team-summary-invalid")
+        result["search_mode"] = value["search_mode"]
+    if "stop_reason" in value:
+        if value["stop_reason"] not in (
+            "attempt-budget",
+            "success",
+            "inconclusive",
+            "campaign-deadline",
+            "probe-refinement-failed",
+            "probe-generation-invalid",
+            "probe-generation-failed",
+            "probe-generation-incomplete",
+        ):
+            raise ValueError("red-team-summary-invalid")
+        result["stop_reason"] = value["stop_reason"]
+    if (
+        result["assessment_complete"]
+        and result.get("search_mode") == "adaptive"
+        and (
+            result.get("stop_reason") not in ("attempt-budget", "success")
+            or result.get("inconclusive") != 0
+        )
+    ):
+        raise ValueError("red-team-summary-invalid")
+    early_success = (
+        result.get("search_mode") == "adaptive"
+        and result.get("stop_reason") == "success"
+        and result.get("successes", 0) > 0
+        and 0 < result.get("records", 0) <= result.get("requested_probes", 0)
+    )
     if returncode != 0:
         result["error_code"] = "worker-incomplete"
     if result["assessment_complete"] and (
         result.get("records", 0) == 0
-        or result.get("records") != result.get("requested_probes")
+        or (result.get("records") != result.get("requested_probes") and not early_success)
         or sum(result.get(name, -100) for name in ("successes", "failures", "inconclusive"))
         != result["records"]
     ):

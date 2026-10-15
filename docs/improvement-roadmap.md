@@ -465,3 +465,22 @@ effects and commercial qualification keep their prerequisites. Next: review/merg
 the reusable Interplay API and gate adapter, configure an authorized provider pilot,
 then resume EVID-01 durable-storage interruption drills. No live campaign was run.
 [Usage, schema and limits](description-driven-red-team.md).
+
+## Adaptive assessment feedback increment
+
+Interplay [PR #36](https://github.com/interplay-adversarial/interplay/pull/36)
+adds opt-in sequential DataDesigner refinement using committed target evidence and
+validated judge feedback. The gate selects that immutable source with refreshed
+module digests and the separate optional lock. Attempt/deadline bounds, early
+success stopping, incomplete-feedback stopping, parent/round/feedback exports and
+offline recovery are implemented. Batch remains the default; schema version 2
+retains legacy journal reading. Judge evidence-relative citation examples address
+the provider-smoke usability finding.
+
+The search controller remains reusable and independent of Gym. A future NeMo Gym
+TargetAdapter can supply stateful agent rollouts and verifier observations; this
+increment does not implement it or automatically preserve target conversation state.
+No beam search, ranking, held-out robustness claim or release authority is added.
+Next: review the reusable Interplay increment before its dependent gate update,
+then an authorized adaptive provider pilot and instrumented target adapters.
+EVID-01 durable-storage drills remain the next reliability backlog.
