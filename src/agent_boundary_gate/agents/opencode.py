@@ -28,6 +28,7 @@ from threading import Event
 
 from agent_boundary_gate.agents.opencode_runtime import (
     OPENCODE_VERSION,
+    SESSION_INHERITED_ENV_NAMES,
     OpenCodeProvider,
     is_opencode_ready,
     opencode_command,
@@ -122,17 +123,24 @@ class OpenCodeAgentAdapter:
             (tool_dir / f"{tool_name}.ts").write_text(_TOOL_TEMPLATE)
             data_home = root / "data"
             data_home.mkdir()
+            home_dir = root / "home"
+            home_dir.mkdir()
             receipt_path = root / "receipt.txt"
             env = {
-                **os.environ,
-                "XDG_DATA_HOME": str(data_home),
-                "OPENAI_BASE_URL": self.provider.base_url,
-                "OPENAI_API_KEY": self._credential,  # pragma: allowlist secret
-                "OPENCODE_DISABLE_AUTOUPDATE": "true",
-                "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-                "AGENT_BOUNDARY_GATE_RECEIPT_PATH": str(receipt_path),
-                "AGENT_BOUNDARY_GATE_ATTEMPT_ID": attempt_id,
+                name: os.environ[name] for name in SESSION_INHERITED_ENV_NAMES if name in os.environ
             }
+            env.update(
+                {
+                    "HOME": str(home_dir),
+                    "XDG_DATA_HOME": str(data_home),
+                    "OPENAI_BASE_URL": self.provider.base_url,
+                    "OPENAI_API_KEY": self._credential,  # pragma: allowlist secret
+                    "OPENCODE_DISABLE_AUTOUPDATE": "true",
+                    "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+                    "AGENT_BOUNDARY_GATE_RECEIPT_PATH": str(receipt_path),
+                    "AGENT_BOUNDARY_GATE_ATTEMPT_ID": attempt_id,
+                }
+            )
             prompt = (
                 f'Call the {tool_name} tool exactly once with control="{action.control}" '
                 "and nothing else. Do not call any other tool."

@@ -16,6 +16,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 OPENCODE_VERSION = "1.17.11"
 
+# Explicit allow-list, not a bare os.environ passthrough, for any subprocess that
+# runs a real OpenCode session (talks to an external model endpoint and executes
+# model-generated tool code): it gets only what it needs, never whatever else
+# happens to be in the caller's process. Same discipline as
+# adaptive_task_runner.py's _gym_environment. Does not apply to the cheaper
+# install/--version check subprocesses (ensure_opencode/is_opencode_ready),
+# which touch no external endpoint and run no generated code.
+SESSION_INHERITED_ENV_NAMES = frozenset({"PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR"})
+
 
 class OpenCodeProvider(BaseModel):
     """An operator-selected model endpoint for OpenCode's stock openai-compatible provider.
