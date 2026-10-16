@@ -8,11 +8,11 @@ from agent_boundary_gate.contracts import ComponentIdentity, ToolRequestAction
 
 
 class LoopbackAgentAdapter:
-    agent_id = "loopback"
     capabilities = frozenset({"tool-authorization"})
 
-    def __init__(self, policy_digest: str):
+    def __init__(self, policy_digest: str, *, agent_id: str = "loopback"):
         self.policy_digest = policy_digest
+        self.agent_id = agent_id
         self.calls: list[str] = []
 
     def readiness(self, *, deadline: float, cancelled: Event) -> Readiness:
@@ -21,8 +21,8 @@ class LoopbackAgentAdapter:
         identity = ComponentIdentity(
             component_id=self.agent_id,
             role="agent",
-            instance_uid="loopback-agent-fixture",
-            generation="loopback-agent-generation-1",
+            instance_uid=f"{self.agent_id}-fixture",
+            generation=f"{self.agent_id}-generation-1",
         )
         return Readiness((identity,), self.policy_digest, True)
 

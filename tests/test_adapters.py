@@ -251,8 +251,7 @@ class AdapterTests(unittest.TestCase):
         )
         self.dispatch = self.dispatch.model_copy(update={"instances": (instance,)})
 
-        agent = LoopbackAgentAdapter(D)
-        agent.agent_id = "test-agent"
+        agent = LoopbackAgentAdapter(D, agent_id="test-agent")
 
         class ToolObserver:
             attempt_id = self.dispatch.binding.attempt_id
