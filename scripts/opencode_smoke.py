@@ -121,10 +121,15 @@ def ensure_opencode(
         )
         if result.returncode != 0:
             raise RuntimeError("opencode-install-failed")
-    if not command.is_file():
-        raise RuntimeError("opencode-install-failed")
-    check = run([str(command), "--version"], capture_output=True, text=True, timeout=10)
+    try:
+        check = run([str(command), "--version"], capture_output=True, text=True, timeout=10)
+    except OSError as error:
+        # Covers a missing binary (install silently produced nothing runnable)
+        # without a separate, redundant existence check beforehand.
+        raise RuntimeError("opencode-install-failed") from error
     if check.returncode != 0 or check.stdout.strip() != version:
+        # A pre-existing binary at the wrong version is a fatal mismatch, never
+        # silently reinstalled over.
         raise RuntimeError("opencode-version-mismatch")
     return str(command)
 
