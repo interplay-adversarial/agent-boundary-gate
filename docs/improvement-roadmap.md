@@ -39,7 +39,7 @@ only what remains open.
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned; not started. |
 | INT-02 | P3 | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream's `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) is a future dependency once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | RT-01 | P2 | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | A future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. [Guide](description-driven-red-team.md) |
-| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` is blocked on an upstream `data-designer==0.9.5` constraint (no action possible until `data-designer` ships a newer stable release) and the `hermes-agent` pin (diverged from its fork's current `main`, needs commit-range inspection) remains open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` is blocked on an upstream `data-designer==0.9.5` constraint (no action possible until `data-designer` ships a newer stable release). The `hermes-agent` pin should **not** be bumped to its fork's current `main`: the custom integration work it depends on is gone there; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | DEP-02 | P2 | Python 3.14 compatibility investigation | Confirm whether core (`pyproject.toml`'s `requires-python = ">=3.12"`) and onboarding pins (`onboarding/red-team`'s exact `3.13.14`, Gym, Hermes) can move to Python 3.14 without breaking pinned dependencies (`pydantic`, `cryptography`, `pyarrow`, `data-designer`, `uv` itself) or CI's musl Rust builds. | Planned; not started. No code should change until compatibility is verified. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
@@ -212,10 +212,22 @@ regenerated `onboarding/gym`/`onboarding/hermes` locks; all pass, and
 `onboarding/hermes`'s `hermes-agent` pin (`cmunley1/hermes-agent@26bb847`,
 dated 2026-05-07) is reported by GitHub's compare API as **diverged** from
 that fork's current `main` (132 ahead, 9 behind), not a clean fast-forward
-ancestor. Nine commits reachable from the pin are no longer reachable from
-`main`, consistent with history having been rewritten on that personal fork at
-some point since May. Re-pinning needs the commit range inspected by hash, not
-just advanced to `main` HEAD.
+ancestor. Investigated 2026-10-15: the 9 commits reachable only from the pin
+are integration-specific (`44371a9` "add nemo gym support", token-ID-extraction
+fixes, compression/length-eviction work), ending at the pin itself
+(`26bb847`, "relax openai pin to >=2.0.0 for nemo-gym compat"). None of those
+9 commits are reachable from `main` today. `main`'s current tip
+(`28e1e210`) is chronologically *before* several of them and has instead
+moved onto what looks like an unrelated, much larger upstream project
+(commit messages reference PR numbers like #5091/#5082 and unrelated
+features — a hindsight memory plugin, OAuth token sync, a MiniMax TTS
+provider, `docker_env` config). Confirmed concretely: `run_agent.py` at the
+pin contains a `nemo_gym`-postprocessor-specific workaround comment (`grep
+-i nemo` finds 2 hits); the same grep against `run_agent.py` at `main`'s tip
+finds zero. **Conclusion: do not re-pin to `main` HEAD** — the custom
+integration work this pin depends on isn't there to advance to. Any future
+re-pin needs those 9 commits' functionality preserved forward (cherry-picked,
+or found on some other branch/fork), not a straight bump.
 
 None of these gaps is a known vulnerability; `scripts/audit_dependencies.py`
 and the Rust/CVE audits stay green.
