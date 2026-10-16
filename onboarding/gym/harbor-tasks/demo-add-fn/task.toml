@@ -1,8 +1,16 @@
 schema_version = "1.4"
 
 [environment]
-docker_image = "python:3.12-slim"
-workdir = "/workspace"
+# Fedora's python-314 S2I image, not docker.io's python:3.12-slim: matches this
+# project's pinned Python 3.14.7 exactly, and ships bash/git/tar/grep out of the box
+# (confirmed via a manual `podman run`). Runs as a non-root uid (1001); /tmp is
+# writable under that user, consistent with the /tmp-prefixed workdir below.
+docker_image = "quay.io/fedora/python-314:latest"
+# Not /workspace: a real OpenShell sandbox's default user cannot create a directory at the
+# filesystem root at all (confirmed empirically -- see docs/adaptive-task-runner.md). Every
+# task-declared path, not just reward.json's, needs a /tmp prefix (or another location the
+# task's own image already makes writable).
+workdir = "/tmp/workspace"
 
 [agent]
 timeout_sec = 1800

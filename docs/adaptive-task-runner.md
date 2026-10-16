@@ -10,8 +10,9 @@ instruction, advance to the next task, or abandon the run.
 gate work.** It carries no gate or release authority — its report is a plain
 JSON summary, not a signed record. It does not touch `execute_probe`, OpenShell
 policy enforcement, or any of the PORT-01 OpenCode red-team work; it only
-happens to reuse the same OpenCode agent and, optionally, the same kind of
-OpenShell sandbox gateway as a place to run an agent's generated code.
+happens to reuse the same OpenCode agent as a place to run an agent's
+generated code, via a plain Docker/podman sandbox (not OpenShell — see "Known
+limits").
 
 Gym itself holds no state across its own CLI invocations: `gym eval run` and
 `gym eval profile` are one-shot calls over files on disk. The retry/advance/
@@ -25,34 +26,92 @@ upstream's current `main`).
 ## Prerequisites
 
 - `onboarding/gym`'s pinned environment synced: `uv sync --project onboarding/gym --frozen --no-editable`.
-- An OpenShell gateway reachable from this machine, if you intend to run tasks
-  against a real sandbox rather than just reading this doc. Any
-  [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell) gateway works,
-  including the local Docker-compose quickstart in NeMo Gym's own
-  `nemo_gym/sandbox/providers/openshell/README.md`. **Do not check a real
-  gateway hostname, workspace name or certificate path into this repo** — every
-  example below uses placeholder values and expects the real ones to come from
-  your own environment or an untracked `.env` file.
+- A container runtime: either a real `docker` daemon, or `podman` (confirmed
+  working; see "Python 3.14 / Gym compatibility patches" below for why a
+  machine with only `podman` needs one extra step). This is the **default and
+  only currently-working** sandbox backend for this capability — see "Known
+  limits" for why the OpenShell path, despite having its own provider config
+  below, cannot actually run this agent.
 - A model endpoint OpenCode can call (any OpenAI-compatible endpoint; see
   [`responses_api_agents/opencode_agent`](../onboarding/gym/.venv/lib/python3.14/site-packages/responses_api_agents/opencode_agent/README.md)
   once `onboarding/gym` is synced).
 
+### Python 3.14 / Gym compatibility patches
+
+This project pins Python 3.14.7 for `onboarding/gym`. Running the Harbor
+resources server + OpenCode agent + docker/podman sandbox combination for real
+(not just unit tests, which mock the network/subprocess layer) surfaces six
+confirmed bugs/incompatibilities across Python 3.14, this pinned Gym commit,
+and `opencode_agent` — none fixable by editing an installed package (the next
+`uv sync` would discard a hand-edit) or by config alone. All six are patched in
+one place, `onboarding/gym/bin/sitecustomize.py` — **read that file's own
+docstring for the full technical detail on each one**; summary here:
+
+1. Python 3.14's argparse rejects Hydra's lazy `--shell-completion` help
+   string outright, breaking every `gym eval ...` subcommand.
+2–3. Two bugs in `OpenShellProvider.exec()` (missing `workspace` kwarg; wrong
+   sandbox identifier) — still present on Gym's current upstream `main`, not
+   something a version bump fixes. Only relevant if you still exercise the
+   `openshell_remote` provider directly (see "Known limits").
+4. This machine's `docker` sandbox provider needs a real `docker` binary;
+   patched to resolve `podman` directly when only that's installed.
+5. **The important one**: `docker run -d`, invoked from inside a real Gym
+   resources-server process, hung for exactly 600s on every single attempt —
+   confirmed via `/proc/<pid>/fd` and `lsof` to be an `asyncio.create_subprocess_exec`
+   pipe-transport bug (the parent process never closed its own copy of the
+   child's stdout/stderr pipe write end), unrelated to docker/podman/the image.
+   Patched by routing that one call through synchronous `subprocess` in a
+   thread executor instead.
+6. `opencode_agent`'s sandboxed-execution path rejects the `metadata` field
+   Harbor task materialization always attaches to every request — the only
+   sandboxed Gym agent that doesn't tolerate it (every other one does).
+
+Everything in this repo that invokes `gym` — the orchestrator
+(`adaptive_task_runner.py`'s `_gym_environment`) and manual use alike — needs
+`PYTHONPATH` to include `onboarding/gym/bin` so every one of Gym's spawned
+server subprocesses (not just the top-level CLI) picks these patches up.
+Pointing `gym_executable` (the orchestrator config field, or the first
+argument on a manual invocation) at **`onboarding/gym/bin/gym-py314`**, not
+`onboarding/gym/.venv/bin/gym` directly, handles this automatically via a
+re-exec — every example below uses the wrapper for this reason. There is no
+real gateway hostname, workspace name or certificate path anywhere below —
+every example uses placeholder or generic values.
+
 ## One-time setup
 
-The new resources server and OpenShell provider config live under
-`onboarding/gym/harbor_extra_root/`, discovered via Gym's `--search-dir` flag
-(every invocation below passes `--search-dir onboarding/gym/harbor_extra_root`)
-rather than being installed into the pinned `nemo-gym` package:
+The new resources server lives under `onboarding/gym/harbor_extra_root/`,
+discovered via Gym's `--search-dir` flag (every invocation below passes
+`--search-dir onboarding/gym/harbor_extra_root`) rather than being installed
+into the pinned `nemo-gym` package:
 
 ```
 onboarding/gym/harbor_extra_root/
-  resources_servers/harbor/app.py                         # the new resources server
-  nemo_gym/sandbox/providers/openshell_remote/configs/openshell_remote.yaml   # provider config
+  resources_servers/harbor/app.py                                            # the new resources server
+  nemo_gym/sandbox/providers/openshell_remote/configs/openshell_remote.yaml  # OpenShell provider config (see Known limits)
 ```
 
-The provider config (`openshell_remote.yaml`) reads every connection detail
-from environment variables, with safe, non-identifying fallbacks (matching
-Gym's own built-in `openshell` config's local-compose defaults):
+Gym expects each server type (`resources_servers/harbor`,
+`responses_api_agents/<agent>`, `environment_servers/single_agent_turn`,
+`responses_api_models/openai_model`) to have its own `.venv` at a path
+relative to wherever you run `gym`/`adaptive-task-run` from. Create these
+once, symlinked to `onboarding/gym`'s own already-synced `.venv` (so Gym's
+`+skip_venv_if_present=true` — set unconditionally by the orchestrator — can
+skip trying to `uv pip install` a fresh one, which would fail anyway: this
+project's `nemo-gym` pin is a git-commit install, not a published version):
+
+```sh
+onboarding/gym/bin/setup-server-venvs.sh
+```
+
+Pass your agent's name as `$1` if it isn't the default `opencode_agent`. Idempotent — safe to re-run.
+
+### OpenShell provider config (secondary; see Known limits)
+
+`openshell_remote.yaml` reads every connection detail from environment
+variables, with safe, non-identifying fallbacks (matching Gym's own built-in
+`openshell` config's local-compose defaults) — kept for a future Gym version
+or a different, non-reconnecting agent, **not** usable with `opencode_agent`
+today:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -63,61 +122,67 @@ Gym's own built-in `openshell` config's local-compose defaults):
 | `OPENSHELL_GATEWAY_TLS_CERT_PATH` | unset (plaintext) | client cert path |
 | `OPENSHELL_GATEWAY_TLS_KEY_PATH` | unset (plaintext) | client key path |
 
-Set these to your own gateway's details before running anything for real. A
-gateway may be shared with other workloads in your own environment —
-`exec.concurrency: 4` in the provider config is a deliberately conservative
-placeholder, not a tuned value; raise it only once you know what else the
-gateway serves.
-
 ## The example task
 
 `onboarding/gym/harbor-tasks/demo-add-fn/` is a minimal, fully working Harbor
 task, small enough to read in one sitting:
 
-- `task.toml` — declares a prebuilt `python:3.12-slim` image (no Dockerfile
-  build: Gym's loader explicitly refuses to build one) and timeouts.
-- `instruction.md` — tells the agent `/workspace/calc.py` has a one-line bug in
-  `add(a, b)` and to make `bash tests/test.sh` pass.
+- `task.toml` — declares a prebuilt `quay.io/fedora/python-314` image (no
+  Dockerfile build: Gym's loader explicitly refuses to build one) and
+  timeouts. Matches this project's own pinned Python version and ships
+  `bash`/`git`/`tar`/`grep` out of the box; runs as a non-root user, which is
+  why every path below is under `/tmp` (see next bullet).
+- `instruction.md` — tells the agent `/tmp/workspace/calc.py` has a one-line
+  bug in `add(a, b)` and to make `bash tests/test.sh` pass. Every path is
+  `/tmp`-prefixed: confirmed empirically that a real OpenShell sandbox's
+  default (non-root) user cannot create a directory at the filesystem root at
+  all, and the docker/podman path has no reason to assume otherwise either —
+  `/tmp` is universally writable regardless of sandbox user identity.
 - `tests/test.sh` — writes the buggy `calc.py` itself on first run (so the demo
   needs no custom published image), then runs three independent checks against
   `add()` and writes `{"reward": <passed>/<total>, "tests_passed": <passed>,
-  "tests_total": <total>}` to `/logs/verifier/reward.json`. This project's own
-  convention: prefer `reward.json`'s `"reward"` key over a bare float in
+  "tests_total": <total>}` to `/tmp/logs/verifier/reward.json`. This project's
+  own convention: prefer `reward.json`'s `"reward"` key over a bare float in
   `reward.txt` when both exist (Harbor's own docs specify the two file names
-  but no JSON schema); `tests_passed`/`tests_total` are optional and drive the
-  "no progress" detection described below.
+  but no JSON schema, and specify `/logs/verifier` — adjusted to `/tmp/logs/verifier`
+  for the reason above); `tests_passed`/`tests_total` are optional and drive
+  the "no progress" detection described below.
 
 ## Running it by hand first
 
-Prove the resources server and provider config work in isolation before
-trying the full retry loop — this is the fastest way to tell "my gateway/model
-setup is wrong" apart from "the orchestrator is wrong". Replace every
-placeholder below (`openshell.example.internal:443`, `your-model-name`,
-`http://localhost:8000/v1`, the cert paths) with your own gateway and model
-details:
+Prove the resources server and sandbox work in isolation before trying the
+full retry loop — this is the fastest way to tell "my model setup is wrong"
+apart from "the orchestrator is wrong". Replace `your-model-name` /
+`http://localhost:8000/v1` with your own model details; run
+`onboarding/gym/bin/setup-server-venvs.sh` first if you haven't already:
 
 ```sh
-export OPENSHELL_GATEWAY_ENDPOINT=openshell.example.internal:443
-export OPENSHELL_GATEWAY_TLS_CA_PATH=/path/to/your/ca.crt
-export OPENSHELL_GATEWAY_TLS_CERT_PATH=/path/to/your/client.crt
-export OPENSHELL_GATEWAY_TLS_KEY_PATH=/path/to/your/client.key
+export PATH="$(pwd)/onboarding/gym/bin:$PATH"
 
-onboarding/gym/.venv/bin/gym eval run onboarding/gym/harbor-tasks/demo-add-fn \
-  --agent opencode_agent --sandbox openshell_remote \
+gym-py314 eval run onboarding/gym/harbor-tasks/demo-add-fn \
+  --agent opencode_agent --sandbox docker --model-type openai_model \
   --search-dir onboarding/gym/harbor_extra_root \
   --model your-model-name --model-url http://localhost:8000/v1 \
   --model-api-key "$YOUR_MODEL_API_KEY" \
-  --output /tmp/demo-attempt-1/rollouts.jsonl -v
-
-onboarding/gym/.venv/bin/gym eval profile \
-  --inputs results/harbor/demo-add-fn/tasks.jsonl \
-  --rollouts /tmp/demo-attempt-1/rollouts.jsonl
+  --output /tmp/demo-attempt-1/rollouts.jsonl -v \
+  +skip_venv_if_present=true \
+  +sandbox.docker.create.network=host
 ```
 
-Check `/tmp/demo-attempt-1/rollouts.jsonl` for a `reward` field, and the
-printed `gym eval profile` summary for a completion percentage. A `reward` of
-`1.0` means OpenCode fixed `calc.py`; `0.0` means it didn't (or didn't get the
-chance — check `test_output` in the rollout row first).
+`+sandbox.docker.create.network=host` is not optional: without it, the
+sandbox container has no network path back to this same machine's
+`policy_model` server at all (it's bound to `127.0.0.1`, which inside a
+container's own default network namespace is *not* the host's loopback).
+Confirmed the hard way — the agent's HTTP client has no configured timeout on
+that path, so a missing `--network host` doesn't fail fast, it just retries
+a connection-refused call silently forever.
+
+This single `gym eval run` call already prints a `Key metrics for
+harbor_demo-add-fn_agent` summary at the end (reward, `tests_passed`/
+`tests_total`, token usage) — no separate `gym eval profile` call is needed
+to see whether it worked. A `reward` of `1.0` means OpenCode fixed
+`calc.py`; `0.0` means it didn't (or didn't get the chance — check
+`test_output` in `/tmp/demo-attempt-1/rollouts.jsonl` first).
 
 ## Running the full retry loop
 
@@ -125,13 +190,13 @@ The orchestrator (`agent-boundary-gate adaptive-task-run`) takes a JSON config
 and an output directory. Every value it needs can come from **three places**,
 and you can mix them freely:
 
-1. **A JSON config file** (`--config`) — everything that isn't a secret or a
-   gateway connection detail: which task folders to run, the model, attempt
-   budgets, thresholds.
-2. **Exported environment variables** — the `OPENSHELL_GATEWAY_*` connection
-   details above, and the model API key (named by `model_api_key_env` in the
-   config, read by name so the key's *value* never appears in the config file
-   or in any persisted evidence).
+1. **A JSON config file** (`--config`) — everything that isn't a secret: which
+   task folders to run, the model, attempt budgets, thresholds.
+2. **Exported environment variables** — at minimum the model API key (named
+   by `model_api_key_env` in the config, read by name so the key's *value*
+   never appears in the config file or in any persisted evidence), plus
+   `PYTHONPATH=onboarding/gym/bin` if `gym_executable` doesn't already point
+   at `gym-py314` (see "Python 3.14 / Gym compatibility patches" above).
 3. **An untracked `.env` file** (`--env-file`), as a convenience instead of
    exporting those same environment variables by hand every run. It only sets
    a variable that isn't already exported (`os.environ.setdefault`), so an
@@ -140,15 +205,16 @@ and you can mix them freely:
 ### 1. Write a config file
 
 Replace `your-model-name` / `http://localhost:8000/v1` with your own model and
-endpoint:
+endpoint. Run `onboarding/gym/bin/setup-server-venvs.sh` once first if you
+haven't already:
 
 ```json
 {
-  "gym_executable": "onboarding/gym/.venv/bin/gym",
+  "gym_executable": "onboarding/gym/bin/gym-py314",
   "harbor_extra_root": "onboarding/gym/harbor_extra_root",
   "task_folders": ["onboarding/gym/harbor-tasks/demo-add-fn"],
   "agent": "opencode_agent",
-  "sandbox_provider": "openshell_remote",
+  "sandbox_provider": "docker",
   "model": "your-model-name",
   "model_url": "http://localhost:8000/v1",
   "model_api_key_env": "YOUR_MODEL_API_KEY",
@@ -167,10 +233,6 @@ pure infra failure (see "Interpreting results" below).
 ### 2a. Run it with exported environment variables
 
 ```sh
-export OPENSHELL_GATEWAY_ENDPOINT=openshell.example.internal:443
-export OPENSHELL_GATEWAY_TLS_CA_PATH=/path/to/your/ca.crt
-export OPENSHELL_GATEWAY_TLS_CERT_PATH=/path/to/your/client.crt
-export OPENSHELL_GATEWAY_TLS_KEY_PATH=/path/to/your/client.key
 export YOUR_MODEL_API_KEY=...
 
 agent-boundary-gate adaptive-task-run \
@@ -182,10 +244,6 @@ agent-boundary-gate adaptive-task-run \
 
 ```sh
 cat > .env.adaptive-task-runner <<'EOF'
-OPENSHELL_GATEWAY_ENDPOINT=openshell.example.internal:443
-OPENSHELL_GATEWAY_TLS_CA_PATH=/path/to/your/ca.crt
-OPENSHELL_GATEWAY_TLS_CERT_PATH=/path/to/your/client.crt
-OPENSHELL_GATEWAY_TLS_KEY_PATH=/path/to/your/client.key
 YOUR_MODEL_API_KEY=...
 EOF
 chmod 600 .env.adaptive-task-runner
@@ -322,8 +380,10 @@ configured at all.
 
 Minimum required files: `task.toml` (at least `[environment] docker_image =
 "..."`), `instruction.md`, `tests/test.sh`. `test.sh` must write a numeric
-reward to `/logs/verifier/reward.json` (`{"reward": <float>}`, this project's
-convention) or `/logs/verifier/reward.txt` (a bare float). There is no
+reward to `/tmp/logs/verifier/reward.json` (`{"reward": <float>}`, this
+project's convention — note the `/tmp` prefix, not Harbor's own docs'
+`/logs/verifier`; see "The example task" above for why) or
+`/tmp/logs/verifier/reward.txt` (a bare float). There is no
 Dockerfile **build** support — only a prebuilt `docker_image` — so a task
 needing custom setup should do it at the top of `test.sh`, as the example task
 does.
@@ -336,6 +396,19 @@ can't distinguish "made partial progress" from "no progress at all."
 
 ## Known limits (v1)
 
+- **OpenShell cannot back this agent at all** — confirmed by reading
+  `nemo_gym/sandbox/providers/openshell/provider.py`: it implements no
+  `serialize_handle()`, so it fails the `ConnectableProvider` protocol
+  `nemo_gym/sandbox/access.py`'s `SandboxAccess`/`DirectSandboxConnection`
+  mechanism requires for anything but `owns_sandbox=True`. `opencode_agent`
+  always needs the former (it connects to a sandbox the resources server
+  already seeded, never creates its own for this flow). Gym's own
+  `sandbox/access.py` has a `# TODO: Add a sandbox-server connection after
+  that server and its lease contract exist` acknowledging this is a known,
+  unfinished upstream gap, not something fixable from this repo. `docker`
+  (via podman on a machine with no real Docker) is the only provider that
+  currently works here — see "Python 3.14 / Gym compatibility patches" above
+  for everything that took to get it actually working.
 - `[verifier] environment_mode = "separate"` (a second sandbox just for
   verification) is not supported — the resources server returns `422`.
 - `HarborEnvironment`'s `mcp_servers`/`skills_dir` are not forwarded to the
@@ -343,27 +416,53 @@ can't distinguish "made partial progress" from "no progress at all."
 - The stop rule is a fixed attempt budget
   (`fixed_budget_should_continue` in `adaptive_task_runner.py`), not a
   no-progress check — a deliberate placeholder, isolated behind one function.
-- No live-cluster CI job exercises this against a real OpenShell gateway (it
-  would consume shared gateway capacity on every push/PR for an unrelated
-  workload); the manual sequence above is the verification path for now.
+- No live CI job exercises this end-to-end (it would need a real model
+  endpoint and a container runtime in CI for an unrelated workload); the
+  manual sequence above is the verification path for now. It has been run
+  successfully end-to-end by hand, including the forced-retry/adapted-
+  instruction path (see "2c" above).
 - No crash-mid-attempt resume: a killed `adaptive-task-run` process is simply
   re-run with the same `--output` directory (each attempt's evidence is
   content-addressed and idempotent to re-persist).
 
 ## Troubleshooting
 
-- **`failure_kind: "harbor:verifier_infra_error"` on every attempt** — the
-  resources server itself is failing (sandbox never started, upload/exec
-  failed, the reward file was never written). Check
-  `/tmp/<attempt>/rollouts.jsonl`'s `failure_reason` field, and confirm the
-  gateway is reachable independently of this tool first (the
-  [NVIDIA/OpenShell](https://github.com/NVIDIA/OpenShell) CLI's own
-  `gateway list`/`sandbox list` commands are the quickest check — a healthy
-  gateway should respond, even with zero sandboxes running).
+- **`failure_kind: "harbor:attempt_infra_error"`, `"no scoreable
+  rollout_infos in the reward profile"`, even though the underlying rollout
+  actually succeeded** (check `attempts/<task>/<n>/rollouts.jsonl` directly —
+  if its one row already has `reward: 1.0`, the rollout worked fine) — this
+  was a real bug in `_gym_eval_profile`'s own `--inputs` path, fixed in this
+  repo; if you see it again, confirm
+  `attempts/<task>/<n>/rollouts_materialized_inputs.jsonl` exists and has an
+  `_ng_task_index` key in its one row.
+- **A `docker run` / sandbox-creation step takes forever, no error, nothing in
+  the sandbox's own session logs ever gets written** — this is almost
+  certainly the missing `--network host` issue (see "Running it by hand
+  first" above), not a genuinely slow model. Check from inside the running
+  container: `podman exec <id> curl -s -m5 http://127.0.0.1:<policy_model
+  port>/` — `HTTP:000`/connection-refused confirms it; the model server's
+  actual port is printed in the run's own startup log
+  (`'process_name': 'policy_model'`).
 - **`gym eval run` can't find `opencode_agent` or the `harbor` resources
   server** — confirm `--search-dir onboarding/gym/harbor_extra_root` is
   actually being passed (the orchestrator always passes it; a manual `gym`
   invocation must include it too).
+- **`RuntimeError: Missing pyproject.toml or requirements.txt for uv venv
+  setup in server dir`** — you haven't run
+  `onboarding/gym/bin/setup-server-venvs.sh` yet (or ran `gym` from a
+  different working directory than where you ran that script).
+- **`OpenCode sandbox execution does not support request field ...`, a 422
+  from the agent** — confirm `onboarding/gym/bin/sitecustomize.py`'s patches
+  are actually loading: `PYTHONPATH` must include `onboarding/gym/bin` in
+  whatever process launches `gym` (automatic if `gym_executable` points at
+  `gym-py314`). Set `+global_aiohttp_client_request_debug=true` on a manual
+  `gym eval run` invocation to print the actual rejected-field name from the
+  response body — the generic error this tool otherwise sees
+  (`aiohttp.ClientResponseError`) doesn't include it.
+- **`RuntimeError: provider 'openshell' does not support
+  serialize()/connect()`** — you set `sandbox_provider` to `openshell_remote`;
+  see "Known limits" above, this isn't fixable from this repo today. Use
+  `docker` instead.
 - **A config file is rejected outright** — `adaptive-task-run` requires the
   config file to be a private regular file (mode `0600`, owned by you); loosen
   permissions and it will refuse to read it.
