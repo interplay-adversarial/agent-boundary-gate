@@ -30,7 +30,7 @@ only what remains open.
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Independent proof interpretation, issuer verification and remote authority remain open. |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned; not started. |
-| PORT-01 | P2 | First real agent pairing through Gym | One of OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. (Hermes was tried and removed 2026-10-16 — see the dependency freshness audit.) | Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain open; OpenCode integration not yet started. |
+| PORT-01 | P2 | First real agent pairing through Gym | One of OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. (Hermes was tried and removed 2026-10-16 — see the dependency freshness audit.) | A generic AgentAdapter conformance suite and loopback fixture adapter now exist (`agents/fixture.py`, `tests/test_agent_adapter_conformance.py`); sandbox-native pairing and qualification remain open; the OpenCode integration itself has not started. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open; shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
 | GYM-01 | P2 | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
 | GYM-02 | P2 | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
@@ -142,9 +142,14 @@ runtime-image CVEs need separate SEC-03 coverage.
 
 **GYM-03** the Hermes-based host-harness pilot was removed 2026-10-16 (its
 upstream dropped pip/uv installability; see the dependency freshness audit);
-being re-attempted with OpenCode. No pilot-specific failure-drill work exists
-to carry forward. Live whole-cell/watchdog faults and blocked adapters remain
-open regardless of which harness is used; GYM-04 freezing depends on them.
+being re-attempted with OpenCode. A generic AgentAdapter conformance suite and
+a deterministic loopback fixture adapter (`agents/fixture.py`) now exist and
+run through the full `lifecycle.run_attempt` composition
+(`tests/test_agent_adapter_conformance.py`, `tests/test_adapters.py`); no
+OpenCode-backed adapter exists yet, and the conformance suite is not run
+against one. No pilot-specific failure-drill work exists to carry forward.
+Live whole-cell/watchdog faults and blocked adapters remain open regardless of
+which harness is used; GYM-04 freezing depends on them.
 
 **REL-01** (eleven Hypothesis property groups,
 [covered properties and limits](gate-decision-invariants.md); command/HTTP

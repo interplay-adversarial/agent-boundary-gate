@@ -24,6 +24,7 @@ src/agent_boundary_gate/
     fixture.py            loopback simulation only
   agents/
     __init__.py           protocol; OpenCode/OpenClaw adapters planned
+    fixture.py             loopback simulation only
   observers/
     denied_egress.py      paired receiver oracle
   legacy/
