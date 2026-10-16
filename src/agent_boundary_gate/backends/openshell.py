@@ -4,7 +4,6 @@ CLI JSON/flags correspond to cached source f745aa4df4b1e63ca362cb4624d3952796a7c
 This driver does not provision containment, issue leases or invent supervisor readiness.
 """
 
-import ipaddress
 import json
 import math
 import re
@@ -236,10 +235,10 @@ class OpenShellBackend:
             ]
         else:
             receiver = urlsplit(url)
-            try:
-                host = str(ipaddress.ip_address(receiver.hostname))
-            except ValueError:
-                raise UnsupportedCapability("rust-probe-ip-literal-required") from None
+            # validate_receiver_url already rejected anything outside the shared
+            # DNS-name/IP-literal character class; the Rust probe resolves a
+            # hostname itself, matching Python/Perl rather than requiring IP-only.
+            host = receiver.hostname
             timeout = math.ceil(action.timeout_seconds)
             if not 1 <= timeout <= 30 or not re.fullmatch(
                 r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", attempt_id

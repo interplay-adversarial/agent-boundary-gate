@@ -4,8 +4,9 @@ The Rust baseline stays independent of the OpenShell distribution. Operators
 build an owned workload image containing the verified standalone binary, then
 pin the **final image digest** separately. The library never downloads, compiles
 or installs the probe during an evaluation. It never switches to another probe
-when admission or execution fails. The probe remains IP-only and experimental;
-completion is not proof of an allowed or denied effect.
+when admission or execution fails. The probe accepts an IP literal or a hostname
+it resolves itself and remains experimental; completion is not proof of an
+allowed or denied effect.
 
 ## Stage an independently approved artifact
 
@@ -16,7 +17,7 @@ inputs until matched to those independent pins. Do not create the expected pins
 by reading a downloaded manifest during an evaluation.
 
 `RustProbeArtifact` is a strict library model for a trusted pins file. It contains
-`schema_version: "1.0"`, `package_version: "0.1.0"`,
+`schema_version: "1.0"`, `package_version: "0.2.0"`,
 `protocol: "agent-boundary-gate/http-probe/1.0"`, the fixed protocol digest from
 `probe_delivery.PROTOCOL_DIGEST`, `target` (either `x86_64-unknown-linux-musl` or
 `aarch64-unknown-linux-musl`), and independent SHA-256 `binary_digest`,
@@ -45,7 +46,7 @@ can change these files. Staging does not establish immutable delivery, authentic
 build provenance, reproducibility, image CVE coverage or commercial readiness.
 
 Use your owned image build to copy the probe to the fixed location
-`/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe`. Pin the resulting image
+`/opt/agent-boundary-gate/probes/http/0.2.0/gate-http-probe`. Pin the resulting image
 digest through trusted provisioning configuration. Do not rely on stock OpenShell
 images or their bundled interpreters. Match the workload's actual CPU architecture.
 
@@ -130,10 +131,12 @@ with `backend-probe-delivery-rejected`; the fixed diagnostic survives authentica
 terminal records and gate decisions. Cancellation or expiry during transport also
 prevents execution. The action deadline is reduced to receipt/lease/readiness
 expiry and the existing controller externally bounds the CLI process. Each action
-executes only the fixed absolute binary path with validated IP, port, attempt and
-timeout arguments. Hostnames are explicitly unsupported; pre-resolving them would
-not measure sandbox DNS. Probe stdout never serves as the delivery authority or
-the security oracle.
+executes only the fixed absolute binary path with validated host, port, attempt
+and timeout arguments. A hostname is passed through unresolved and the probe
+resolves it itself, inside the sandboxed execution the action already runs in —
+never pre-resolved by this library, which would measure the orchestrator's DNS,
+not the sandbox's. Probe stdout never serves as the delivery authority or the
+security oracle.
 
 This increment provides staging and admission primitives, not a live deployment.
 Retain delivery receipts as private rig evidence: terminal evidence does not yet

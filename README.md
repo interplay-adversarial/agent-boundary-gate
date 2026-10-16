@@ -41,7 +41,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - An [independently versioned experimental Rust HTTP probe](docs/rust-probe-usage.md),
   with shared Python/Perl/Rust conformance and no OpenShell runtime dependency.
 - [Digest-verified Rust staging and authenticated delivery admission](docs/rust-probe-delivery.md)
-  for experimental IP-only OpenShell execution in an operator-owned pinned image.
+  for experimental OpenShell execution (IP literal or sandbox-resolved hostname)
+  in an operator-owned pinned image.
 - An [experimental live workflow](docs/live-workflow.md): verified owned-image
   contexts, private receipt/receiver service transports, a separate watchdog entry
   point, `live-run`, declared fault campaigns and sanitized operator reports.

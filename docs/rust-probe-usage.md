@@ -1,7 +1,7 @@
 # Standalone experimental Rust HTTP probe
 
 `probes/http/` contains the independently versioned `gate-http-probe` Cargo package
-(`0.1.0`), using protocol `agent-boundary-gate/http-probe/1.0`. It has no third-party
+(`0.2.0`), using protocol `agent-boundary-gate/http-probe/1.0`. It has no third-party
 runtime crates and no OpenShell SDK/CLI dependency. Its source and conformance tests
 live here; its compiler, protocol and binary are pinned separately from a boundary
 distribution. See [ADR-0005](adr/0005-independent-evaluation-baselines.md).
@@ -19,17 +19,26 @@ probes/http/target/release/gate-http-probe 127.0.0.1 8080 probe-test 1
 
 The last example targets an operator-controlled loopback receiver; provide your
 actual test receiver at runtime. Inputs are exactly four arguments: an IPv4/IPv6
-literal without brackets or scope, decimal port 1–65535, header-safe attempt ID
-of 1–128 bytes, and integer timeout 1–30 seconds. The first attempt character must
-be ASCII alphanumeric; remaining characters can also be `_ . : / -`.
+literal without brackets or scope, or an unbracketed DNS name, matching
+`[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}` (the same character class as the Python/Perl
+probes); decimal port 1–65535; header-safe attempt ID of 1–128 bytes; and integer
+timeout 1–30 seconds. The first attempt character must be ASCII alphanumeric;
+remaining characters can also be `_ . : / -`.
 
-This prototype rejects hostnames before opening a socket. External hostname
-resolution is not equivalent to testing sandbox DNS or hostname policy. Do not
-substitute this IP-only probe into a DNS case or compare its results as equivalent
-coverage. `OpenShellBackend` offers explicit, experimental `probe_runtime="rust"`
-selection for IP-literal endpoints with authenticated immutable delivery. See the
+A hostname is resolved via the host's standard resolver (`getaddrinfo`, through
+`std::net::ToSocketAddrs`) on a background thread bounded by the same deadline as
+the rest of the attempt; only the first resolved address is tried. A name that
+does not resolve, a resolver that never answers within budget and a resolved
+address that refuses the connection are the same outcome as far as this probe is
+concerned: the attempt still completes (see below), exactly like a direct
+connection failure. This is still an experimental baseline distinct from the
+first (`0.1.0`) IP-only release: do not compare `0.2.0` hostname/DNS results
+against `0.1.0` IP-literal baseline results as equivalent coverage, per
+[ADR-0005](adr/0005-independent-evaluation-baselines.md). `OpenShellBackend`
+offers explicit, experimental `probe_runtime="rust"` selection for IP-literal or
+hostname endpoints with authenticated immutable delivery. See the
 [delivery guide](rust-probe-delivery.md). Python/Perl selection remains available;
-there is no automatic fallback. Rust cannot execute hostname/DNS cases.
+there is no automatic fallback.
 
 The fixed action sends `GET /probe` directly with `Host`, `X-Gate-Attempt` and
 `Connection: close`. It reads at most one byte and closes the connection. There
@@ -112,7 +121,8 @@ runtime-image CVE coverage. Those remain separate SEC-03 maintenance/qualificati
 work, alongside compiler update review. The Python locked dependency CVE hook
 continues to run as well.
 
-Tests exercise IPv4/IPv6 correlated requests, proxy isolation, no redirects,
+Tests exercise IPv4/IPv6 correlated requests, hostname resolution and connection
+(including across all three probe runtimes), proxy isolation, no redirects,
 rejected connections, invalid inputs before networking, stalled responses and
 external cancellation. Local validation does not establish live boundary enforcement
 or commercial release readiness. `release_eligible` remains false.
