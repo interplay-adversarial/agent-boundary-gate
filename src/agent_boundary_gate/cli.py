@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import signal
 import sqlite3
 import sys
@@ -114,6 +115,18 @@ def main() -> int:
     legacy.add_argument("--records", type=Path, required=True)
     legacy.add_argument("--signer", required=True)
     legacy.add_argument("--public-key", type=Path, required=True)
+    adaptive = commands.add_parser(
+        "adaptive-task-run",
+        help="retry/advance/abandon loop over Gym Harbor tasks; no gate authority",
+    )
+    adaptive.add_argument("--config", type=Path, required=True)
+    adaptive.add_argument("--output", type=Path, required=True)
+    adaptive.add_argument(
+        "--env-file",
+        type=Path,
+        help="optional KEY=VALUE file (e.g. OPENSHELL_GATEWAY_* connection details); "
+        "does not override an already-exported variable of the same name",
+    )
     args = parser.parse_args()
     try:
         if args.command in ("red-team-run", "red-team-recover"):
@@ -279,6 +292,30 @@ def main() -> int:
                     json.dumps(model.model_json_schema(), indent=2) + "\n"
                 )
             return 0
+        if args.command == "adaptive-task-run":
+            from agent_boundary_gate.adaptive_task_runner import (
+                AdaptiveTaskRunnerConfig,
+                adaptive_task_runner_run,
+                load_env_file,
+            )
+
+            if args.env_file is not None:
+                for key, value in load_env_file(args.env_file).items():
+                    os.environ.setdefault(key, value)
+            config = AdaptiveTaskRunnerConfig.model_validate_json(
+                read_regular_input(args.config, limit=65536, private=True)
+            )
+            cancelled = Event()
+            previous = {}
+            try:
+                for number in (signal.SIGINT, signal.SIGTERM):
+                    previous[number] = signal.signal(number, lambda *_: cancelled.set())
+                report = adaptive_task_runner_run(config, args.output, cancelled=cancelled)
+            finally:
+                for number, handler in previous.items():
+                    signal.signal(number, handler)
+            print(json.dumps(report, indent=2))
+            return 0 if report.get("completed") else 2
         now = datetime.now(UTC)
         if args.command == "local-run":
             decision = local_run(args.case, args.output, weakened=args.weakened)

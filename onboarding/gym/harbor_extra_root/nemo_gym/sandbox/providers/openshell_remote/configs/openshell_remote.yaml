@@ -1,0 +1,50 @@
+# New-code OpenShell provider config for the adaptive-task-runner capability, pointed at
+# whichever OpenShell gateway the operator configures via environment variables. See
+# docs/adaptive-task-runner.md. Not part of upstream NeMo Gym.
+#
+# Named "openshell_remote", not "openshell": the directory/file name is a free string (only the
+# child key under `sandbox:` selects the real provider implementation), and this name stays
+# clear of the built-in `openshell` config so it never silently shadows it for anyone adding a
+# different OpenShell target later. It deliberately names no specific cluster or lab: every
+# connection detail below comes from the operator's own environment, with safe, non-identifying
+# fallbacks (matching the local-compose-gateway defaults the upstream `openshell.yaml` ships
+# with) so this file is never the place a real gateway hostname or cert path is checked in.
+#
+# A gateway configured here may be a shared resource with other workloads in the operator's own
+# environment -- `exec.concurrency` below is a deliberately conservative placeholder, not a
+# tuned value, and should be set with that in mind.
+sandbox:
+  default_metadata:
+    sandbox-api: openshell-grpc
+  openshell:
+    connection:
+      endpoint: ${oc.env:OPENSHELL_GATEWAY_ENDPOINT,localhost:8080}
+      workspace: ${oc.env:OPENSHELL_GATEWAY_WORKSPACE,default}
+      bearer_token: ${oc.env:OPENSHELL_GATEWAY_BEARER_TOKEN,null}
+      tls_ca_path: ${oc.env:OPENSHELL_GATEWAY_TLS_CA_PATH,null}
+      tls_cert_path: ${oc.env:OPENSHELL_GATEWAY_TLS_CERT_PATH,null}
+      tls_key_path: ${oc.env:OPENSHELL_GATEWAY_TLS_KEY_PATH,null}
+      request_timeout_s: 30
+    create:
+      ready_timeout_s: 300
+      poll_interval_s: 1.0
+      retries: 2
+      retry_delay_s: 1.0
+      retry_max_delay_s: 30.0
+    exec:
+      default_timeout_s: 180
+      # Conservative: a shared gateway may serve other workloads too.
+      concurrency: 4
+      exec_shell: /bin/sh
+      upload_chunk_bytes: 524288
+    probe:
+      command: printf openshell-sandbox-ready
+      expected_stdout: openshell-sandbox-ready
+      timeout_s: 30
+      deadline_s: 60
+      stable_count: 1
+      stable_delay_s: 1.0
+    operations:
+      close_wait_deleted: true
+      close_timeout_s: 60
+      poll_interval_s: 1.0
