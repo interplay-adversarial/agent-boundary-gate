@@ -90,6 +90,11 @@ class AttemptRecord(ReceiptContract):
     mask_sample: bool
     failure_kind: str | None
     failure_reason: str | None
+    # Optional structured progress signal, only present when a task's test.sh reports it
+    # (see onboarding/gym/harbor_extra_root/resources_servers/harbor/app.py's
+    # TESTS_PASSED_KEY/TESTS_TOTAL_KEY). None for a task that only reports a bare reward.
+    tests_passed: int | None = None
+    tests_total: int | None = None
     decision: StopDecision
     rollouts_ref: str
     reward_profile_ref: str
@@ -145,17 +150,50 @@ def _materialize_attempt_task(
     return target
 
 
-def _build_adapted_instruction(task_folder: Path, raw_rollout: dict[str, Any] | None) -> str:
+def _is_stuck(history: list[AttemptRecord]) -> bool:
+    """No progress between the last two attempts, by the task's own structured signal.
+
+    Requires at least two attempts, neither masked (an infra failure is a different
+    problem, already handled by fixed_budget_should_continue's all-masked check), and
+    a task that actually reports tests_passed/tests_total -- a task that only reports
+    a bare reward has no structured signal to compare, so this is never "stuck" for it
+    (the existing reward-only retry behavior is unaffected). Comparing tests_passed
+    rather than the reward float avoids false positives from floating-point noise and
+    is meaningful even when reward is a derived ratio, as the demo task's is.
+    """
+    if len(history) < 2:
+        return False
+    previous, last = history[-2], history[-1]
+    if previous.mask_sample or last.mask_sample:
+        return False
+    if previous.tests_passed is None or last.tests_passed is None:
+        return False
+    if previous.tests_total != last.tests_total:
+        return False
+    return previous.tests_passed == last.tests_passed
+
+
+def _build_adapted_instruction(
+    task_folder: Path, raw_rollout: dict[str, Any] | None, *, stuck: bool = False
+) -> str:
     original = (task_folder / "instruction.md").read_text()
     if raw_rollout is None:
         return original
     reward = raw_rollout.get("reward")
     detail = raw_rollout.get("test_output") or raw_rollout.get("failure_reason") or ""
     detail = detail[-DEMO_INSTRUCTION_TAIL_CHARS:]
-    return (
+    feedback = (
         f"{original}\n\n---\n\nA previous attempt scored reward={reward!r}. "
         f"Its test output (most recent, possibly truncated) was:\n\n{detail}\n"
     )
+    if stuck:
+        feedback += (
+            "\n---\n\nThe last two attempts made no further progress (the same number "
+            "of checks passed both times). Making the same kind of change again is "
+            "unlikely to help -- try a fundamentally different implementation "
+            "approach, not a small variation on the previous one.\n"
+        )
+    return feedback
 
 
 def _gym_eval_run(
@@ -272,6 +310,8 @@ def _attempt_record(
     rollout_info = profile_rows[0]["rollout_infos"][0]
     reward = float(rollout_info.get("reward", 0.0))
     mask_sample = bool((raw_row or {}).get("mask_sample", False))
+    tests_passed = rollout_info.get("tests_passed")
+    tests_total = rollout_info.get("tests_total")
     return (
         AttemptRecord(
             task_id=task_id,
@@ -280,6 +320,8 @@ def _attempt_record(
             mask_sample=mask_sample,
             failure_kind=(raw_row or {}).get("failure_kind"),
             failure_reason=(raw_row or {}).get("failure_reason"),
+            tests_passed=int(tests_passed) if tests_passed is not None else None,
+            tests_total=int(tests_total) if tests_total is not None else None,
             decision=StopDecision.ABANDON,  # overwritten by the caller immediately after
             rollouts_ref=rollouts_ref,
             reward_profile_ref=reward_profile_ref,
@@ -315,12 +357,15 @@ def adaptive_task_runner_run(
                 record, raw_row = _attempt_record(
                     task_id, len(history) + 1, rollouts_path, profile_path, store
                 )
-                decision = fixed_budget_should_continue([*history, record], config=config)
+                candidate_history = [*history, record]
+                decision = fixed_budget_should_continue(candidate_history, config=config)
                 record = record.model_copy(update={"decision": decision})
                 history.append(record)
                 if decision != StopDecision.RETRY:
                     break
-                adapted_instruction = _build_adapted_instruction(task_folder, raw_row)
+                adapted_instruction = _build_adapted_instruction(
+                    task_folder, raw_row, stuck=_is_stuck(candidate_history)
+                )
             tasks[task_id] = [record.model_dump(mode="json") for record in history]
             if history[-1].decision == StopDecision.ABANDON:
                 break

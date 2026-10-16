@@ -14,6 +14,8 @@ from agent_boundary_gate.adaptive_task_runner import (
     AdaptiveTaskRunnerConfig,
     AttemptRecord,
     StopDecision,
+    _build_adapted_instruction,
+    _is_stuck,
     _materialize_attempt_task,
     adaptive_task_runner_run,
     fixed_budget_should_continue,
@@ -34,7 +36,13 @@ def _config(**overrides) -> AdaptiveTaskRunnerConfig:
     return AdaptiveTaskRunnerConfig(**fields)
 
 
-def _record(reward: float, mask_sample: bool = False, attempt_number: int = 1) -> AttemptRecord:
+def _record(
+    reward: float,
+    mask_sample: bool = False,
+    attempt_number: int = 1,
+    tests_passed: int | None = None,
+    tests_total: int | None = None,
+) -> AttemptRecord:
     return AttemptRecord(
         task_id="task-a",
         attempt_number=attempt_number,
@@ -42,6 +50,8 @@ def _record(reward: float, mask_sample: bool = False, attempt_number: int = 1) -
         mask_sample=mask_sample,
         failure_kind=None,
         failure_reason=None,
+        tests_passed=tests_passed,
+        tests_total=tests_total,
         decision=StopDecision.RETRY,
         rollouts_ref="sha256:" + "0" * 64,
         reward_profile_ref="sha256:" + "0" * 64,
@@ -95,6 +105,53 @@ class StopDecisionTests(unittest.TestCase):
         config = _config(max_attempts_per_task=2, success_reward_threshold=1.0)
         history = [_record(0.0, mask_sample=True), _record(0.0, mask_sample=True)]
         self.assertEqual(fixed_budget_should_continue(history, config=config), StopDecision.ABANDON)
+
+
+class IsStuckTests(unittest.TestCase):
+    def test_not_stuck_with_fewer_than_two_attempts(self):
+        self.assertFalse(_is_stuck([_record(0.33, tests_passed=1, tests_total=3)]))
+
+    def test_not_stuck_when_task_reports_no_structured_signal(self):
+        history = [_record(0.0), _record(0.0)]
+        self.assertFalse(_is_stuck(history))
+
+    def test_not_stuck_when_either_attempt_is_masked(self):
+        history = [
+            _record(0.33, tests_passed=1, tests_total=3, mask_sample=True),
+            _record(0.33, tests_passed=1, tests_total=3),
+        ]
+        self.assertFalse(_is_stuck(history))
+
+    def test_not_stuck_when_progress_differs(self):
+        history = [
+            _record(0.33, tests_passed=1, tests_total=3),
+            _record(0.66, tests_passed=2, tests_total=3),
+        ]
+        self.assertFalse(_is_stuck(history))
+
+    def test_stuck_when_last_two_show_no_progress(self):
+        history = [
+            _record(0.0, tests_passed=0, tests_total=3),
+            _record(0.33, tests_passed=1, tests_total=3),
+            _record(0.33, tests_passed=1, tests_total=3),
+        ]
+        self.assertTrue(_is_stuck(history))
+
+
+class BuildAdaptedInstructionTests(unittest.TestCase):
+    def test_escalates_wording_when_stuck(self):
+        with tempfile.TemporaryDirectory() as root:
+            task_folder = Path(root)
+            (task_folder / "instruction.md").write_text("fix the bug\n")
+            not_stuck = _build_adapted_instruction(
+                task_folder, {"reward": 0.33, "test_output": "assertion failed"}, stuck=False
+            )
+            stuck = _build_adapted_instruction(
+                task_folder, {"reward": 0.33, "test_output": "assertion failed"}, stuck=True
+            )
+            self.assertNotIn("fundamentally different", not_stuck)
+            self.assertIn("fundamentally different", stuck)
+            self.assertIn("fix the bug", stuck)
 
 
 class MaterializeAttemptTaskTests(unittest.TestCase):
@@ -169,13 +226,20 @@ def _rollout_row(reward: float, mask_sample: bool = False, test_output: str = ""
     }
 
 
-def _profile_row(reward: float) -> dict:
-    return {
+def _profile_row(
+    reward: float, tests_passed: int | None = None, tests_total: int | None = None
+) -> dict:
+    rollout_info = {
+        "rollout_id": "0:0",
         "_ng_task_index": 0,
-        "rollout_infos": [
-            {"rollout_id": "0:0", "_ng_task_index": 0, "_ng_rollout_index": 0, "reward": reward}
-        ],
+        "_ng_rollout_index": 0,
+        "reward": reward,
     }
+    if tests_passed is not None:
+        rollout_info["tests_passed"] = tests_passed
+    if tests_total is not None:
+        rollout_info["tests_total"] = tests_total
+    return {"_ng_task_index": 0, "rollout_infos": [rollout_info]}
 
 
 class AdaptiveTaskRunnerRunTests(unittest.TestCase):
@@ -287,6 +351,70 @@ class AdaptiveTaskRunnerRunTests(unittest.TestCase):
             self.assertFalse(report["completed"])
             self.assertEqual(report["tasks"]["task-a"][0]["decision"], "abandon")
             self.assertNotIn("task-b", report["tasks"])  # the run stopped before reaching it
+
+    def test_no_progress_escalates_the_third_attempts_instruction(self):
+        with tempfile.TemporaryDirectory() as root:
+            root_path = Path(root)
+            task_a = root_path / "tasks" / "task-a"
+            task_a.mkdir(parents=True)
+            (task_a / "instruction.md").write_text("fix the bug\n")
+
+            output = root_path / "output"
+            config = _config(
+                task_folders=[task_a], max_attempts_per_task=3, success_reward_threshold=1.0
+            )
+
+            # Same tests_passed/tests_total for attempts 1 and 2 -> stuck by attempt 3.
+            rollout_script = iter(
+                [
+                    _rollout_row(0.33, test_output="still failing"),
+                    _rollout_row(0.33, test_output="still failing"),
+                    _rollout_row(0.33, test_output="still failing"),
+                ]
+            )
+            profile_script = iter(
+                [
+                    _profile_row(0.33, tests_passed=1, tests_total=3),
+                    _profile_row(0.33, tests_passed=1, tests_total=3),
+                    _profile_row(0.33, tests_passed=1, tests_total=3),
+                ]
+            )
+
+            def fake_bounded_process(argv, **kwargs):
+                if "run" in argv:
+                    rollouts_path = Path(argv[argv.index("--output") + 1])
+                    rollouts_path.parent.mkdir(parents=True, exist_ok=True)
+                    rollouts_path.write_text(json.dumps(next(rollout_script)) + "\n")
+                elif "profile" in argv:
+                    rollouts_path = Path(argv[argv.index("--rollouts") + 1])
+                    profile_path = rollouts_path.with_name(
+                        rollouts_path.stem + "_reward_profiling.jsonl"
+                    )
+                    profile_path.write_text(json.dumps(next(profile_script)) + "\n")
+                else:
+                    raise AssertionError(f"unexpected argv: {argv}")
+                return ProcessResult(returncode=0, stdout=b"")
+
+            with patch(
+                "agent_boundary_gate.adaptive_task_runner.bounded_process",
+                side_effect=fake_bounded_process,
+            ):
+                report = adaptive_task_runner_run(config, output, cancelled=Event())
+
+            self.assertEqual(len(report["tasks"]["task-a"]), 3)
+            # Budget exhausted on a real (non-masked) failure -> advance, not abandon.
+            self.assertEqual(report["tasks"]["task-a"][-1]["decision"], "advance")
+
+            attempt_2_instruction = (
+                output / "attempts" / "task-a" / "task-a-attempt-2" / "instruction.md"
+            ).read_text()
+            attempt_3_instruction = (
+                output / "attempts" / "task-a" / "task-a-attempt-3" / "instruction.md"
+            ).read_text()
+            # Attempt 2's retry follows attempt 1 alone -- nothing to be "stuck" against yet.
+            self.assertNotIn("fundamentally different", attempt_2_instruction)
+            # Attempt 3's retry follows two consecutive no-progress attempts -> escalated.
+            self.assertIn("fundamentally different", attempt_3_instruction)
 
 
 class CliDispatchTests(unittest.TestCase):
