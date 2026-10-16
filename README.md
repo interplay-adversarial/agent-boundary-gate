@@ -76,6 +76,25 @@ All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
 architecture and criteria for extracting independently maintained adapters.
 
+## Also in this repository: adaptive task runner (unrelated capability)
+
+An [adaptive task runner](docs/adaptive-task-runner.md) drives OpenCode
+through NeMo Gym's Harbor coding-task format with a retry/advance/abandon
+loop, scoring each attempt via Gym's own reward-profiling output and adapting
+the next instruction from a failed attempt. It fills a gap in Gym itself:
+Gym's Harbor task-loading machinery generates a run config expecting a
+resources server that Gym does not ship (confirmed against both our pin and
+upstream's current `main`), so this adds that missing resources server as
+new code, discovered via Gym's `--search-dir` rather than vendored into the
+installed package.
+
+**This is a separate, unrelated capability — not part of the boundary/egress
+gate above.** It carries no gate or release authority, issues no signed
+records, and is unrelated to OpenShell policy enforcement; it only happens to
+reuse the same OpenCode agent and, optionally, an OpenShell sandbox as a place
+to run an agent's generated code. See the linked doc for prerequisites, a
+runnable example task and three equivalent ways to configure a run.
+
 ## Develop and validate
 
 Requires Python 3.12+, [uv](https://github.com/astral-sh/uv), and Rust/Cargo 1.98.1
