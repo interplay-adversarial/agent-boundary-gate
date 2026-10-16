@@ -30,16 +30,16 @@ only what remains open.
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Independent proof interpretation, issuer verification and remote authority remain open. |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned; not started. |
-| PORT-01 | P2 | First real agent pairing through Gym | One of Hermes/OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. | Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain open; broader expansion follows the frozen pilot baseline. |
+| PORT-01 | P2 | First real agent pairing through Gym | One of OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. (Hermes was tried and removed 2026-10-16 — see the dependency freshness audit.) | Generic signed AgentAdapter conformance, sandbox-native pairing and qualification remain open; OpenCode integration not yet started. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open; shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
 | GYM-01 | P2 | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
 | GYM-02 | P2 | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
-| GYM-03 | P2 | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | Hermes process containment is not attested; no authenticated qualification is claimed. [Guide](hermes-effect-pilot.md) |
+| GYM-03 | P2 | Real-agent prompt injection with boundary controls | One pinned harness routes a synthetic tool action through the selected boundary; independent receivers distinguish resisted, blocked and observed effects with benign-task checks. | The Hermes-based pilot was removed 2026-10-16 (upstream dropped pip/uv installability); being re-attempted with OpenCode, not yet started. |
 | GYM-04 | P2 | Frozen injection regression and private CI | Rights-cleared attack/benign corpus, disjoint held-out cases, repeated runs with separate utility/attack/effect/uncertainty reports; fault-calibrated private CI and offline public checks. | Planned; depends on GYM-03/REL-01. Not started. |
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned; not started. |
 | INT-02 | P3 | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream's `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) is a future dependency once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | RT-01 | P2 | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | A future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. [Guide](description-driven-red-team.md) |
-| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` is blocked on an upstream `data-designer==0.9.5` constraint (no action possible until `data-designer` ships a newer stable release). The `hermes-agent` pin should **not** be bumped to its fork's current `main`: the custom integration work it depends on is gone there; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` is blocked on an upstream `data-designer==0.9.5` constraint (no action possible until `data-designer` ships a newer stable release); see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). (`onboarding/hermes`'s pin was removed entirely 2026-10-16, not bumped — see GYM-03/PORT-01.) |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
 P3 marks expansion. P1 blockers remain mandatory for qualification while P2
@@ -54,9 +54,9 @@ isolation and behavior/effect reporting.
    open before baseline promotion. DEV-02's unresolved API-response/
    allocator-commit window and authenticated external watchdog/whole-cell
    fault qualification remain P1 work.
-2. GYM-02/GYM-03: generic agent pairing support beyond the initial Hermes
-   host-harness pilot remains separate. The pilot does not depend on, and
-   cannot establish, commercial qualification.
+2. GYM-02/GYM-03: generic agent pairing support beyond a first real-agent
+   pilot (OpenCode, after Hermes was removed) remains separate. No pilot does
+   depend on, or can establish, commercial qualification.
 3. REL-01/EVID-01: run further development failure drills (Gym/verifier
    faults, policy mutation, receiver/storage loss, cancellation, supervisor
    restart, controller death), building on the
@@ -78,7 +78,7 @@ isolation and behavior/effect reporting.
    valuable independent work once the hosted aggregate check is established.
 
 INT-02 is recorded for later implementation; it does not replace the current
-reliability drills or frozen regression work following the Hermes-first pilot. Pin
+reliability drills or frozen regression work following a first real-agent pilot. Pin
 Interplay independently from Gym, agent/model, Rust and the selected boundary.
 Keep attack discovery/tuning separate from held-out baseline cases. Interplay's
 endpoint response/judge outcomes cannot substitute for tool-effect, positive-control,
@@ -140,13 +140,11 @@ the live baseline/target qualification matrix remain pending. Compiler/stdlib,
 build/audit tooling and
 runtime-image CVEs need separate SEC-03 coverage.
 
-**GYM-03/REL-01** (Hermes host-harness pilot,
-[drills](hermes-effect-pilot.md#worker-and-proxy-failure-drills): model-free
-loopback shutdown/publication, blocked/cancelled worker supervision and
-same-group descendant cleanup implemented): interrupted proxy work remains
-incomplete (late responses cannot publish after closure). Live whole-cell/
-watchdog faults and blocked adapters outside this worker path remain open;
-GYM-04 freezing depends on them.
+**GYM-03** the Hermes-based host-harness pilot was removed 2026-10-16 (its
+upstream dropped pip/uv installability; see the dependency freshness audit);
+being re-attempted with OpenCode. No pilot-specific failure-drill work exists
+to carry forward. Live whole-cell/watchdog faults and blocked adapters remain
+open regardless of which harness is used; GYM-04 freezing depends on them.
 
 **REL-01** (eleven Hypothesis property groups,
 [covered properties and limits](gate-decision-invariants.md); command/HTTP
@@ -190,70 +188,64 @@ prerelease; bumping `pyarrow` needs that line to ship stable first, or
 `data-designer` to relax the constraint. `any-llm-sdk` (1.33.0 vs. 1.36.0) and
 `openai` (3.28.0 vs. 3.31.0) have smaller version gaps still open.
 
-`onboarding/gym` and `onboarding/hermes`'s NeMo Gym pin was bumped 2026-10-15
-from `f444b802` to `b454c9a` (`NVIDIA-NeMo/Gym`'s `main` at the time, 70
-commits ahead of the old pin). Five of the gate's hash-pinned files changed,
-not just `responses_converter.py` as first scoped: upstream's `pyproject.toml`
-moved `ray`/`jinja2` out of the unconditional core dependencies into an opt-in
-`ray` extra (shrinking the resolved lock by ~20 packages since neither
-onboarding project requests that extra), `responses_converter.py` gained a
+`onboarding/gym`'s NeMo Gym pin was bumped 2026-10-15 from `f444b802` to
+`b454c9a` (`NVIDIA-NeMo/Gym`'s `main` at the time, 70 commits ahead of the old
+pin). Five of the gate's hash-pinned files changed, not just
+`responses_converter.py` as first scoped: upstream's `pyproject.toml` moved
+`ray`/`jinja2` out of the unconditional core dependencies into an opt-in `ray`
+extra (shrinking the resolved lock by ~20 packages since the onboarding
+project doesn't request that extra), `responses_converter.py` gained a
 backward-compatible opt-in `drop_unrepresentable_request_fields` parameter,
-`indirect_prompt_injection/app.py` and `simple_agent/app.py` each dropped a
-now-redundant `ray_enabled = False` class attribute, and `hermes_agent/app.py`
-gained new agent-timeout-budget and model-rejection-status handling (both
-opt-in/default-preserving). `src/agent_boundary_gate/gym_bridge.py`'s own
-`GYM_COMMIT` constant was bumped alongside the pin. Verified by re-running
-`scripts/gym_replay.py` against a fresh clone of the new commit and both
-`test_gym_smoke_native.py` and `test_hermes_pilot_native.py` against the
-regenerated `onboarding/gym`/`onboarding/hermes` locks; all pass, and
-`scripts/audit_dependencies.py --gym`/`--hermes` report zero gaps. The
-`hermes-agent` pin itself (below) was not touched.
+and `indirect_prompt_injection/app.py`/`simple_agent/app.py` each dropped a
+now-redundant `ray_enabled = False` class attribute.
+`src/agent_boundary_gate/gym_bridge.py`'s own `GYM_COMMIT` constant was bumped
+alongside the pin. Verified by re-running `scripts/gym_replay.py` against a
+fresh clone of the new commit and `test_gym_smoke_native.py` against the
+regenerated lock; both pass, and `scripts/audit_dependencies.py --gym`
+reports zero gaps.
 
-**Core and all three onboarding environments were moved to Python 3.14.7
+**Core and the onboarding environments were moved to Python 3.14.7
 (2026-10-15), closing the former DEP-02 investigation with no remaining gap.**
-`onboarding/gym`, `onboarding/hermes` and `onboarding/red-team` each re-pinned
-their exact interpreter (`3.13.14` -> `3.14.7`) in `pyproject.toml`,
-`.python-version` and their own source/pin manifests
-(`source-pin.json`'s `"python"` field for gym/hermes,
-`src/agent_boundary_gate/_pins/red-team.json`'s `"python"` list for red-team),
-regenerated each `uv.lock`, and updated the hardcoded interpreter checks in
-`scripts/audit_dependencies.py`'s marker environment and
-`tests/test_red_team_native.py`'s `NATIVE` guard. The CI `validate` matrix
-gained `'3.14'` alongside `'3.12'`/`'3.13'` (core only floors at `>=3.12`, so
-no `pyproject.toml` change was needed there); the three onboarding CI jobs'
-`actions/setup-python` steps were bumped to `3.14.7`. Verified empirically,
-not just resolved: every pinned dependency (`pydantic`, `cryptography`,
-`pyarrow`, `data-designer`, the full `nemo-gym`/`hermes-agent` trees) installs
-under 3.14.7, and the full test suite passes in each environment — core's 481
-tests, `test_gym_smoke_native.py`'s 7, `test_hermes_pilot_native.py`'s 5
-(against the **existing** `cmunley1/hermes-agent` pin, not yet re-pinned to
-the official repo — see below), `ruff`, and all four
-`scripts/audit_dependencies.py` invocations. CI's musl Rust probe builds use
-their own separate toolchain and a `python-version: '3.12'` test harness,
-untouched by this migration. One environment-specific gotcha found and
-avoided: a system-installed Python 3.14 can list both `lib/` and `lib64/`
-(symlinked to each other) on `sys.path`, which `check_environment`'s
-duplicate-package check correctly rejects; a `uv`-managed interpreter (as CI
-already uses via `actions/setup-python`) doesn't have this issue.
+`onboarding/gym` and `onboarding/red-team` re-pinned their exact interpreter
+(`3.13.14` -> `3.14.7`) in `pyproject.toml`, `.python-version` and their own
+source/pin manifests, regenerated each `uv.lock`, and updated the hardcoded
+interpreter checks in `scripts/audit_dependencies.py`'s marker environment and
+`tests/test_red_team_native.py`'s `NATIVE` guard (which had been silently
+skipping all 4 red-team native tests before — they now actually run). The CI
+`validate` matrix gained `'3.14'` alongside `'3.12'`/`'3.13'` (core only
+floors at `>=3.12`, so no `pyproject.toml` change was needed there). Verified
+empirically, not just resolved: every pinned dependency (`pydantic`,
+`cryptography`, `pyarrow`, `data-designer`, the full `nemo-gym` tree) installs
+under 3.14.7, and the full test suite passes in each environment. CI's musl
+Rust probe builds use their own separate toolchain and a
+`python-version: '3.12'` test harness, untouched by this migration. One
+environment-specific gotcha found and avoided: a system-installed Python 3.14
+can list both `lib/` and `lib64/` (symlinked to each other) on `sys.path`,
+which `check_environment`'s duplicate-package check correctly rejects; a
+`uv`-managed interpreter (as CI already uses via `actions/setup-python`)
+doesn't have this issue. (This migration also covered `onboarding/hermes`,
+since removed — see below.)
 
-`onboarding/hermes`'s `hermes-agent` pin (`cmunley1/hermes-agent@26bb847`,
-dated 2026-05-07) is a **personal fork**, not the official upstream
-(`NousResearch/hermes-agent`, confirmed via GitHub's API: `cmunley1/hermes-agent`
-is `fork: true` with `parent`/`source` both `NousResearch/hermes-agent`).
-AGENTS.md now requires pinning only from the official repo (2026-10-15). GitHub's
-compare API reports the fork's `main` as **diverged** from the pin (132 ahead,
-9 behind), not a clean fast-forward ancestor: the 9 commits reachable only from
-the pin are integration-specific (`44371a9` "add nemo gym support",
-token-ID-extraction fixes, compression/length-eviction work), ending at the pin
-itself (`26bb847`, "relax openai pin to >=2.0.0 for nemo-gym compat"), and none
-of those 9 commits are reachable from the fork's `main` today — confirmed
-concretely via `run_agent.py`: the pin's copy has a `nemo_gym`-postprocessor
-workaround comment (`grep -i nemo` finds 2 hits); the fork's `main` has zero.
-Re-pinning to `NousResearch/hermes-agent` directly (the actual upstream both
-the pin and the fork's current `main` ultimately derive from) still needs
-that same integration work re-verified or reintroduced — not yet done. Do not
-advance to either the fork's `main` or `NousResearch/hermes-agent` HEAD
-assuming the nemo-gym integration carries forward automatically.
+**The entire Hermes integration (`onboarding/hermes`, `scripts/hermes_pilot.py`,
+`scripts/hermes_worker.py`, the `hermes-pilot` CI job, GYM-03's pilot) was
+removed 2026-10-16.** Its `hermes-agent` dependency was pinned to
+`cmunley1/hermes-agent`, a **personal fork** of the real upstream
+(`NousResearch/hermes-agent`) — confirmed via GitHub's API (`fork: true`,
+`parent`/`source` both `NousResearch/hermes-agent`). Attempting to re-pin to
+the official repo (per the AGENTS.md rule this investigation added) found a
+hard, unfixable-from-this-repo blocker: `NousResearch/hermes-agent` dropped
+pip/uv installability entirely in July 2026 ("rip out brew + pip/PyPI wheel
+support") in favor of a shell-installer/Docker/Nix-only distribution. This
+breaks not only our own `pyproject.toml` dependency but NeMo Gym's own
+`responses_api_agents/hermes_agent/sandbox.py` install mechanism (not our
+code — it always reinstalls `hermes-agent` into its per-episode sandbox venv
+via a non-editable GitHub-archive-tarball `uv pip install`, which `uv` cannot
+do in editable mode for a git-sourced package even from our side). Fixing this
+would mean forking/patching Gym's own sandbox code, a materially different
+kind of change than a dependency pin bump. GYM-03 is being re-attempted with
+OpenCode instead (`responses_api_agents/opencode_agent`, which supports local
+execution with no sandbox provider required); see
+[nemo-gym-adoption.md](nemo-gym-adoption.md).
 
 None of these gaps is a known vulnerability; `scripts/audit_dependencies.py`
 and the Rust/CVE audits stay green.

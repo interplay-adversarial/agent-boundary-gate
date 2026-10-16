@@ -6,9 +6,11 @@ before changing contracts or adapter boundaries.
 - Keep core policy, signing and evidence contracts independent of target vendors.
 - Boundary backends, agent adapters and observers live in this repo initially.
 - Keep agent application identity separate from boundary runtime identity.
-- Pin `hermes-agent` only from the official `NousResearch/hermes-agent` upstream
-  (never a personal fork): a fork's history can silently diverge or be rewritten,
+- Pin any third-party agent harness only from its official upstream repository,
+  never a personal fork: a fork's history can silently diverge or be rewritten,
   dropping integration work the pin depended on without any signal in this repo.
+  (The Hermes integration was removed 2026-10-16 after NousResearch/hermes-agent
+  dropped pip/uv installability entirely — see docs/improvement-roadmap.md.)
 - Planned adapters must remain explicitly planned; do not imply live qualification.
 - Preserve raw violations, incident precedence, incomplete evidence and veto-only exceptions.
 - Treat signed wire versions as immutable. Never rewrite archived evidence.

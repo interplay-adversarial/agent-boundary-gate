@@ -131,7 +131,9 @@ converter and verifier also produce benign/compromised, exhausted and truncated
 artifacts that pass through the bridge with fake model transport. No credentials
 or live model/boundary traffic is used in these tests.
 
-Next is [GYM-03](nemo-gym-adoption.md): a pinned real harness, initially Hermes,
-and a controlled effect adapter that routes actions through the selected boundary
+Next is [GYM-03](nemo-gym-adoption.md): a pinned real harness (OpenCode is the
+current candidate; an earlier Hermes-based pilot was removed after its upstream
+dropped pip/uv installability) and a controlled effect adapter that routes
+actions through the selected boundary
 to independent receivers. Whole-cell containment, authenticated lifecycle/watchdog
 fault qualification and commercial baseline promotion remain separate work.

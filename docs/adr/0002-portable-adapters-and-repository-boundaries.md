@@ -23,7 +23,7 @@ src/agent_boundary_gate/
     openshell.py          implemented, live qualification pending
     fixture.py            loopback simulation only
   agents/
-    __init__.py           protocol; Hermes/OpenCode/OpenClaw adapters planned
+    __init__.py           protocol; OpenCode/OpenClaw adapters planned
   observers/
     denied_egress.py      paired receiver oracle
   legacy/
@@ -41,7 +41,7 @@ approval and preserves previously observed violations.
 
 OpenShell is implemented for the denied-egress action path but remains unqualified.
 Loopback exercises the software integration path with simulated policy/monitoring.
-Hermes, OpenCode and OpenClaw are planned **agent adapters**, not shipped backends.
+OpenCode and OpenClaw are planned **agent adapters**, not shipped backends.
 No agent/backend pairing is qualified merely because its interfaces compose.
 
 Schema `0.2` distinguishes an optional agent pin from a required boundary pin and

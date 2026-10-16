@@ -26,7 +26,6 @@ not qualify a live agent/boundary pairing.
 | How does a model behave under generated/adaptive probes? | `red-team-run` / `red_team_run` | Interplay research rows and private control artifacts | Supervised research; no automatic tool instrumentation or signed effect conversion |
 | Does a Gym verifier recognize a synthetic tool trace? | `scripts/gym_replay.py` | Native safety/utility/reward calibration | Offline synthetic replay, not a model or boundary test |
 | Can a model drive the Gym tool harness? | `scripts.gym_smoke` | Native trajectories and benign/injected task scores | Synthetic in-process tools; `boundary_evaluated: false` |
-| Does a Hermes tool choice cause remote synthetic egress? | `scripts.hermes_pilot` | Native trajectory plus independently observed allowed/forbidden receiver effects | Host Hermes process is outside the boundary; distributed development pilot |
 | How can native behavior and signed boundary results be reported together? | `gym_bridge.evaluate_gym_bridge` | Correlated native metrics and separate boundary result | Fixture conformance implemented; authenticated real-agent mapping remains planned |
 | What happens under crashes, stalls, storage loss or identity replacement? | Failure-drill test suites | Retained violations, incompleteness and recovery behavior | Bounded fixture/process drills; live power-loss/partition qualification remains open |
 
@@ -44,7 +43,6 @@ not qualify a live agent/boundary pairing.
 | Interplay + NeMo DataDesigner | Description-driven generation/refinement and model judging | Separate `onboarding/red-team` lock/interpreter/source pin |
 | PyArrow | Interplay JSONL/Parquet/Arrow analysis exports | Optional red-team environment, not core evidence policy |
 | NeMo Gym | Native verifier/harness and synthetic agent/tool tasks | Separate `onboarding/gym` lock and source pin |
-| Hermes | Host agent runtime through the pinned Gym harness | Separate `onboarding/hermes` lock and runtime source pin |
 | `uv`, Ruff, unit tests, pre-commit | Reproducible environments and development checks | Development tooling |
 | pip-audit, cargo-audit, Gitleaks, publication audit | Dependency advisories, secret and publication checks | Separate source/interpreter/image qualification still required |
 | RustFS, MLflow, EvalHub | Planned storage/tracking/platform integration | No shipped storage backend or EvalHub adapter in this workflow |
@@ -86,8 +84,8 @@ not OpenShell isolation. For runnable Python examples and the full trusted-input
 
 Read the relevant contracts before implementing a component. An application
 adapter's permissions and a boundary backend's enforcement are separate identities.
-Typed tool-request contracts do not mean a general Hermes/OpenCode/OpenClaw adapter
-is implemented. The Hermes pilot below has a narrower synthetic tool interface.
+Typed tool-request contracts do not mean a general OpenCode/OpenClaw adapter
+is implemented.
 
 ## Use Interplay research with gate supervision
 
@@ -147,18 +145,18 @@ interactions. The shipped optional paths are:
 | --- | --- | --- |
 | [Gym onboarding](gym-onboarding.md) | Actual upstream verifier on synthetic traces | Native calibration only; no model or boundary traffic |
 | [Gym model smoke](gym-model-smoke.md) | Actual SimpleAgent/tool harness and original synthetic tasks | Model/tool compatibility, safety and required-tool utility; no external tool effect |
-| [Hermes effect pilot](hermes-effect-pilot.md) | Actual host Hermes/Gym harness; fixed tools execute remote Rust probes | Separately observed synthetic egress; host process containment is not attested |
 | [Gym evidence bridge](gym-evidence-bridge.md) | Collector-owned mapping to signed boundary attempts | Native scores and gate result remain separate; qualified live mapping pending |
 
 Follow each linked guide for its pinned sources, isolated installation and operator
-inputs. Do not combine the optional locks or update Gym/Hermes pins when changing
+inputs. Do not combine the optional locks or update the Gym pin when changing
 Interplay. General task correctness and required-tool usage are different utility
 claims; the native verifier does not replace an independent state/effect oracle.
 See the [Gym adoption plan](nemo-gym-adoption.md) for how these paths sequence
 into the GYM-01 through GYM-04 milestones and what each one still needs.
 
-A Gym/Hermes `TargetAdapter` for the new Interplay assessment loop is still planned.
-The existing Hermes pilot does not automatically consume generated adaptive probes.
+A Gym `TargetAdapter` for the new Interplay assessment loop is still planned.
+No real-agent pilot exists yet to consume generated adaptive probes (the earlier
+Hermes-based GYM-03 pilot was removed; see the adoption plan).
 A future composition must bind probe/attempt identity, capture actual tool events,
 retain native verifier output, and independently correlate declared external effects.
 

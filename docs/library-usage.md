@@ -4,7 +4,7 @@ For workflow selection and dependency responsibilities, see the
 [tools and use-case guide](tools-and-use-cases.md). See
 [examples/README.md](../examples/README.md) for which capabilities have a
 standalone runnable example here versus a doc-only snippet that needs an
-operator-provided environment (Kubernetes, Rust toolchain, Gym/Hermes/Interplay
+operator-provided environment (Kubernetes, Rust toolchain, Gym/Interplay
 onboarding, or a live rig).
 
 The library is usable for offline signed-record policy evaluation, private local
@@ -34,7 +34,7 @@ For an existing Kubernetes gateway, start with the separate
 [development profile and library examples](kubernetes-development.md).
 `development-plan` prepares owner-only manifests without accessing a cluster.
 
-Hermes, OpenCode and OpenClaw adapters are planned. Typed tool-request contracts
+OpenCode and OpenClaw adapters are planned. Typed tool-request contracts
 do not imply an implemented agent adapter. Check support with
 `agent-boundary-gate adapters`.
 

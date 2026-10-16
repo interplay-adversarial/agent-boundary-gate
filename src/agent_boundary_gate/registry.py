@@ -14,7 +14,6 @@ class AdapterInfo:
 ADAPTERS = (
     AdapterInfo("openshell", "boundary", "implemented-unqualified", ("network-egress",)),
     AdapterInfo("loopback", "boundary", "simulation-only", ("network-egress",)),
-    AdapterInfo("hermes", "agent", "planned", ()),
     AdapterInfo("opencode", "agent", "planned", ()),
     AdapterInfo("openclaw", "agent", "planned", ()),
 )

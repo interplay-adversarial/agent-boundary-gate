@@ -1,7 +1,7 @@
 # Examples coverage
 
 This directory holds self-contained, runnable examples that need nothing beyond
-the source checkout: no cluster, no Rust toolchain, no Gym/Hermes/Interplay
+the source checkout: no cluster, no Rust toolchain, no Gym/Interplay
 onboarding environment, no network access.
 
 | File | Demonstrates |
@@ -16,7 +16,7 @@ onboarding environment, no network access.
 
 The capabilities below are real and tested, but each needs an operator-owned
 resource this checkout cannot provide on its own (a live Kubernetes gateway, an
-installed Rust toolchain, the separate Gym/Hermes/Interplay onboarding locks, or
+installed Rust toolchain, the separate Gym/Interplay onboarding locks, or
 a provisioned live rig). Rather than ship an example that cannot actually run,
 each row points at the doc section that already carries a complete, copy-pasteable
 snippet for that operator-provided environment:
@@ -28,7 +28,6 @@ snippet for that operator-provided environment:
 | Development runner / disposable cells (`development_run.DevelopmentRunner`) | An operator-owned Kubernetes gateway bootstrap | [development-runner.md](../docs/development-runner.md), [disposable-development-cells.md](../docs/disposable-development-cells.md) |
 | Independent namespace allocator | The same Kubernetes gateway, plus the allocator service | [development-namespace-allocation.md](../docs/development-namespace-allocation.md) |
 | Live workflow (`live.live_run`, `authority-serve`, `receiver-serve`, `watchdog`) | A provisioned live rig, trusted keys and an independent inspector | [live-workflow.md](../docs/live-workflow.md) |
-| Hermes effect pilot (`scripts/hermes_pilot.py`) | `onboarding/hermes`'s pinned lock/source and the disposable-cell infrastructure above | [hermes-effect-pilot.md](../docs/hermes-effect-pilot.md) |
 | Gym onboarding / model smoke (`scripts/gym_replay.py`, `scripts.gym_smoke`) | `onboarding/gym`'s pinned lock/source, and a model endpoint for the smoke path | [gym-onboarding.md](../docs/gym-onboarding.md), [gym-model-smoke.md](../docs/gym-model-smoke.md) |
 
 If you add a new offline-runnable example, also add a row to the first table

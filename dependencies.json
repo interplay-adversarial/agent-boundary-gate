@@ -19,10 +19,6 @@
     {
       "name": "nemo-gym",
       "repository": "https://github.com/NVIDIA-NeMo/Gym"
-    },
-    {
-      "name": "hermes-agent",
-      "repository": "https://github.com/NousResearch/hermes-agent"
     }
   ],
   "openshell_cli_contract": {
