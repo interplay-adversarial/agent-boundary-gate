@@ -21,7 +21,7 @@ uv sync --project onboarding/red-team --frozen --no-editable
 ```
 
 The lock pins Python 3.14.7, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
-Interplay commit `6372206d6d7f90b45bdfd2f2953cdde35617f2c0`. The bundled
+Interplay commit `c882d245433584f874ce5350691a7a21a1d68bf0`. The bundled
 `_pins/red-team.json` verifies the installed Git origin/revision, selected package
 versions and assessment/runner source digests before admission. Gym/Rust baselines
 remain separate. This pin includes the merged runner hardening and optional Gym
@@ -177,7 +177,9 @@ execution or containment attestation. Each final parent stage commits before its
 child is generated. Recovery exports committed lineage without resuming search or
 making model calls, and still reads legacy version-1 journals without changing them.
 
-Interplay now implements an optional NeMo Gym target at its separately qualified
-Gym revision. Gate onboarding uses a different Gym revision; this command does
-not select that adapter. Native compatibility and an independently observed
-tool-to-boundary pilot remain required before enabling it here.
+The admitted Interplay source supports the original f444b802 Gym baseline and
+Gate's b454c9a revision through separate explicit source manifests. Its native
+compatibility matrix passes at both revisions; b454 selection must be explicit
+because f444 remains the Interplay default. This command still selects only
+endpoint assessments. An externally supervised target path and independently
+observed tool-to-boundary/recovery pilot remain required before enabling Gym here.

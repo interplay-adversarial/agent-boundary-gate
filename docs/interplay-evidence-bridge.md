@@ -46,9 +46,9 @@ report = evaluate_interplay_bridge(
 ```
 
 The supported source is immutable Interplay
-`6372206d6d7f90b45bdfd2f2953cdde35617f2c0`. The separate red-team lock
+`c882d245433584f874ce5350691a7a21a1d68bf0`. The separate red-team lock
 changes only that VCS source; package versions and the exact Python 3.14.7 pin
-stay fixed. Admission verifies 24 assessment/runner/package files, including
+stay fixed. Admission verifies 25 assessment/runner/package files, including
 the optional Gym source manifest. The gate's existing endpoint campaign command
 remains the only enabled target path. Merely including other runners in the
 reviewed source does not qualify or select them.
@@ -87,17 +87,30 @@ policy/cleanup do not qualify a real enforcement boundary or crash durability.
 
 ## Validation and remaining work
 
-Nine bridge tests cover identity/replay, missing/corrupt/malformed data, duplicate
+Ten bridge tests cover identity/replay, missing/corrupt/malformed data, duplicate
 and stale boundary evidence, signature rejection, incomplete capture, preserved
 violations/incidents and offline receiver-effect recovery. Native DataDesigner
 conformance additionally correlates a real exported assessment row with a
 separately signed fixture and tests generation, judging, analytics, timeout
 recovery and changed-source rejection without provider traffic.
 
-Gate now pins Gym `b454c9a6e9a5644564fac81064050094b237daaa`; Interplay's Gym
-target was qualified against `f444b8020a3431fc820ef061cef400140bc7afb5`.
-Neither baseline is changed by this increment. Reviewed native compatibility,
-an externally supervised target path, independent tool-effect collection and a
-bounded private live/recovery pilot remain prerequisites to enabling that
-combination. Broad runner selection and frozen GYM-04 qualification remain open.
+The admitted source from [Interplay PR #76](https://github.com/interplay-adversarial/interplay/pull/76)
+supports both Gym revisions with five native complete/fault/source-rejection tests
+per revision and a bounded hosted native receiver smoke on b454c9a. See its
+[sanitized compatibility receipt](https://github.com/interplay-adversarial/interplay/blob/c882d245433584f874ce5350691a7a21a1d68bf0/docs/evidence/gym-compatibility-20261016.json).
+Merge that reusable PR before this dependent admission update. The original
+f444b802 default remains unchanged; any future Gate native session must explicitly
+select b454c9a to match this repository's Gym baseline. Neither Gym pin nor any
+transitive package version changes in this admission.
+
+Previously retained plans at Interplay6372206 remain supported for offline
+re-evaluation. Their plan/artifact bytes are not rewritten and their original
+source revision remains in the plan digest. This is read compatibility only:
+the execution worker still admits exactly the one source in `_pins/red-team.json`
+and does not fall back to old code. Unknown plan revisions remain incomplete.
+
+An externally supervised target path, independent tool-effect collection and a
+bounded private live/recovery pilot remain prerequisites to enabling Gym through
+Gate. A local file-receiver smoke is not a boundary-controlled remote effect.
+Broad runner selection and frozen GYM-04 qualification remain open.
 All reports remain release-ineligible; no new release authority is added.
