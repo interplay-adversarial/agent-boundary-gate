@@ -89,7 +89,10 @@ task, small enough to read in one sitting:
 
 Prove the resources server and provider config work in isolation before
 trying the full retry loop — this is the fastest way to tell "my gateway/model
-setup is wrong" apart from "the orchestrator is wrong":
+setup is wrong" apart from "the orchestrator is wrong". Replace every
+placeholder below (`openshell.example.internal:443`, `your-model-name`,
+`http://localhost:8000/v1`, the cert paths) with your own gateway and model
+details:
 
 ```sh
 export OPENSHELL_GATEWAY_ENDPOINT=openshell.example.internal:443
@@ -100,7 +103,7 @@ export OPENSHELL_GATEWAY_TLS_KEY_PATH=/path/to/your/client.key
 onboarding/gym/.venv/bin/gym eval run onboarding/gym/harbor-tasks/demo-add-fn \
   --agent opencode_agent --sandbox openshell_remote \
   --search-dir onboarding/gym/harbor_extra_root \
-  --model your-model-name --model-url https://your-model-endpoint/v1 \
+  --model your-model-name --model-url http://localhost:8000/v1 \
   --model-api-key "$YOUR_MODEL_API_KEY" \
   --output /tmp/demo-attempt-1/rollouts.jsonl -v
 
@@ -134,6 +137,9 @@ and you can mix them freely:
 
 ### 1. Write a config file
 
+Replace `your-model-name` / `http://localhost:8000/v1` with your own model and
+endpoint:
+
 ```json
 {
   "gym_executable": "onboarding/gym/.venv/bin/gym",
@@ -142,7 +148,7 @@ and you can mix them freely:
   "agent": "opencode_agent",
   "sandbox_provider": "openshell_remote",
   "model": "your-model-name",
-  "model_url": "https://your-model-endpoint/v1",
+  "model_url": "http://localhost:8000/v1",
   "model_api_key_env": "YOUR_MODEL_API_KEY",
   "max_attempts_per_task": 3,
   "success_reward_threshold": 1.0,
