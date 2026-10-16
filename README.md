@@ -18,6 +18,8 @@ runnable offline/loopback examples, stored evidence verification and live integr
   through separately pinned Interplay and NVIDIA NeMo DataDesigner: adversarial
   probe generation, separate model judging, private JSONL/Parquet/Arrow datasets
   and supervised interrupted-run recovery. Research verdicts grant no release authority.
+  An [offline attempt bridge](docs/interplay-evidence-bridge.md) binds retained
+  assessment rows to independent signed boundary records without enabling new targets.
 - Versioned CaseSpec, EvidenceManifest, RunResult, GateDecision and target profiles.
 - Frozen replay, component identity/generation checks and positive controls.
 - Independent denied-egress receiver observations and private evidence persistence.
