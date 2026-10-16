@@ -153,7 +153,7 @@ def main() -> int:
             # Filter marker branches for that interpreter before invoking an auditor
             # running in the core environment; otherwise it could scan wrong pins.
             environment = (
-                {"python_version": "3.13", "python_full_version": "3.13.14"}
+                {"python_version": "3.14", "python_full_version": "3.14.7"}
                 if args.gym or args.hermes or args.red_team
                 else None
             )

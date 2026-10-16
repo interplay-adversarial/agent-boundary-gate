@@ -16,8 +16,8 @@ from agent_boundary_gate.red_team import PIN, red_team_recover, red_team_run
 try:
     NATIVE = importlib.metadata.version("data-designer") == "0.9.5" and sys.version_info[:3] == (
         3,
-        13,
         14,
+        7,
     )
 except importlib.metadata.PackageNotFoundError:
     NATIVE = False

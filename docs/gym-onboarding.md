@@ -1,7 +1,7 @@
 # Pinned NeMo Gym onboarding
 
 The separate environment in [`onboarding/gym`](../onboarding/gym/) pins Gym
-commit `b454c9a6e9a5644564fac81064050094b237daaa`, Python `3.13.14` and its own
+commit `b454c9a6e9a5644564fac81064050094b237daaa`, Python `3.14.7` and its own
 dependency lock. Gym is not a core library dependency. This onboarding runs the
 upstream indirect-injection native verifier offline; it does not yet execute a
 model, agent harness or boundary effect. [Adoption milestones](nemo-gym-adoption.md).

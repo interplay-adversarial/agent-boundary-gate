@@ -1,7 +1,7 @@
 {
   "upstream": "https://github.com/NVIDIA-NeMo/Gym",
   "commit": "b454c9a6e9a5644564fac81064050094b237daaa",
-  "python": "3.13.14",
+  "python": "3.14.7",
   "files": {
     "LICENSE": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "pyproject.toml": "sha256:02b3f769c2f232a4010ae9a80b8908ae0269f3906e2a8294692cac63f80f1819",

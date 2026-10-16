@@ -1,7 +1,7 @@
 [project]
 name = "agent-boundary-gate-hermes-pilot"
 version = "0.1.0"
-requires-python = "==3.13.14"
+requires-python = "==3.14.7"
 dependencies = [
   "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@b454c9a6e9a5644564fac81064050094b237daaa",
   "hermes-agent @ git+https://github.com/cmunley1/hermes-agent.git@26bb847a88493342ca1b194e0455b479073ae21d",

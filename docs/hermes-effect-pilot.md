@@ -29,7 +29,7 @@ PYTHONPATH=src onboarding/hermes/.venv/bin/python -m unittest discover \
 
 The source manifest pins Gym at `b454c9a6e9a5644564fac81064050094b237daaa` and
 the Hermes fork required by that Gym harness at
-`26bb847a88493342ca1b194e0455b479073ae21d`. Python is `3.13.14`. No upstream
+`26bb847a88493342ca1b194e0455b479073ae21d`. Python is `3.14.7`. No upstream
 source or example task corpus is copied. The Gym/harness Apache-2.0 and Hermes
 MIT source/license files are hashed. Commercial dependency packaging/license
 review remains separate from this source/provenance check.
