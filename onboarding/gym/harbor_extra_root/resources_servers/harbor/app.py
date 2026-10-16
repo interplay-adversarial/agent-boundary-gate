@@ -16,6 +16,7 @@ does this reconstruction step -- it is the one genuinely new piece of logic.
 """
 
 import logging
+from dataclasses import dataclass
 from glob import glob
 from pathlib import Path
 from typing import Any, ClassVar
@@ -47,6 +48,16 @@ REWARD_TXT_PATH = "/logs/verifier/reward.txt"
 # Our own convention (external Harbor docs name both files but specify no JSON
 # schema): prefer this key in reward.json, fall back to a bare float in reward.txt.
 REWARD_JSON_KEY = "reward"
+# Optional, our own convention too: a task's test.sh may additionally report how many
+# of its sub-checks passed, as plain integers in reward.json. Gym's reward-profiling
+# keeps every numeric/bool field of a verify response (not just `reward`), so these
+# survive into rollout_infos[] for free once declared on HarborVerifyResponse below --
+# the retry loop uses them to tell "no progress between attempts" apart from "a
+# difference failure each time" (see adaptive_task_runner.py's `_is_stuck`). Absent
+# from reward.txt (a bare float has no room for them) and optional in reward.json too,
+# so a task that doesn't report them just keeps the existing reward-only behavior.
+TESTS_PASSED_KEY = "tests_passed"
+TESTS_TOTAL_KEY = "tests_total"
 
 
 class HarborResourcesServerConfig(BaseResourcesServerConfig):
@@ -71,9 +82,19 @@ class HarborResourcesServerConfig(BaseResourcesServerConfig):
     verify_timeout_seconds: float = 600.0
 
 
+@dataclass(frozen=True)
+class RewardSignal:
+    reward: float
+    tests_passed: int | None = None
+    tests_total: int | None = None
+
+
 class HarborVerifyResponse(BaseVerifyResponse):
     test_output: str = ""
     evaluation_completed: bool = False
+    # Optional structured progress signal; see TESTS_PASSED_KEY/TESTS_TOTAL_KEY above.
+    tests_passed: int | None = None
+    tests_total: int | None = None
 
 
 class HarborResourcesServer(SimpleResourcesServer):
@@ -116,7 +137,7 @@ class HarborResourcesServer(SimpleResourcesServer):
                 raise RuntimeError(f"Failed to stage {remote_fpath}: {mkdir_result.stderr}")
             await sandbox.upload(local_fpath, remote_fpath)
 
-    async def _collect_reward(self, sandbox: AsyncSandbox) -> float:
+    async def _collect_reward(self, sandbox: AsyncSandbox) -> RewardSignal:
         import json
         import tempfile
 
@@ -127,12 +148,19 @@ class HarborResourcesServer(SimpleResourcesServer):
                 local = scratch_path / "reward.json"
                 await sandbox.download(REWARD_JSON_PATH, local)
                 payload = json.loads(local.read_text())
-                return float(payload[REWARD_JSON_KEY])
+                tests_passed = payload.get(TESTS_PASSED_KEY)
+                tests_total = payload.get(TESTS_TOTAL_KEY)
+                return RewardSignal(
+                    reward=float(payload[REWARD_JSON_KEY]),
+                    tests_passed=int(tests_passed) if tests_passed is not None else None,
+                    tests_total=int(tests_total) if tests_total is not None else None,
+                )
             txt_check = await sandbox.exec(f"test -f {REWARD_TXT_PATH}", timeout_s=30)
             if txt_check.return_code == 0:
                 local = scratch_path / "reward.txt"
                 await sandbox.download(REWARD_TXT_PATH, local)
-                return float(local.read_text().strip())
+                # A bare float has no room for the optional progress fields.
+                return RewardSignal(reward=float(local.read_text().strip()))
             raise RuntimeError(f"Neither {REWARD_JSON_PATH} nor {REWARD_TXT_PATH} was written")
 
     async def _safe_stop(self, sandbox: AsyncSandbox) -> None:
@@ -221,10 +249,12 @@ class HarborResourcesServer(SimpleResourcesServer):
             result = await sandbox.exec(
                 "bash /tests/test.sh", timeout_s=self.config.verify_timeout_seconds
             )
-            reward = await self._collect_reward(sandbox)
+            signal = await self._collect_reward(sandbox)
             return HarborVerifyResponse(
                 **body.model_dump(),
-                reward=reward,
+                reward=signal.reward,
+                tests_passed=signal.tests_passed,
+                tests_total=signal.tests_total,
                 evaluation_completed=True,
                 test_output=(result.stderr or "") + (result.stdout or ""),
             )

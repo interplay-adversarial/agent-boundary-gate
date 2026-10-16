@@ -79,11 +79,13 @@ task, small enough to read in one sitting:
 - `instruction.md` — tells the agent `/workspace/calc.py` has a one-line bug in
   `add(a, b)` and to make `bash tests/test.sh` pass.
 - `tests/test.sh` — writes the buggy `calc.py` itself on first run (so the demo
-  needs no custom published image), then checks `add(2, 3) == 5` and writes
-  `{"reward": 1.0}` or `{"reward": 0.0}` to `/logs/verifier/reward.json`. This
-  project's own convention: prefer `reward.json`'s `"reward"` key over a bare
-  float in `reward.txt` when both exist (Harbor's own docs specify the two
-  file names but no JSON schema).
+  needs no custom published image), then runs three independent checks against
+  `add()` and writes `{"reward": <passed>/<total>, "tests_passed": <passed>,
+  "tests_total": <total>}` to `/logs/verifier/reward.json`. This project's own
+  convention: prefer `reward.json`'s `"reward"` key over a bare float in
+  `reward.txt` when both exist (Harbor's own docs specify the two file names
+  but no JSON schema); `tests_passed`/`tests_total` are optional and drive the
+  "no progress" detection described below.
 
 ## Running it by hand first
 
@@ -218,8 +220,8 @@ The command prints a JSON report and exits `0` if every task reached
   "completed": true,
   "tasks": {
     "demo-add-fn": [
-      {"attempt_number": 1, "reward": 0.0, "mask_sample": false, "decision": "retry", "...": "..."},
-      {"attempt_number": 2, "reward": 1.0, "mask_sample": false, "decision": "advance", "...": "..."}
+      {"attempt_number": 1, "reward": 0.33, "tests_passed": 1, "tests_total": 3, "mask_sample": false, "decision": "retry", "...": "..."},
+      {"attempt_number": 2, "reward": 1.0, "tests_passed": 3, "tests_total": 3, "mask_sample": false, "decision": "advance", "...": "..."}
     ]
   },
   "report_ref": "sha256:..."
@@ -228,6 +230,9 @@ The command prints a JSON report and exits `0` if every task reached
 
 - `reward` — from Gym's own reward-profiling output (`gym eval profile`'s
   `rollout_infos[].reward`), not a raw pass/fail.
+- `tests_passed` / `tests_total` — optional, only present when the task's
+  `test.sh` reports them (see "Structured progress signal" below). `null` for
+  a task that only reports a bare `reward`.
 - `mask_sample: true` — the reward is **not** a valid measurement of the
   agent's attempt; something in the infrastructure failed (a lost sandbox
   session, a gateway error, a crashed `gym` subprocess), not the agent's code.
@@ -247,6 +252,44 @@ The command prints a JSON report and exits `0` if every task reached
   print(store.read("sha256:...").decode())
   ```
 
+## Structured progress signal and escalation
+
+By default, the retry/advance/abandon decision looks only at `reward` and
+`mask_sample` — it never reads log/test-output text. But a task's `test.sh`
+can optionally report `tests_passed`/`tests_total` alongside `reward` in
+`reward.json` (as the example task does, splitting its check into three
+independent assertions). Gym's own reward-profiling keeps every numeric field
+of a verify response, not just `reward`, so these two integers flow through
+to `rollout_infos[]` for free and land on each attempt's `AttemptRecord` —
+no orchestrator change needed for a task author to opt in.
+
+When a task does report them, the orchestrator compares `tests_passed`
+across the last two (non-masked) attempts. If it's unchanged — the same
+number of checks passing twice in a row — the next retry's instruction is
+escalated: instead of just repeating "here's what failed, try again," it's
+told the previous approach made no further progress and to try a
+fundamentally different implementation strategy, not a small variation. This
+only changes the retry's *instruction*; it does not change whether the loop
+retries, advances, or abandons (budget and `success_reward_threshold` still
+govern that) — it's purely about nudging *how* the agent tries next, which
+is the thing a free-text log can't tell you reliably without reading it.
+
+A task that only reports a bare `reward` (or a `reward.txt` float) is
+unaffected: `tests_passed`/`tests_total` stay `null`, `_is_stuck` always
+returns `False` for it, and every retry gets the same plain feedback as
+before this feature existed.
+
+Two things this does **not** do, on purpose, for now: it doesn't shorten the
+attempt budget early just because the agent looks stuck (an "abandon this
+task after two stuck attempts even with budget left" rule would be a small,
+separate change to `fixed_budget_should_continue`), and it doesn't read
+`test_output`/`failure_reason` text at all for the *decision* — only
+`tests_passed`/`tests_total` (see `_is_stuck` in `adaptive_task_runner.py`).
+An LLM-judge-based classifier of the raw text (reusing Gym's own `judge.py`,
+already used this way by `resources_servers/job_bench`) is a reasonable
+follow-up for tasks that can't easily report structured partial credit, but
+isn't implemented here.
+
 ## Writing your own Harbor task
 
 Minimum required files: `task.toml` (at least `[environment] docker_image =
@@ -256,6 +299,12 @@ convention) or `/logs/verifier/reward.txt` (a bare float). There is no
 Dockerfile **build** support — only a prebuilt `docker_image` — so a task
 needing custom setup should do it at the top of `test.sh`, as the example task
 does.
+
+Optionally add `"tests_passed"`/`"tests_total"` integers alongside `"reward"`
+in `reward.json` (only possible via the JSON form, not `reward.txt`) to get
+the "no progress" escalation described above — worth doing whenever a task
+has more than one independent sub-check, since a single pass/fail reward
+can't distinguish "made partial progress" from "no progress at all."
 
 ## Known limits (v1)
 
