@@ -16,6 +16,7 @@ from agent_boundary_gate.adaptive_task_runner import (
     StopDecision,
     _build_adapted_instruction,
     _is_stuck,
+    _judge_progress,
     _materialize_attempt_task,
     adaptive_task_runner_run,
     fixed_budget_should_continue,
@@ -109,25 +110,26 @@ class StopDecisionTests(unittest.TestCase):
 
 class IsStuckTests(unittest.TestCase):
     def test_not_stuck_with_fewer_than_two_attempts(self):
-        self.assertFalse(_is_stuck([_record(0.33, tests_passed=1, tests_total=3)]))
+        history = [_record(0.33, tests_passed=1, tests_total=3)]
+        self.assertFalse(_is_stuck(history, [None], config=_config()))
 
-    def test_not_stuck_when_task_reports_no_structured_signal(self):
+    def test_not_stuck_when_task_reports_no_structured_signal_and_no_judge(self):
         history = [_record(0.0), _record(0.0)]
-        self.assertFalse(_is_stuck(history))
+        self.assertFalse(_is_stuck(history, [None, None], config=_config()))
 
     def test_not_stuck_when_either_attempt_is_masked(self):
         history = [
             _record(0.33, tests_passed=1, tests_total=3, mask_sample=True),
             _record(0.33, tests_passed=1, tests_total=3),
         ]
-        self.assertFalse(_is_stuck(history))
+        self.assertFalse(_is_stuck(history, [None, None], config=_config()))
 
     def test_not_stuck_when_progress_differs(self):
         history = [
             _record(0.33, tests_passed=1, tests_total=3),
             _record(0.66, tests_passed=2, tests_total=3),
         ]
-        self.assertFalse(_is_stuck(history))
+        self.assertFalse(_is_stuck(history, [None, None], config=_config()))
 
     def test_stuck_when_last_two_show_no_progress(self):
         history = [
@@ -135,7 +137,79 @@ class IsStuckTests(unittest.TestCase):
             _record(0.33, tests_passed=1, tests_total=3),
             _record(0.33, tests_passed=1, tests_total=3),
         ]
-        self.assertTrue(_is_stuck(history))
+        self.assertTrue(_is_stuck(history, [None, None, None], config=_config()))
+
+    def test_structured_signal_wins_over_judge(self):
+        # Numeric signal says "no progress", so the judge (which would say otherwise) must
+        # never even be consulted -- the numeric path short-circuits before any network call.
+        history = [
+            _record(0.33, tests_passed=1, tests_total=3),
+            _record(0.33, tests_passed=1, tests_total=3),
+        ]
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            self.assertTrue(_is_stuck(history, [None, None], config=config))
+            mocked.assert_not_called()
+
+    def test_judge_fallback_when_no_structured_signal(self):
+        history = [_record(0.0), _record(0.0)]
+        raw_rows = [
+            {"test_output": "AssertionError: expected 5, got -1"},
+            {"test_output": "AssertionError: expected 5, got -1"},
+        ]
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            mocked.return_value.__enter__.return_value.read.return_value = json.dumps(
+                {"choices": [{"message": {"content": "same_failure"}}]}
+            ).encode()
+            self.assertTrue(_is_stuck(history, raw_rows, config=config))
+
+    def test_judge_fallback_disabled_by_default(self):
+        history = [_record(0.0), _record(0.0)]
+        raw_rows = [{"test_output": "x"}, {"test_output": "x"}]
+        with patch("urllib.request.urlopen") as mocked:
+            self.assertFalse(_is_stuck(history, raw_rows, config=_config()))
+            mocked.assert_not_called()
+
+
+class JudgeProgressTests(unittest.TestCase):
+    def test_unconfigured_returns_none_without_network_call(self):
+        with patch("urllib.request.urlopen") as mocked:
+            self.assertIsNone(_judge_progress("a", "b", config=_config()))
+            mocked.assert_not_called()
+
+    def test_empty_detail_returns_none_without_network_call(self):
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            self.assertIsNone(_judge_progress("", "b", config=config))
+            mocked.assert_not_called()
+
+    def test_classifies_from_response_content(self):
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            mocked.return_value.__enter__.return_value.read.return_value = json.dumps(
+                {"choices": [{"message": {"content": "  Closer  "}}]}
+            ).encode()
+            self.assertEqual(_judge_progress("a", "b", config=config), "closer")
+
+    def test_unparseable_response_returns_none(self):
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            mocked.return_value.__enter__.return_value.read.return_value = b"not json"
+            self.assertIsNone(_judge_progress("a", "b", config=config))
+
+    def test_network_error_returns_none(self):
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen", side_effect=OSError("unreachable")):
+            self.assertIsNone(_judge_progress("a", "b", config=config))
+
+    def test_unrecognized_classification_returns_none(self):
+        config = _config(judge_model="judge-model", judge_url="http://localhost:9999")
+        with patch("urllib.request.urlopen") as mocked:
+            mocked.return_value.__enter__.return_value.read.return_value = json.dumps(
+                {"choices": [{"message": {"content": "maybe?"}}]}
+            ).encode()
+            self.assertIsNone(_judge_progress("a", "b", config=config))
 
 
 class BuildAdaptedInstructionTests(unittest.TestCase):

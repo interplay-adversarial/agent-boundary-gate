@@ -274,21 +274,49 @@ retries, advances, or abandons (budget and `success_reward_threshold` still
 govern that) — it's purely about nudging *how* the agent tries next, which
 is the thing a free-text log can't tell you reliably without reading it.
 
-A task that only reports a bare `reward` (or a `reward.txt` float) is
-unaffected: `tests_passed`/`tests_total` stay `null`, `_is_stuck` always
-returns `False` for it, and every retry gets the same plain feedback as
-before this feature existed.
+A task that only reports a bare `reward` (or a `reward.txt` float) and has no
+judge configured (below) is completely unaffected: `tests_passed`/
+`tests_total` stay `null`, `_is_stuck` always returns `False` for it, and
+every retry gets the same plain feedback as before this feature existed.
 
-Two things this does **not** do, on purpose, for now: it doesn't shorten the
-attempt budget early just because the agent looks stuck (an "abandon this
+One thing this still does **not** do, on purpose: it doesn't shorten the
+attempt budget early just because the agent looks stuck. An "abandon this
 task after two stuck attempts even with budget left" rule would be a small,
-separate change to `fixed_budget_should_continue`), and it doesn't read
-`test_output`/`failure_reason` text at all for the *decision* — only
-`tests_passed`/`tests_total` (see `_is_stuck` in `adaptive_task_runner.py`).
-An LLM-judge-based classifier of the raw text (reusing Gym's own `judge.py`,
-already used this way by `resources_servers/job_bench`) is a reasonable
-follow-up for tasks that can't easily report structured partial credit, but
-isn't implemented here.
+separate change to `fixed_budget_should_continue` — the stuck signal only
+ever changes the next retry's *wording*, never the retry/advance/abandon
+timing itself.
+
+### Judge fallback, for tasks with no structured signal
+
+A task that can't easily report `tests_passed`/`tests_total` (a single
+pass/fail check, or a task you don't control the `test.sh` of) can instead
+have the orchestrator classify progress from the raw `test_output`/
+`failure_reason` text, via a judge model call. Opt in by setting
+`judge_model` and `judge_url` in the config (plus `judge_api_key_env` if the
+judge endpoint needs auth) — a separate role from `model`/`model_url` (the
+agent under test), matching this project's existing convention of distinct
+adversarial/target/judge model roles elsewhere:
+
+```json
+{
+  "...": "... the rest of the config as above ...",
+  "judge_model": "your-judge-model-name",
+  "judge_url": "http://localhost:8000/v1",
+  "judge_api_key_env": "YOUR_JUDGE_API_KEY"
+}
+```
+
+When both attempts being compared have no structured signal, `_is_stuck`
+sends their raw failure text to the judge and asks for exactly one
+classification word: `same_failure`, `different_failure`, `closer`, or
+`resolved`. Only `same_failure` counts as "stuck." The structured numeric
+comparison always takes priority when both attempts report it — the judge is
+a fallback for when there's nothing numeric to compare, never a second
+opinion that could override the numeric signal. The call uses Python's
+stdlib `urllib` (no new dependency, no `nemo_gym`/`openai` SDK import) and
+never raises: a network error, a malformed response, or an unrecognized
+classification word all just mean "no signal," identical to having no judge
+configured at all.
 
 ## Writing your own Harbor task
 

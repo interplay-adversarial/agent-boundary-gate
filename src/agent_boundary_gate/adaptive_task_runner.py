@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import time
+import urllib.request
 from enum import StrEnum
 from pathlib import Path
 from threading import Event
@@ -30,6 +31,8 @@ from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import ReceiptContract
 
 DEMO_INSTRUCTION_TAIL_CHARS = 4000
+JUDGE_DETAIL_TAIL_CHARS = 2000
+JUDGE_CLASSIFICATIONS = frozenset({"same_failure", "different_failure", "closer", "resolved"})
 _ENV_LINE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]{0,80})=(.*)$")
 
 
@@ -75,6 +78,17 @@ class AdaptiveTaskRunnerConfig(ReceiptContract):
     success_reward_threshold: float = 1.0
     attempt_seconds: Annotated[int, Field(ge=30, le=3600)] = 900
     profile_seconds: Annotated[int, Field(ge=10, le=600)] = 120
+    # Optional fallback for tasks that report no structured tests_passed/tests_total: a judge
+    # model classifies whether two consecutive raw failure texts show progress. Disabled
+    # unless both judge_model and judge_url are set -- a task with a structured signal never
+    # calls it (the numeric comparison always wins), and any call/parse failure just means
+    # "not stuck" (today's behavior), never an error. A separate role from `model`/`model_url`
+    # (the agent under test), matching red_team.py's own separate ADVERSARIAL/TARGET/JUDGE
+    # model convention -- a classification judge doesn't need to be the same model.
+    judge_model: str | None = None
+    judge_url: str | None = None
+    judge_api_key_env: str | None = None
+    judge_timeout_seconds: Annotated[int, Field(ge=5, le=120)] = 30
 
 
 class StopDecision(StrEnum):
@@ -150,27 +164,95 @@ def _materialize_attempt_task(
     return target
 
 
-def _is_stuck(history: list[AttemptRecord]) -> bool:
-    """No progress between the last two attempts, by the task's own structured signal.
+def _judge_progress(
+    previous_detail: str, last_detail: str, *, config: AdaptiveTaskRunnerConfig
+) -> str | None:
+    """Classify two consecutive raw failure texts via a judge model call.
+
+    Returns one of JUDGE_CLASSIFICATIONS, or None when judging isn't configured
+    (judge_model/judge_url unset), either text is empty, or the call/parse fails for any
+    reason. Never raises: a None here just means the caller's no-signal fallback applies,
+    identical to today's behavior for a task with no judge configured at all. Uses stdlib
+    urllib rather than an SDK/HTTP-client dependency -- this module deliberately carries no
+    dependency beyond pydantic (it does not import nemo_gym or add an HTTP client just for
+    one classification call).
+    """
+    if not config.judge_model or not config.judge_url:
+        return None
+    previous_detail = previous_detail.strip()[-JUDGE_DETAIL_TAIL_CHARS:]
+    last_detail = last_detail.strip()[-JUDGE_DETAIL_TAIL_CHARS:]
+    if not previous_detail or not last_detail:
+        return None
+    prompt = (
+        "Two consecutive attempts at the same coding task failed. Classify the "
+        "relationship between them as exactly one of these words, nothing else:\n"
+        "same_failure - the two failures are essentially the same underlying problem\n"
+        "different_failure - a different problem now, but no closer to passing overall\n"
+        "closer - still failing, but visibly closer to passing than before\n"
+        "resolved - the second attempt's output suggests it actually passed\n\n"
+        f"First attempt's failure:\n{previous_detail}\n\n"
+        f"Second attempt's failure:\n{last_detail}\n"
+    )
+    headers = {"Content-Type": "application/json"}
+    if config.judge_api_key_env:
+        key = os.environ.get(config.judge_api_key_env)
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+    request = urllib.request.Request(
+        config.judge_url.rstrip("/") + "/chat/completions",
+        data=json.dumps(
+            {
+                "model": config.judge_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.0,
+                "max_tokens": 10,
+            }
+        ).encode(),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=config.judge_timeout_seconds) as response:
+            payload = json.loads(response.read())
+        text = payload["choices"][0]["message"]["content"].strip().lower()
+    except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+        return None
+    return text if text in JUDGE_CLASSIFICATIONS else None
+
+
+def _is_stuck(
+    history: list[AttemptRecord],
+    raw_rows: list[dict[str, Any] | None],
+    *,
+    config: AdaptiveTaskRunnerConfig,
+) -> bool:
+    """No progress between the last two attempts.
 
     Requires at least two attempts, neither masked (an infra failure is a different
-    problem, already handled by fixed_budget_should_continue's all-masked check), and
-    a task that actually reports tests_passed/tests_total -- a task that only reports
-    a bare reward has no structured signal to compare, so this is never "stuck" for it
-    (the existing reward-only retry behavior is unaffected). Comparing tests_passed
-    rather than the reward float avoids false positives from floating-point noise and
-    is meaningful even when reward is a derived ratio, as the demo task's is.
+    problem, already handled by fixed_budget_should_continue's all-masked check). Two
+    signal sources, structured first: when both attempts report tests_passed, that
+    numeric comparison always wins (cheap, deterministic, no network call) -- comparing
+    tests_passed rather than the reward float avoids false positives from floating-point
+    noise and is meaningful even when reward is a derived ratio, as the demo task's is.
+    Only when NEITHER attempt has a structured signal does this fall back to a judge
+    classification of the raw test_output/failure_reason text (only if configured); a
+    task that reports no structured signal and has no judge configured is simply never
+    "stuck" (the original, pre-judge behavior, unaffected).
     """
     if len(history) < 2:
         return False
     previous, last = history[-2], history[-1]
     if previous.mask_sample or last.mask_sample:
         return False
-    if previous.tests_passed is None or last.tests_passed is None:
-        return False
-    if previous.tests_total != last.tests_total:
-        return False
-    return previous.tests_passed == last.tests_passed
+    if previous.tests_passed is not None and last.tests_passed is not None:
+        if previous.tests_total != last.tests_total:
+            return False
+        return previous.tests_passed == last.tests_passed
+    previous_raw = raw_rows[-2] or {}
+    last_raw = raw_rows[-1] or {}
+    previous_detail = previous_raw.get("test_output") or previous_raw.get("failure_reason") or ""
+    last_detail = last_raw.get("test_output") or last_raw.get("failure_reason") or ""
+    return _judge_progress(previous_detail, last_detail, config=config) == "same_failure"
 
 
 def _build_adapted_instruction(
@@ -341,6 +423,7 @@ def adaptive_task_runner_run(
         for task_folder in config.task_folders:
             task_id = task_folder.name
             history: list[AttemptRecord] = []
+            raw_rows: list[dict[str, Any] | None] = []
             adapted_instruction: str | None = None
             while True:
                 attempt_dir = output / "attempts" / task_id / str(len(history) + 1)
@@ -358,14 +441,15 @@ def adaptive_task_runner_run(
                     task_id, len(history) + 1, rollouts_path, profile_path, store
                 )
                 candidate_history = [*history, record]
+                candidate_raw_rows = [*raw_rows, raw_row]
                 decision = fixed_budget_should_continue(candidate_history, config=config)
                 record = record.model_copy(update={"decision": decision})
                 history.append(record)
+                raw_rows.append(raw_row)
                 if decision != StopDecision.RETRY:
                     break
-                adapted_instruction = _build_adapted_instruction(
-                    task_folder, raw_row, stuck=_is_stuck(candidate_history)
-                )
+                stuck = _is_stuck(candidate_history, candidate_raw_rows, config=config)
+                adapted_instruction = _build_adapted_instruction(task_folder, raw_row, stuck=stuck)
             tasks[task_id] = [record.model_dump(mode="json") for record in history]
             if history[-1].decision == StopDecision.ABANDON:
                 break
