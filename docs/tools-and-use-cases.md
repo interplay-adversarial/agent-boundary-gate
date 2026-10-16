@@ -26,6 +26,7 @@ not qualify a live agent/boundary pairing.
 | How does a model behave under generated/adaptive probes? | `red-team-run` / `red_team_run` | Interplay research rows and private control artifacts | Supervised research; no automatic tool instrumentation or signed effect conversion |
 | Does a Gym verifier recognize a synthetic tool trace? | `scripts/gym_replay.py` | Native safety/utility/reward calibration | Offline synthetic replay, not a model or boundary test |
 | Can a model drive the Gym tool harness? | `scripts.gym_smoke` | Native trajectories and benign/injected task scores | Synthetic in-process tools; `boundary_evaluated: false` |
+| Does the pinned OpenCode CLI install and run against my model endpoint? | `scripts.opencode_smoke` | One headless run's exit code and session-database readback | Plumbing only, no adapter/tool-routing/boundary; `boundary_evaluated: false` |
 | How can native behavior and signed boundary results be reported together? | `gym_bridge.evaluate_gym_bridge` | Correlated native metrics and separate boundary result | Fixture conformance implemented; authenticated real-agent mapping remains planned |
 | What happens under crashes, stalls, storage loss or identity replacement? | Failure-drill test suites | Retained violations, incompleteness and recovery behavior | Bounded fixture/process drills; live power-loss/partition qualification remains open |
 
@@ -146,6 +147,7 @@ interactions. The shipped optional paths are:
 | [Gym onboarding](gym-onboarding.md) | Actual upstream verifier on synthetic traces | Native calibration only; no model or boundary traffic |
 | [Gym model smoke](gym-model-smoke.md) | Actual SimpleAgent/tool harness and original synthetic tasks | Model/tool compatibility, safety and required-tool utility; no external tool effect |
 | [Gym evidence bridge](gym-evidence-bridge.md) | Collector-owned mapping to signed boundary attempts | Native scores and gate result remain separate; qualified live mapping pending |
+| [OpenCode model smoke](opencode-model-smoke.md) | Pinned OpenCode CLI, one headless local run | Install/config/session-readback plumbing only; no adapter, tool-routing or boundary |
 
 Follow each linked guide for its pinned sources, isolated installation and operator
 inputs. Do not combine the optional locks or update the Gym pin when changing

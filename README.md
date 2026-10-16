@@ -73,6 +73,10 @@ runnable offline/loopback examples, stored evidence verification and live integr
   A first real-agent effect pilot (initially Hermes, removed 2026-10-16 after its
   upstream dropped pip/uv installability; now being re-attempted with OpenCode)
   remains open — see the [NeMo Gym adoption plan](docs/nemo-gym-adoption.md).
+  A generic `AgentAdapter` conformance suite and loopback fixture exist, and a
+  separate [OpenCode install/config/session-readback smoke](docs/opencode-model-smoke.md)
+  proves the pinned CLI runs against an operator-selected model endpoint; neither
+  one yet drives OpenCode through the gate's own case/tool-request path.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
