@@ -20,8 +20,8 @@ From this repository, install the optional environment independently:
 uv sync --project onboarding/red-team --frozen --no-editable
 ```
 
-The lock pins Python 3.13.14, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
-Interplay commit `1339cc225de37a26b6805a6f1eba9e1c49663cd6`. The bundled
+The lock pins Python 3.14.7, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
+Interplay commit `e03063a1c7659be07dfe68af393688c4b94725e2`. The bundled
 `_pins/red-team.json` verifies the installed Git origin/revision, selected package
 versions and assessment source digests before admission. Gym/Hermes/Rust baselines
 remain separate. This source pin selects the adaptive-feedback Interplay increment; review and
