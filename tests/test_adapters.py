@@ -9,12 +9,12 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 
+from agent_boundary_gate.agents.fixture import LoopbackAgentAdapter
 from agent_boundary_gate.auth import digest, sign
-from agent_boundary_gate.backends import Readiness, UnsupportedCapability
+from agent_boundary_gate.backends import UnsupportedCapability
 from agent_boundary_gate.backends.fixture import LoopbackBackend
 from agent_boundary_gate.case_registry import load_case, replay_digest
 from agent_boundary_gate.contracts import (
-    ComponentIdentity,
     ComponentPin,
     Dispatch,
     SignedRecord,
@@ -153,10 +153,12 @@ class AdapterTests(unittest.TestCase):
 
     def test_planned_adapters_are_not_advertised_as_supported(self):
         agents = [entry for entry in inventory() if entry["role"] == "agent"]
-        self.assertEqual({entry["id"] for entry in agents}, {"opencode", "openclaw"})
-        self.assertTrue(
-            all(entry["status"] == "planned" and not entry["capabilities"] for entry in agents)
-        )
+        planned = [entry for entry in agents if entry["status"] == "planned"]
+        self.assertEqual({entry["id"] for entry in planned}, {"opencode", "openclaw"})
+        self.assertTrue(all(not entry["capabilities"] for entry in planned))
+        simulated = [entry for entry in agents if entry["status"] != "planned"]
+        self.assertEqual({entry["id"] for entry in simulated}, {"loopback"})
+        self.assertTrue(all(entry["capabilities"] for entry in simulated))
 
     def test_current_schema_rejects_legacy_examples(self):
         with self.assertRaises(ValidationError):
@@ -169,7 +171,7 @@ class AdapterTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(json.loads(result.stdout)), 4)
+        self.assertEqual(len(json.loads(result.stdout)), 5)
 
     def test_legacy_evidence_retains_original_signature(self):
         # Synthetic legacy record, constructed from the archived unsigned examples.
@@ -249,25 +251,7 @@ class AdapterTests(unittest.TestCase):
         )
         self.dispatch = self.dispatch.model_copy(update={"instances": (instance,)})
 
-        class TestAgent:
-            agent_id = "test-agent"
-            capabilities = frozenset({"tool-authorization"})
-            calls = []
-
-            def readiness(self, **kwargs):
-                identity = ComponentIdentity(
-                    component_id=self.agent_id,
-                    role="agent",
-                    instance_uid="agent-instance",
-                    generation="agent-generation",
-                )
-                return Readiness((identity,), D, True)
-
-            def request_tool(self, action, attempt_id, **kwargs):
-                self.calls.append(action.control)
-                return True
-
-        agent = TestAgent()
+        agent = LoopbackAgentAdapter(D, agent_id="test-agent")
 
         class ToolObserver:
             attempt_id = self.dispatch.binding.attempt_id
