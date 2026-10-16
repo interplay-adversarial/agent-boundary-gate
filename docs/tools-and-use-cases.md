@@ -27,6 +27,7 @@ not qualify a live agent/boundary pairing.
 | Does a Gym verifier recognize a synthetic tool trace? | `scripts/gym_replay.py` | Native safety/utility/reward calibration | Offline synthetic replay, not a model or boundary test |
 | Can a model drive the Gym tool harness? | `scripts.gym_smoke` | Native trajectories and benign/injected task scores | Synthetic in-process tools; `boundary_evaluated: false` |
 | Does the pinned OpenCode CLI install and run against my model endpoint? | `scripts.opencode_smoke` | One headless run's exit code and session-database readback | Plumbing only, no adapter/tool-routing/boundary; `boundary_evaluated: false` |
+| Does a real OpenCode session attempt a case's tool_request action? | `agents.opencode.OpenCodeAgentAdapter` | A generated custom tool's own completion receipt | Implemented, unqualified; passes generic `AgentAdapter` conformance against a fake runner only; live model behavior unverified |
 | How can native behavior and signed boundary results be reported together? | `gym_bridge.evaluate_gym_bridge` | Correlated native metrics and separate boundary result | Fixture conformance implemented; authenticated real-agent mapping remains planned |
 | What happens under crashes, stalls, storage loss or identity replacement? | Failure-drill test suites | Retained violations, incompleteness and recovery behavior | Bounded fixture/process drills; live power-loss/partition qualification remains open |
 
@@ -86,7 +87,9 @@ not OpenShell isolation. For runnable Python examples and the full trusted-input
 Read the relevant contracts before implementing a component. An application
 adapter's permissions and a boundary backend's enforcement are separate identities.
 Typed tool-request contracts do not mean a general OpenCode/OpenClaw adapter
-is implemented.
+is implemented. An implemented, unqualified `OpenCodeAgentAdapter` exists
+([guide](opencode-agent-adapter.md)); OpenClaw remains planned, and neither
+has established sandbox-native pairing or qualification.
 
 ## Use Interplay research with gate supervision
 
@@ -148,6 +151,7 @@ interactions. The shipped optional paths are:
 | [Gym model smoke](gym-model-smoke.md) | Actual SimpleAgent/tool harness and original synthetic tasks | Model/tool compatibility, safety and required-tool utility; no external tool effect |
 | [Gym evidence bridge](gym-evidence-bridge.md) | Collector-owned mapping to signed boundary attempts | Native scores and gate result remain separate; qualified live mapping pending |
 | [OpenCode model smoke](opencode-model-smoke.md) | Pinned OpenCode CLI, one headless local run | Install/config/session-readback plumbing only; no adapter, tool-routing or boundary |
+| [OpenCode agent adapter](opencode-agent-adapter.md) | Real headless OpenCode session + generated custom tool | Implemented, unqualified `AgentAdapter`; receipt-based completion, not session parsing |
 
 Follow each linked guide for its pinned sources, isolated installation and operator
 inputs. Do not combine the optional locks or update the Gym pin when changing

@@ -1,0 +1,124 @@
+"""Shared OpenCode CLI pin/install/readiness logic, independent of any transport.
+
+Used by both the manual model-backed smoke (scripts/opencode_smoke.py) and the
+OpenCodeAgentAdapter. Installation is a separate, explicit, operator-run step
+from readiness: readiness must stay cheap and read-only (no network, no
+subprocess beyond a local --version call), matching COMPAT-02's doctor
+philosophy, since lifecycle readiness budgets are seconds, not install time.
+"""
+
+import re
+import subprocess
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+OPENCODE_VERSION = "1.17.11"
+
+
+class OpenCodeProvider(BaseModel):
+    """An operator-selected model endpoint for OpenCode's stock openai-compatible provider.
+
+    Shared by scripts/opencode_smoke.py and OpenCodeAgentAdapter so both validate
+    and report the same way. The credential itself is never a field here: callers
+    resolve it from the environment variable named by api_key_env at call time.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    base_url: str
+    api_key_env: str
+    # OpenCode's own "<provider>/<model>" reference for its stock openai-compatible
+    # provider, e.g. "openai/qwen38-27b" -- not a bare model name.
+    model: str
+    timeout_seconds: int = Field(default=120, ge=1, le=900)
+
+    def baseline(self) -> dict[str, object]:
+        # Credential loading is not part of the evaluation baseline.
+        return self.model_dump(include={"base_url", "model", "timeout_seconds"})
+
+    @field_validator("base_url")
+    @classmethod
+    def safe_url(cls, value: str) -> str:
+        url = urlsplit(value)
+        if (
+            not value.isascii()
+            or any(ord(c) <= 32 or ord(c) == 127 for c in value)
+            or url.scheme != "https"
+            or not url.hostname
+            or url.username is not None
+            or url.password is not None
+            or url.query
+            or url.fragment
+            or url.path.rstrip("/").split("/")[-1] != "v1"
+        ):
+            raise ValueError("invalid-provider-url")
+        return value.rstrip("/")
+
+    @field_validator("api_key_env")
+    @classmethod
+    def safe_env(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,80}", value):
+            raise ValueError("invalid-credential-reference")
+        return value
+
+    @field_validator("model")
+    @classmethod
+    def safe_identity(cls, value: str) -> str:
+        if not value or len(value) > 256 or not value.isprintable():
+            raise ValueError("invalid-model-identity")
+        return value
+
+
+def opencode_command(install_dir: Path) -> Path:
+    return install_dir / "node_modules" / ".bin" / "opencode"
+
+
+def is_opencode_ready(
+    version: str, install_dir: Path, *, timeout_seconds: float = 10, run=subprocess.run
+) -> bool:
+    """Read-only: true only if the pinned binary is present and reports that version."""
+    command = opencode_command(install_dir)
+    if not command.is_file():
+        return False
+    try:
+        check = run(
+            [str(command), "--version"], capture_output=True, text=True, timeout=timeout_seconds
+        )
+    except OSError:
+        return False
+    return check.returncode == 0 and check.stdout.strip() == version
+
+
+def ensure_opencode(
+    version: str, install_dir: Path, *, timeout_seconds: float, run=subprocess.run
+) -> str:
+    """Return a path to the pinned OpenCode CLI, installing it locally if needed.
+
+    Installs into ``install_dir`` (writable, non-global) rather than the
+    system npm prefix, which is frequently read-only for an unprivileged user.
+    This is a mutating, potentially slow (network) operation -- call it from
+    explicit setup code, never from a readiness check.
+    """
+    command = opencode_command(install_dir)
+    if not command.is_file():
+        result = run(
+            ["npm", "install", "--no-save", "--prefix", str(install_dir), f"opencode-ai@{version}"],
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+        if result.returncode != 0:
+            raise RuntimeError("opencode-install-failed")
+    try:
+        check = run([str(command), "--version"], capture_output=True, text=True, timeout=10)
+    except OSError as error:
+        # Covers a missing binary (install silently produced nothing runnable)
+        # without a separate, redundant existence check beforehand.
+        raise RuntimeError("opencode-install-failed") from error
+    if check.returncode != 0 or check.stdout.strip() != version:
+        # A pre-existing binary at the wrong version is a fatal mismatch, never
+        # silently reinstalled over.
+        raise RuntimeError("opencode-version-mismatch")
+    return str(command)
