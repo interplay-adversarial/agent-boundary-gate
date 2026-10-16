@@ -17,7 +17,10 @@ from agent_boundary_gate.contracts import Decision, Digest, Dispatch, GateDecisi
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
 from agent_boundary_gate.gate_policy import evaluate
 
-INTERPLAY_COMMIT = "6372206d6d7f90b45bdfd2f2953cdde35617f2c0"
+INTERPLAY_COMMIT = "c882d245433584f874ce5350691a7a21a1d68bf0"
+SUPPORTED_INTERPLAY_COMMITS = frozenset(
+    ("6372206d6d7f90b45bdfd2f2953cdde35617f2c0", INTERPLAY_COMMIT)
+)
 AttemptID = Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
 
 
@@ -107,7 +110,7 @@ def evaluate_interplay_bridge(
     plan = InterplayAttemptPlan.model_validate_json(plan.model_dump_json())
     dispatch = Dispatch.model_validate_json(dispatch.model_dump_json())
     reasons = set()
-    if plan.interplay_commit != INTERPLAY_COMMIT:
+    if plan.interplay_commit not in SUPPORTED_INTERPLAY_COMMITS:
         reasons.add("unsupported-interplay-source")
     if (
         plan.dispatch_digest != digest(dispatch)

@@ -140,6 +140,10 @@ class RedTeamNativeTests(unittest.TestCase):
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        pin = json.loads(PIN.read_text())
+        self.assertEqual(pin["commit"], INTERPLAY_COMMIT)
+        self.assertIn("interplay/assessment/gym_source_b454.json", pin["files"])
+
         result = red_team_run(self.config, self.root / "campaign", Path(sys.executable))
         self.assertTrue(result["assessment_complete"], result)
         self.assertFalse(result["release_eligible"])
