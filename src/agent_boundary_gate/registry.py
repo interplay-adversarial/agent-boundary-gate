@@ -15,7 +15,7 @@ ADAPTERS = (
     AdapterInfo("openshell", "boundary", "implemented-unqualified", ("network-egress",)),
     AdapterInfo("loopback", "boundary", "simulation-only", ("network-egress",)),
     AdapterInfo("loopback", "agent", "simulation-only", ("tool-authorization",)),
-    AdapterInfo("opencode", "agent", "planned", ()),
+    AdapterInfo("opencode", "agent", "implemented-unqualified", ("tool-authorization",)),
     AdapterInfo("openclaw", "agent", "planned", ()),
 )
 

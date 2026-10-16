@@ -5,7 +5,8 @@ boundaries. Agent adapters, boundary backends and independent observers compose
 through signed, versioned contracts. OpenShell is the first implementation backend.
 
 **Prototype:** release authorization remains disabled. OpenShell has not been
-qualified against a live target. OpenCode and OpenClaw adapters are planned.
+qualified against a live target. An OpenCode agent adapter is implemented but
+unqualified; OpenClaw remains planned.
 
 Start with the [tools, library APIs and use-case guide](docs/tools-and-use-cases.md)
 for workflow selection across boundary evidence, adaptive assessments and native
@@ -75,8 +76,13 @@ runnable offline/loopback examples, stored evidence verification and live integr
   remains open — see the [NeMo Gym adoption plan](docs/nemo-gym-adoption.md).
   A generic `AgentAdapter` conformance suite and loopback fixture exist, and a
   separate [OpenCode install/config/session-readback smoke](docs/opencode-model-smoke.md)
-  proves the pinned CLI runs against an operator-selected model endpoint; neither
-  one yet drives OpenCode through the gate's own case/tool-request path.
+  proves the pinned CLI runs against an operator-selected model endpoint. An
+  [OpenCode agent adapter](docs/opencode-agent-adapter.md) now drives a real
+  headless session through the gate's own case/tool-request path too, proving
+  completion with its own generated tool's receipt rather than OpenCode's
+  internal session format; it passes the same generic conformance suite
+  against a fake runner, but has not been run against a live model endpoint
+  by this repository's own CI or by an automated agent.
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the

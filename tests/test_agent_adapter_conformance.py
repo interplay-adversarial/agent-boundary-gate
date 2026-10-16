@@ -5,17 +5,57 @@ adapter should be added to ADAPTER_FACTORIES and pass the same suite unmodified;
 these tests are not an end-to-end lifecycle run (see test_adapters.py for that).
 """
 
+import re
+import subprocess
+import tempfile
 import time
 import unittest
+from pathlib import Path
 from threading import Event
 
 from agent_boundary_gate.agents.fixture import LoopbackAgentAdapter
+from agent_boundary_gate.agents.opencode import OpenCodeAgentAdapter
+from agent_boundary_gate.agents.opencode_runtime import OPENCODE_VERSION, OpenCodeProvider
 from agent_boundary_gate.contracts import ToolRequestAction
 
 D = "sha256:" + "a" * 64
 
+
+def _opencode_factory() -> OpenCodeAgentAdapter:
+    # A real binary file must exist for is_opencode_ready's own existence check;
+    # the module-level directory below is created once and never cleaned up
+    # (test-process lifetime only, a few bytes).
+    install_dir = Path(tempfile.mkdtemp(prefix="opencode-conformance-"))
+    command = install_dir / "node_modules" / ".bin" / "opencode"
+    command.parent.mkdir(parents=True)
+    command.touch()
+
+    def fake_run(args, **kwargs):
+        if "--version" in args:
+            return subprocess.CompletedProcess(args, 0, stdout=OPENCODE_VERSION, stderr="")
+        # Simulates a model that does exactly what the generated tool's prompt
+        # asks -- this suite exercises the adapter's own code paths, not a real
+        # model's behavior (see docs/opencode-model-smoke.md for that).
+        prompt = args[-1]
+        control = re.search(r'control="([^"]+)"', prompt).group(1)
+        env = kwargs["env"]
+        Path(env["AGENT_BOUNDARY_GATE_RECEIPT_PATH"]).write_text(
+            "agent-boundary-gate-tool-complete:"
+            + env["AGENT_BOUNDARY_GATE_ATTEMPT_ID"]
+            + ":"
+            + control
+        )
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    provider = OpenCodeProvider(
+        base_url="https://example.com/v1", api_key_env="UNUSED", model="openai/m"
+    )
+    return OpenCodeAgentAdapter(provider, "synthetic-credential", install_dir, run=fake_run)
+
+
 ADAPTER_FACTORIES = {
     "loopback": lambda: LoopbackAgentAdapter(D),
+    "opencode": _opencode_factory,
 }
 
 

@@ -30,7 +30,7 @@ only what remains open.
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Independent proof interpretation, issuer verification and remote authority remain open. |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned; not started. |
-| PORT-01 | P2 | First real agent pairing through Gym | One of OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. (Hermes was tried and removed 2026-10-16 — see the dependency freshness audit.) | A generic AgentAdapter conformance suite and loopback fixture adapter now exist (`agents/fixture.py`, `tests/test_agent_adapter_conformance.py`); an install/config/session-readback smoke for the pinned OpenCode CLI now exists ([guide](opencode-model-smoke.md), `scripts/opencode_smoke.py`) but is not run against a live endpoint in CI or by an automated agent — a live run needs an operator-supplied credential. No `AgentAdapter` implementation drives OpenCode yet, and no mechanism routes a case's `tool_request` through OpenCode's own tool-calling; sandbox-native pairing and qualification remain open. |
+| PORT-01 | P2 | First real agent pairing through Gym | One of OpenCode/OpenClaw passes shared conformance tests with separate agent and boundary identity; unsupported combinations remain explicit. (Hermes was tried and removed 2026-10-16 — see the dependency freshness audit.) | An implemented, unqualified `OpenCodeAgentAdapter` now exists ([guide](opencode-agent-adapter.md), `agents/opencode.py`) and passes the same generic conformance suite as the loopback fixture (`tests/test_agent_adapter_conformance.py`), driving a real headless OpenCode CLI session and a generated custom tool whose own receipt proves completion (not by parsing OpenCode's internal session format, which is unverifiable at the pinned CLI version). An install/config/session-readback smoke for the pinned CLI also exists ([guide](opencode-model-smoke.md), `scripts/opencode_smoke.py`). Neither has been run against a live model endpoint in CI or by an automated agent — that needs an operator-supplied credential. Sandbox-native pairing (inside an operator-owned boundary backend's sandbox, not a local temp directory) and qualification remain open. |
 | DEV-02 | P2 | Packaged development runner | One supported workflow provisions owned resources, verifies identities/pins, runs healthy/weakened Rust controls, retains capture, and reconciles cancellation/orphans with idempotent cleanup; development limits remain explicit. | API response loss/allocator death before UID commit and authenticated whole-cell recovery remain open; shared-gateway mode still needs an independent cleanup helper. [Cell guide](disposable-development-cells.md), [allocator](development-namespace-allocation.md) |
 | GYM-01 | P2 | Pinned NeMo Gym injection smoke | Immutable upstream pin and separate lock/image, rights review, audited dependencies, example evaluation plus offline verifier calibration, private traces; examples do not establish broad coverage. | Hosted weights/sampling remain unattested; commercial license review and any future image scan remain open. [Guide](gym-onboarding.md) |
 | GYM-02 | P2 | Optional Gym evidence bridge | Case/attempt correlation, independent component pins and separate behavior/effect outcomes; unknown/malformed/missing evidence withholds approval; fixture and failure conformance. | Unsigned collector provenance and mapping-only scope are explicit; real effect routing follows in GYM-03. [Guide](gym-evidence-bridge.md) |
@@ -145,13 +145,23 @@ upstream dropped pip/uv installability; see the dependency freshness audit);
 being re-attempted with OpenCode. A generic AgentAdapter conformance suite and
 a deterministic loopback fixture adapter (`agents/fixture.py`) now exist and
 run through the full `lifecycle.run_attempt` composition
-(`tests/test_agent_adapter_conformance.py`, `tests/test_adapters.py`); no
-OpenCode-backed adapter exists yet, and the conformance suite is not run
-against one. A separate install/config/session-readback smoke for the pinned
-OpenCode CLI exists ([guide](opencode-model-smoke.md)) but only proves the CLI
-itself runs against an operator-supplied model endpoint — it is not wired to
-`AgentAdapter` at all and does not touch the case/tool-request path. No
-pilot-specific failure-drill work exists to carry forward.
+(`tests/test_agent_adapter_conformance.py`, `tests/test_adapters.py`). An
+`OpenCodeAgentAdapter` (`agents/opencode.py`,
+[guide](opencode-agent-adapter.md)) now exists too and passes the same
+conformance suite against a fake subprocess runner; it drives a real headless
+`opencode run` session and a generated custom OpenCode tool whose own receipt
+proves completion, deliberately not parsing OpenCode's own session database
+(unverifiable at the pinned CLI version — see the guide). A separate
+install/config/session-readback smoke for the pinned OpenCode CLI exists
+([guide](opencode-model-smoke.md)) and shares its install/pin logic
+(`agents/opencode_runtime.py`) with the adapter. Neither the adapter nor the
+smoke has been run against a live model endpoint by this repository's own CI
+or by an automated agent — an operator-held credential is required, and
+whether a given model reliably calls the generated tool when prompted remains
+unverified model behavior, not a code-correctness question. Sandbox-native
+pairing (inside an operator-owned boundary backend's sandbox, not a local
+temp directory) is not implemented. No pilot-specific failure-drill work
+exists to carry forward.
 Live whole-cell/watchdog faults and blocked adapters remain open regardless of
 which harness is used; GYM-04 freezing depends on them.
 

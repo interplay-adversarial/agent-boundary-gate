@@ -154,11 +154,11 @@ class AdapterTests(unittest.TestCase):
     def test_planned_adapters_are_not_advertised_as_supported(self):
         agents = [entry for entry in inventory() if entry["role"] == "agent"]
         planned = [entry for entry in agents if entry["status"] == "planned"]
-        self.assertEqual({entry["id"] for entry in planned}, {"opencode", "openclaw"})
+        self.assertEqual({entry["id"] for entry in planned}, {"openclaw"})
         self.assertTrue(all(not entry["capabilities"] for entry in planned))
-        simulated = [entry for entry in agents if entry["status"] != "planned"]
-        self.assertEqual({entry["id"] for entry in simulated}, {"loopback"})
-        self.assertTrue(all(entry["capabilities"] for entry in simulated))
+        implemented = [entry for entry in agents if entry["status"] != "planned"]
+        self.assertEqual({entry["id"] for entry in implemented}, {"loopback", "opencode"})
+        self.assertTrue(all(entry["capabilities"] for entry in implemented))
 
     def test_current_schema_rejects_legacy_examples(self):
         with self.assertRaises(ValidationError):

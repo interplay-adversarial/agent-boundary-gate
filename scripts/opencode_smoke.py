@@ -9,69 +9,24 @@ or qualification. Run with the core interpreter: python -m scripts.opencode_smok
 import argparse
 import json
 import os
-import re
 import sqlite3
 import stat
 import subprocess
 from pathlib import Path
-from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from agent_boundary_gate.agents.opencode_runtime import (
+    OPENCODE_VERSION,
+    SESSION_INHERITED_ENV_NAMES,
+    OpenCodeProvider,
+    ensure_opencode,
+)
 
-OPENCODE_VERSION = "1.17.11"
 PROMPT = "Reply with exactly the single word READY and nothing else."
 
 
 class PrivateParser(argparse.ArgumentParser):
     def error(self, message):
         self.exit(2, '{"error":"invalid-opencode-smoke-input","release_eligible":false}\n')
-
-
-class OpenCodeProvider(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
-
-    base_url: str
-    api_key_env: str
-    # OpenCode's own "<provider>/<model>" reference for its stock openai-compatible
-    # provider, e.g. "openai/qwen38-27b" -- not a bare model name.
-    model: str
-    timeout_seconds: int = Field(default=120, ge=1, le=900)
-
-    def baseline(self) -> dict[str, object]:
-        # Credential loading is not part of the evaluation baseline.
-        return self.model_dump(include={"base_url", "model", "timeout_seconds"})
-
-    @field_validator("base_url")
-    @classmethod
-    def safe_url(cls, value: str) -> str:
-        url = urlsplit(value)
-        if (
-            not value.isascii()
-            or any(ord(c) <= 32 or ord(c) == 127 for c in value)
-            or url.scheme != "https"
-            or not url.hostname
-            or url.username is not None
-            or url.password is not None
-            or url.query
-            or url.fragment
-            or url.path.rstrip("/").split("/")[-1] != "v1"
-        ):
-            raise ValueError("invalid-provider-url")
-        return value.rstrip("/")
-
-    @field_validator("api_key_env")
-    @classmethod
-    def safe_env(cls, value: str) -> str:
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,80}", value):
-            raise ValueError("invalid-credential-reference")
-        return value
-
-    @field_validator("model")
-    @classmethod
-    def safe_identity(cls, value: str) -> str:
-        if not value or len(value) > 256 or not value.isprintable():
-            raise ValueError("invalid-model-identity")
-        return value
 
 
 class CredentialReflectionError(ValueError):
@@ -101,37 +56,6 @@ def write_private(directory: Path, name: str, value: object) -> None:
     fd = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w") as stream:
         json.dump(value, stream, indent=2, allow_nan=False)
-
-
-def ensure_opencode(
-    version: str, install_dir: Path, *, timeout_seconds: int, run=subprocess.run
-) -> str:
-    """Return a path to the pinned OpenCode CLI, installing it locally if needed.
-
-    Installs into ``install_dir`` (writable, non-global) rather than the
-    system npm prefix, which is frequently read-only for an unprivileged user.
-    """
-    command = install_dir / "node_modules" / ".bin" / "opencode"
-    if not command.is_file():
-        result = run(
-            ["npm", "install", "--no-save", "--prefix", str(install_dir), f"opencode-ai@{version}"],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
-        if result.returncode != 0:
-            raise RuntimeError("opencode-install-failed")
-    try:
-        check = run([str(command), "--version"], capture_output=True, text=True, timeout=10)
-    except OSError as error:
-        # Covers a missing binary (install silently produced nothing runnable)
-        # without a separate, redundant existence check beforehand.
-        raise RuntimeError("opencode-install-failed") from error
-    if check.returncode != 0 or check.stdout.strip() != version:
-        # A pre-existing binary at the wrong version is a fatal mismatch, never
-        # silently reinstalled over.
-        raise RuntimeError("opencode-version-mismatch")
-    return str(command)
 
 
 def parse_assistant_text(db_path: Path) -> bool:
@@ -177,19 +101,26 @@ def smoke(
     project_dir.mkdir(mode=0o700)
     data_home = directory / "data"
     data_home.mkdir(mode=0o700)
+    home_dir = directory / "home"
+    home_dir.mkdir(mode=0o700)
     # No custom opencode.json: OpenCode's stock openai-compatible provider already
     # reads OPENAI_BASE_URL/OPENAI_API_KEY, the same fallback Gym's own agent uses
     # when it is not routing through its own internal model server.
-    env = {
-        **os.environ,
-        "XDG_DATA_HOME": str(data_home),
-        "OPENAI_BASE_URL": provider.base_url,
-        "OPENAI_API_KEY": credential,  # pragma: allowlist secret
-        # Protect the pinned version and keep the run hermetic; unlike Gym's own
-        # sandbox session path this is not disabled by default locally.
-        "OPENCODE_DISABLE_AUTOUPDATE": "true",
-        "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-    }
+    # Explicit allow-list, not a bare os.environ passthrough: this subprocess
+    # talks to an external model endpoint, so it gets only what it needs.
+    env = {name: os.environ[name] for name in SESSION_INHERITED_ENV_NAMES if name in os.environ}
+    env.update(
+        {
+            "HOME": str(home_dir),
+            "XDG_DATA_HOME": str(data_home),
+            "OPENAI_BASE_URL": provider.base_url,
+            "OPENAI_API_KEY": credential,  # pragma: allowlist secret
+            # Protect the pinned version and keep the run hermetic; unlike Gym's own
+            # sandbox session path this is not disabled by default locally.
+            "OPENCODE_DISABLE_AUTOUPDATE": "true",
+            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+        }
+    )
     result = run(
         [command, "run", "-m", provider.model, "--dir", str(project_dir), PROMPT],
         cwd=str(project_dir),
