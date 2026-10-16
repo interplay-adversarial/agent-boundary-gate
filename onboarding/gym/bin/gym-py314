@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""Thin `gym` wrapper ensuring this directory's `sitecustomize.py` patches apply
+everywhere `gym eval run` needs them -- including the separate child processes it
+spawns for each resources server, agent, environment server and model (see
+`sitecustomize.py`'s own docstring for exactly what's patched and why).
+
+Sets PYTHONPATH to include this directory before re-executing into the pinned
+interpreter, so every subprocess Gym spawns (which inherit the parent's environment)
+auto-imports `sitecustomize.py` too, not just this top-level process. A caller that
+invokes the pinned interpreter directly (bypassing this wrapper) must set PYTHONPATH
+itself -- see `agent_boundary_gate.adaptive_task_runner._gym_environment`, which does
+exactly that using `config.gym_executable.parent`.
+"""
+
+import os
+import sys
+from pathlib import Path
+
+_BIN_DIR = Path(__file__).resolve().parent
+_VENV_PYTHON = _BIN_DIR.parent / ".venv" / "bin" / "python"
+
+if Path(sys.executable).resolve() != _VENV_PYTHON.resolve():
+    if not _VENV_PYTHON.is_file():
+        sys.exit(f"gym-py314: pinned interpreter not found at {_VENV_PYTHON} -- run "
+                  "'uv sync --project onboarding/gym --frozen --no-editable' first")
+    existing = os.environ.get("PYTHONPATH", "")
+    os.environ["PYTHONPATH"] = str(_BIN_DIR) if not existing else f"{_BIN_DIR}{os.pathsep}{existing}"
+    os.execv(str(_VENV_PYTHON), [str(_VENV_PYTHON), str(Path(__file__).resolve()), *sys.argv[1:]])
+
+import sitecustomize  # noqa: E402,F401  -- applies this process's own patches too
+from nemo_gym.cli.main import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

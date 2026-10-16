@@ -1,0 +1,10 @@
+#!/bin/sh
+# Repo-scoped docker->podman shim: this machine has no `docker` binary/daemon, only
+# podman (confirmed: `which docker` fails, `podman info` succeeds, podman.socket is
+# active). Gym's docker sandbox provider shells out to a `docker` binary on PATH
+# (nemo_gym/sandbox/providers/docker/provider.py), and podman's CLI is designed to be
+# docker-CLI-compatible for exactly this kind of substitution -- no translation needed,
+# just forward argv. Not a system-wide install (that would need the podman-docker
+# package and root); this only takes effect when onboarding/gym/bin is on PATH (see
+# docs/adaptive-task-runner.md).
+exec podman "$@"

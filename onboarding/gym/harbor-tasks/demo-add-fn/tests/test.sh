@@ -1,13 +1,13 @@
 #!/bin/sh
 set -eu
 
-mkdir -p /logs/verifier
+mkdir -p /tmp/logs/verifier
 
 # load_task() refuses to build a Dockerfile, and this demo shouldn't require publishing a
 # custom image -- so the buggy file is written here, once, idempotently, instead of baked
 # into the environment.
-if [ ! -f /workspace/calc.py ]; then
-  cat > /workspace/calc.py <<'PY'
+if [ ! -f /tmp/workspace/calc.py ]; then
+  cat > /tmp/workspace/calc.py <<'PY'
 def add(a, b):
     return a - b   # bug: should be a + b
 PY
@@ -17,7 +17,7 @@ python3 - <<'PY'
 import importlib.util
 import json
 
-spec = importlib.util.spec_from_file_location("calc", "/workspace/calc.py")
+spec = importlib.util.spec_from_file_location("calc", "/tmp/workspace/calc.py")
 calc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(calc)
 
@@ -29,7 +29,7 @@ spec.loader.exec_module(calc)
 checks = [calc.add(2, 3) == 5, calc.add(-1, 1) == 0, calc.add(0, 0) == 0]
 tests_passed = sum(1 for c in checks if c)
 tests_total = len(checks)
-with open("/logs/verifier/reward.json", "w") as f:
+with open("/tmp/logs/verifier/reward.json", "w") as f:
     json.dump(
         {
             "reward": tests_passed / tests_total,

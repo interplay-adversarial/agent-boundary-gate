@@ -3,7 +3,13 @@ name = "agent-boundary-gate-gym-onboarding"
 version = "0.1.0"
 requires-python = "==3.14.7"
 dependencies = [
-  "nemo-gym @ git+https://github.com/NVIDIA-NeMo/Gym.git@b454c9a6e9a5644564fac81064050094b237daaa",
+  # [openshell] pulls in the openshell SDK: the adaptive-task-runner's Harbor resources
+  # server needs it to create an OpenShell AsyncSandbox provider (see
+  # docs/adaptive-task-runner.md). Not needed by the earlier offline-replay-only use of
+  # this environment, but harmless to add unconditionally -- it's one small, narrowly
+  # scoped extra (openshell>=0.0.92,<0.1), not the broader [sandbox] extra (which pulls in
+  # unrelated cloud providers: opensandbox, daytona, e2b, boto3).
+  "nemo-gym[openshell] @ git+https://github.com/NVIDIA-NeMo/Gym.git@b454c9a6e9a5644564fac81064050094b237daaa",
 ]
 
 [tool.uv]
@@ -18,4 +24,16 @@ constraint-dependencies = [
   "python-dotenv==1.2.2",
   "requests==2.33.0",
   "virtualenv==21.7.13",
+]
+# A constraint can only narrow a dependency's own declared range, not replace it outright
+# (confirmed: uv lock refuses a constraint outside nemo-gym[openshell]'s own <0.1,>=0.0.92
+# bound). override-dependencies replaces the specifier entirely instead.
+override-dependencies = [
+  # nemo-gym[openshell]'s own constraint (openshell<0.1,>=0.0.92) is stale: it resolves to
+  # 0.0.116, an old pre-0.1 release line whose wire protocol does not match a real OpenShell
+  # gateway (confirmed: a live gateway rejects it with a protobuf decode error on
+  # CreateSandbox). The openshell package's own version tracks the gateway chart version
+  # directly (0.1.3 released the same day as chart 0.1.3) -- pin to the exact version this
+  # project's real gateway deployment uses, not whatever nemo-gym's stale range resolves to.
+  "openshell==0.1.3",
 ]

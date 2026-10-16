@@ -25,6 +25,14 @@ secrets/
 .private/
 results/
 output/
+outputs/
+# Local gym-server venv-symlink scaffolding created at the repo root when manually
+# running `gym eval run` for the adaptive-task-runner e2e proof (see
+# docs/adaptive-task-runner.md) -- not tracked content, just `.venv` symlinks.
+/environment_servers/
+/resources_servers/
+/responses_api_agents/
+/responses_api_models/
 *.log
 *.jsonl
 *.parquet

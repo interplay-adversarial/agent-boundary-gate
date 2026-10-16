@@ -63,11 +63,23 @@ def load_env_file(path: Path) -> dict[str, str]:
 
 
 class AdaptiveTaskRunnerConfig(ReceiptContract):
+    # Point this at onboarding/gym/bin/gym-py314, not .venv/bin/gym directly: the wrapper
+    # sets PYTHONPATH (for sitecustomize.py's compatibility patches, see _gym_environment)
+    # via its own re-exec, independent of whatever environment this orchestrator itself
+    # runs under. Pointing straight at .venv/bin/gym instead still works as long as this
+    # process's own PYTHONPATH already includes onboarding/gym/bin.
     gym_executable: Path
     harbor_extra_root: Path
     task_folders: Annotated[list[Path], Field(min_length=1)]
     agent: str = "opencode_agent"
-    sandbox_provider: str = "openshell_remote"
+    # "docker" (via a local Docker/podman install), not "openshell_remote": confirmed this
+    # session that OpenShell's Gym provider has no serialize_handle()/ConnectableProvider
+    # support at all, which opencode_agent's sandboxed path requires for anything but
+    # owns_sandbox -- a hard, unfixable-from-here upstream gap, not a config problem. See
+    # docs/adaptive-task-runner.md's "Known limits" section. "openshell_remote" stays
+    # available as a sandbox_provider value (its config still exists) for a future Gym
+    # version that adds this support, or a different, owns_sandbox-based agent.
+    sandbox_provider: str = "docker"
     model: str | None = None
     model_url: str | None = None
     # Name of an env var holding the model API key; the value itself never lives in this config
@@ -142,7 +154,17 @@ def _gym_environment(config: AdaptiveTaskRunnerConfig) -> dict[str, str]:
     # Explicit allow-list, not a bare os.environ passthrough: bounded_process's env= replaces the
     # subprocess environment entirely, so an incomplete list breaks the child rather than leaking
     # anything into it.
-    names = {"PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR", "HOME"}
+    #
+    # PYTHONPATH: required for onboarding/gym/bin/sitecustomize.py's Python-3.14/Gym
+    # compatibility patches (see that file's own docstring for the full list) to reach
+    # every one of Gym's spawned server subprocesses, not just this orchestrator's own
+    # `gym eval` call -- those patches are what makes the docker/podman sandbox path (this
+    # config's default) actually work at all on a machine without a real `docker` binary.
+    # Pointing `gym_executable` at `onboarding/gym/bin/gym-py314` (recommended; see docs)
+    # sets this up on its own via re-exec, independent of the orchestrator's own
+    # environment -- allow-listing it here is defense in depth for a caller who points
+    # `gym_executable` straight at the venv's own `gym` script instead.
+    names = {"PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR", "HOME", "PYTHONPATH"}
     names.update(
         name
         for name in os.environ
@@ -293,6 +315,13 @@ def _gym_eval_run(
         config.sandbox_provider,
         "--search-dir",
         str(config.harbor_extra_root),
+        # Every model this tool talks to is an OpenAI-compatible endpoint (model/model_url);
+        # without this, Gym's run-config validation fails with "field 'model_server'
+        # references responses_api_models/'policy_model', which is not defined" before a
+        # single server even starts (confirmed empirically -- not documented anywhere in
+        # Gym's own --help).
+        "--model-type",
+        "openai_model",
         "--output",
         str(rollouts_path),
         "--limit",
@@ -300,7 +329,25 @@ def _gym_eval_run(
         "--num-repeats",
         "1",
         "--no-health-check",
+        # Reuse an already-populated per-server .venv (symlinked to onboarding/gym/.venv;
+        # see docs/adaptive-task-runner.md's setup step) instead of re-running `uv pip
+        # install` on every single attempt. Safe unconditionally: Gym's own
+        # should_skip_venv_setup check (nemo_gym/cli/setup_command.py) only takes this
+        # shortcut when that venv's bin/python and bin/activate already exist -- a first-
+        # ever run with no symlinks yet falls through to the normal (full) setup path.
+        "+skip_venv_if_present=true",
     ]
+    if config.sandbox_provider == "docker":
+        # The sandbox container otherwise has no network path back to this orchestrator's
+        # own host-bound servers (policy_model, the resources/environment servers) at all --
+        # confirmed empirically: a plain container-default network left OpenCode's model
+        # calls to 127.0.0.1:<port> connection-refused, and with the agent's own HTTP client
+        # retrying indefinitely (no timeout configured on that path), that *never* surfaces
+        # as an error -- it just silently runs forever. `--network host` is the fix, not a
+        # tuning knob. Conditional on "docker": sandbox.docker.create.network is only a valid
+        # override when the docker provider's own config is loaded (via --sandbox docker
+        # above); passing it with a different sandbox_provider would be an unknown-key error.
+        argv.append("+sandbox.docker.create.network=host")
     for path in config.extra_config_paths:
         argv += ["--config", str(path)]
     if config.model:
@@ -321,16 +368,22 @@ def _gym_eval_run(
 
 def _gym_eval_profile(
     config: AdaptiveTaskRunnerConfig,
-    attempt_target: Path,
     rollouts_path: Path,
     *,
     cancelled: Event,
 ) -> Path:
-    # nemo_gym.tasks.harbor.cli.DEFAULT_OUTPUT_ROOT ("results/harbor") is relative to the
-    # subprocess's own cwd; bounded_process never sets one, so every `gym` subprocess inherits
-    # this orchestrator process's cwd, and this path assumes it hasn't changed since the eval
-    # run call above (it hasn't -- no chdir happens between the two).
-    inputs_path = Path.cwd() / "results" / "harbor" / attempt_target.name / "tasks.jsonl"
+    # Not results/harbor/<name>/tasks.jsonl (the pre-materialization dataset listing this
+    # function originally used): confirmed empirically that its rows lack the _ng_task_index
+    # key `reward_profile.py::profile_from_data` requires, so `gym eval profile` raised
+    # KeyError('_ng_task_index') on every attempt -- a rollout that completed perfectly
+    # (reward=1.0, mask_sample=False) still got reported as a masked
+    # "harbor:attempt_infra_error" by _attempt_record below, purely because this step
+    # produced no reward-profiling file at all. `gym eval run` itself writes a
+    # fully-materialized version of its own input rows (with _ng_task_index already present)
+    # right next to rollouts.jsonl, using this exact naming convention -- using that instead
+    # also drops this function's fragile dependency on the orchestrator's own cwd and
+    # Gym's "results/harbor" output-root default.
+    inputs_path = rollouts_path.with_name(rollouts_path.stem + "_materialized_inputs.jsonl")
     argv = [
         str(config.gym_executable),
         "eval",
@@ -434,9 +487,7 @@ def adaptive_task_runner_run(
                 rollouts_path = _gym_eval_run(
                     config, attempt_target, attempt_dir, cancelled=cancelled
                 )
-                profile_path = _gym_eval_profile(
-                    config, attempt_target, rollouts_path, cancelled=cancelled
-                )
+                profile_path = _gym_eval_profile(config, rollouts_path, cancelled=cancelled)
                 record, raw_row = _attempt_record(
                     task_id, len(history) + 1, rollouts_path, profile_path, store
                 )
