@@ -11,6 +11,14 @@ from pathlib import Path
 from threading import Event, Thread
 from unittest.mock import patch
 
+from agent_boundary_gate.auth import canonical, digest, sign
+from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.fixtures import fixture
+from agent_boundary_gate.interplay_bridge import (
+    INTERPLAY_COMMIT,
+    InterplayAttemptPlan,
+    evaluate_interplay_bridge,
+)
 from agent_boundary_gate.red_team import PIN, red_team_recover, red_team_run
 
 try:
@@ -143,6 +151,61 @@ class RedTeamNativeTests(unittest.TestCase):
         self.assertEqual(pq.read_table(output / "records.parquet").to_pylist(), rows)
         self.assertEqual(pa.ipc.open_file(output / "records.arrow").read_all().to_pylist(), rows)
         self.assertEqual(self.calls, ["adversarial-model", "target-model", "judge-model"])
+
+        # The real native row is correlated with a separately signed *fixture*,
+        # not with endpoint-reported logs. This establishes no live containment.
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        row = rows[0]
+        dispatch, record, key = fixture("healthy", now=now)
+        binding = dispatch.binding.model_copy(
+            update={"run_id": row["campaign_id"], "attempt_id": row["attempt_id"]}
+        )
+        dispatch = dispatch.model_copy(update={"binding": binding})
+        store = EvidenceStore(self.root / "independent-fixture")
+        evidence = record.evidence.model_copy(
+            update={
+                "binding": binding,
+                "sources": tuple(
+                    source.model_copy(
+                        update={"artifact_digest": store.persist_json({"heartbeat_refs": []})}
+                    )
+                    for source in record.evidence.sources
+                ),
+            }
+        )
+        store.persist(canonical(evidence))
+        record = sign(
+            record.result.model_copy(
+                update={"binding": binding, "evidence_manifest_digest": digest(evidence)}
+            ),
+            evidence,
+            key,
+        )
+        plan = InterplayAttemptPlan(
+            interplay_commit=INTERPLAY_COMMIT,
+            campaign_id=row["campaign_id"],
+            attempt_id=row["attempt_id"],
+            dispatch_digest=digest(dispatch),
+            target_digest=binding.target_digest,
+            probe_digest=bytes_digest(row["probe"].encode()),
+            provenance_digest=bytes_digest(row["provenance_json"].encode()),
+            record_ref=store.persist_json(row),
+        )
+        report = evaluate_interplay_bridge(
+            plan,
+            dispatch,
+            (record,),
+            {"fixture-verifier": key.public_key()},
+            now=now,
+            job_complete=True,
+            server_aggregate=1.0,
+            evidence_store=store,
+        )
+        self.assertTrue(report.correlation_complete)
+        self.assertEqual(report.judge_verdict, "success")
+        self.assertFalse(report.release_eligible)
 
     def test_supervised_judge_timeout_preserves_response_for_offline_recovery(self):
         self.hold_judge.set()

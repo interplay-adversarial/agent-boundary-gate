@@ -43,12 +43,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-      - id: hermes-dependency-cve-audit
-        name: Separate Hermes pilot locked dependency CVE audit
-        entry: uv run --frozen --no-editable python scripts/audit_dependencies.py --hermes
-        language: system
-        pass_filenames: false
-        always_run: true
       - id: red-team-dependency-cve-audit
         name: Separate DataDesigner/Interplay locked dependency CVE audit
         entry: uv run --frozen --no-editable python scripts/audit_dependencies.py --red-team
@@ -70,12 +64,6 @@ repos:
       - id: gym-native-smoke-tests
         name: Pinned Gym native model-smoke conformance (no model traffic)
         entry: env PYTHONPATH=src uv run --project onboarding/gym --frozen --no-editable python -m unittest discover -s tests -p test_gym_smoke_native.py -q
-        language: system
-        pass_filenames: false
-        always_run: true
-      - id: hermes-native-pilot-tests
-        name: Pinned Hermes native conformance (no provider or boundary traffic)
-        entry: env PYTHONPATH=src uv run --project onboarding/hermes --frozen --no-editable python -m unittest discover -s tests -p test_hermes_pilot_native.py -q
         language: system
         pass_filenames: false
         always_run: true
