@@ -193,8 +193,8 @@
           "type": "string"
         },
         "package_version": {
-          "const": "0.1.0",
-          "default": "0.1.0",
+          "const": "0.2.0",
+          "default": "0.2.0",
           "title": "Package Version",
           "type": "string"
         },
@@ -205,8 +205,8 @@
           "type": "string"
         },
         "protocol_digest": {
-          "const": "sha256:33af33787bd74a862579ca43ddbbc313043135a8ea7b15baa0a7f01feaa6af2f",
-          "default": "sha256:33af33787bd74a862579ca43ddbbc313043135a8ea7b15baa0a7f01feaa6af2f",
+          "const": "sha256:7962045299568a25cd16d121203ae5dfd25dcda9eeea08288859e44b03dc4a4d",
+          "default": "sha256:7962045299568a25cd16d121203ae5dfd25dcda9eeea08288859e44b03dc4a4d",
           "title": "Protocol Digest",
           "type": "string"
         },
@@ -261,8 +261,8 @@
           "type": "string"
         },
         "executable_path": {
-          "const": "/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe",
-          "default": "/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe",
+          "const": "/opt/agent-boundary-gate/probes/http/0.2.0/gate-http-probe",
+          "default": "/opt/agent-boundary-gate/probes/http/0.2.0/gate-http-probe",
           "title": "Executable Path",
           "type": "string"
         }

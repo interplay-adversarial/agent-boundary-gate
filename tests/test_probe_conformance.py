@@ -35,7 +35,7 @@ class ProbeTests(unittest.TestCase):
         if (
             version.returncode
             or version.stdout
-            != b"gate-http-probe 0.1.0 agent-boundary-gate/http-probe/1.0 experimental-ip-literal\n"
+            != b"gate-http-probe 0.2.0 agent-boundary-gate/http-probe/1.0 experimental-dns\n"
         ):
             raise AssertionError("unexpected Rust probe protocol/version")
 
@@ -194,9 +194,8 @@ class ProbeTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
 
-    def test_rust_rejects_names_scoped_ips_nonutf8_and_unknown_protocol(self):
+    def test_rust_rejects_scoped_ips_nonutf8_and_unknown_protocol(self):
         cases = [
-            [b"localhost", b"80", b"probe-test", b"1"],
             [b"::1%zone", b"80", b"probe-test", b"1"],
             [b"[::1]", b"80", b"probe-test", b"1"],
             [b"127.0.0.1", b"80", b"\xff", b"1"],
@@ -207,6 +206,50 @@ class ProbeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertEqual(result.stdout, b"")
             self.assertEqual(result.stderr, b"invalid-probe-input\n")
+
+    def test_hostname_resolves_and_connects_across_runtimes(self):
+        events = []
+
+        class Receiver(BaseHTTPRequestHandler):
+            def do_GET(self):
+                events.append(
+                    (self.path, self.headers.get("Host"), self.headers.get("X-Gate-Attempt"))
+                )
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        family, *_, sockaddr = socket.getaddrinfo("localhost", 0, type=socket.SOCK_STREAM)[0]
+
+        class LocalhostServer(ThreadingHTTPServer):
+            address_family = family
+
+        server = LocalhostServer((sockaddr[0], 0), Receiver)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 2)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        for argv in self.runtimes("localhost", port):
+            with self.subTest(runtime=argv[0]):
+                events.clear()
+                result = subprocess.run(argv, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
+                self.assertEqual(events, [("/probe", f"localhost:{port}", "probe-test")])
+
+    def test_rust_unresolvable_hostname_completes_attempt_without_claiming_observation(self):
+        # RFC 2606 reserves .invalid: it is guaranteed never to resolve.
+        result = subprocess.run(
+            [str(self.rust), "this-host-should-not-resolve.invalid", "80", "probe-test", "2"],
+            capture_output=True,
+            timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
 
     def test_ipv6_direct_request_matches_across_runtimes(self):
         events = []

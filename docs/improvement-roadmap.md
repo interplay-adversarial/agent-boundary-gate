@@ -26,7 +26,7 @@ only what remains open.
 | COMPAT-01 | P1 | Live driver compatibility | Execute a selected frozen probe in the pinned workload image; discover the requested active policy revision; report CLI failure classes without private output; select measured lifecycle budgets. | Qualified delivery and measured lifecycle budgets remain open. |
 | COMPAT-02 | P2 | Rig compatibility doctor | Read-only checks validate probe prerequisites, pinned CLI/policy JSON and lease context; destructive latency measurements require a separately designated disposable lease and authenticated cleanup. | Runtime prerequisites are reported but unverified; workload/image qualification and latency measurements remain open. |
 | COMPAT-03 | P1 | Supported qualified live entry point | A live-run command composes trusted receipt/monitor/recovery providers and an independent observer; synthetic trust is explicitly segregated and cannot establish qualification. | Independent provisioning/inspection and authenticated live qualification remain open. |
-| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | Hostname/DNS support, deployed artifact delivery, reproducible build-image/linker pins, signed release provenance and the live baseline/target qualification matrix remain open. |
+| COMPAT-04 | P2 | Standalone Rust probe | A pinned binary passes shared receiver conformance, bounded DNS/deadline/resource tests and architecture-specific artifact/privacy checks; completion remains separate from outcome proof. | Deployed artifact delivery, reproducible build-image/linker pins, signed release provenance and the live baseline/target qualification matrix remain open. |
 | EVID-01 | P2 | Durable, verified evidence | Persist confirmed violations before finalization; retrieve and verify signed digest references; preserve findings through storage/observer/controller failure; isolate collector/storage authority from workloads. | Independent proof interpretation, issuer verification and remote authority remain open. |
 | REL-01 | P2 | Adversarial reliability | Property-based decision tests, blocked-adapter fault injection, external timeout enforcement and bounded receiver connection/thread resources demonstrate incomplete outcomes under failures. | Escaped-process/supervisor-failure handling, power-loss durability and live whole-cell faults remain open. [Invariants](gate-decision-invariants.md), [controller drills](development-failure-drills.md), [adapter bounds](adapter-deadlines-and-resource-bounds.md), [service drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | DEV-01 | P2 | Development and distribution checks | Add type checking, isolated wheel/sdist build and installed-package smoke checks; scan distribution contents for private data and secrets. | Planned; not started. |
@@ -132,12 +132,13 @@ OpenShell test belong in this repository.
 
 **COMPAT-04** (`gate-http-probe`, [usage guide](rust-probe-usage.md), no
 third-party runtime crates or OpenShell dependency; digest-verified artifact
-staging and experimental IP-only backend admission implemented,
+staging and experimental backend admission implemented,
 [delivery guide](rust-probe-delivery.md), gated by a fresh Ed25519 delivery
-receipt per action, [ADR-0005](adr/0005-independent-evaluation-baselines.md)):
-hostname/DNS support, deployed artifact delivery, reproducible
-build-image/linker pins, signed release provenance and the live baseline/target
-qualification matrix remain pending. Compiler/stdlib, build/audit tooling and
+receipt per action, [ADR-0005](adr/0005-independent-evaluation-baselines.md);
+hostname/DNS resolution added 2026-10-15, `0.2.0`): deployed artifact
+delivery, reproducible build-image/linker pins, signed release provenance and
+the live baseline/target qualification matrix remain pending. Compiler/stdlib,
+build/audit tooling and
 runtime-image CVEs need separate SEC-03 coverage.
 
 **GYM-03/REL-01** (Hermes host-harness pilot,

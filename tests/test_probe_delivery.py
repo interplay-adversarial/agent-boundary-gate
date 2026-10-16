@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 from receipt_support import FakeReceiptBroker, lease_and_binding
 
-from agent_boundary_gate.backends import BackendFailure, UnsupportedCapability
+from agent_boundary_gate.backends import BackendFailure
 from agent_boundary_gate.backends.openshell import OpenShellBackend
 from agent_boundary_gate.contracts import HttpGetAction
 from agent_boundary_gate.evidence import bytes_digest
@@ -171,7 +171,7 @@ class DeliveryTests(unittest.TestCase):
             )
 
     def test_unreviewed_paths_protocols_and_platforms_rejected(self):
-        for change in ({"target": "native"}, {"protocol_digest": D}, {"package_version": "0.2.0"}):
+        for change in ({"target": "native"}, {"protocol_digest": D}, {"package_version": "0.3.0"}):
             with self.assertRaises(ValidationError):
                 RustProbeArtifact.model_validate(self.deployment.artifact.model_dump() | change)
         with self.assertRaises(ValidationError):
@@ -260,16 +260,19 @@ class DeliveryTests(unittest.TestCase):
                 [PROBE_PATH, "127.0.0.1", "8080", self.binding.attempt_id, "1"],
             )
             self.assertTrue(self.replay(driver, "http://[::1]:8080/probe"))
-        self.assertEqual(len(provider.calls), 2)
+            self.assertTrue(self.replay(driver, "http://receiver:8080/probe"))
+            argv = command.call_args.args[0]
+            self.assertEqual(
+                argv[argv.index("--") + 1 :],
+                [PROBE_PATH, "receiver", "8080", self.binding.attempt_id, "1"],
+            )
+        self.assertEqual(len(provider.calls), 3)
         self.assertNotEqual(provider.calls[0].challenge, provider.calls[1].challenge)
 
-    def test_missing_delivery_dns_and_cancel_never_execute_or_fallback(self):
+    def test_missing_delivery_cancel_never_execute_or_fallback(self):
         provider = self.provider()
         driver = self.driver(provider)
         with patch.object(driver, "_command") as command:
-            with self.assertRaises(UnsupportedCapability):
-                self.replay(driver, "http://receiver:8080/probe")
-            self.assertEqual(provider.calls, [])
             stopped = Event()
             stopped.set()
             self.assertFalse(self.replay(driver, cancelled=stopped))
@@ -399,7 +402,7 @@ class StagingTests(unittest.TestCase):
         self.binary.write_bytes(raw)
         self.report = {
             "status": "experimental-build",
-            "package_version": "0.1.0",
+            "package_version": "0.2.0",
             "protocol": "agent-boundary-gate/http-probe/1.0",
             "protocol_digest": RustProbeArtifact.model_fields["protocol_digest"].default,
             "source_digest": D,

@@ -1,9 +1,9 @@
 {
   "protocol": "agent-boundary-gate/http-probe/1.0",
-  "status": "experimental-ip-literal",
-  "arguments": ["ip", "port", "attempt", "timeout-seconds"],
+  "status": "experimental-dns",
+  "arguments": ["host", "port", "attempt", "timeout-seconds"],
   "address_families": ["IPv4", "IPv6"],
-  "dns": false,
+  "dns": true,
   "method": "GET",
   "path": "/probe",
   "headers": ["Host", "X-Gate-Attempt", "Connection"],

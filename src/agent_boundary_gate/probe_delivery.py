@@ -25,15 +25,15 @@ from agent_boundary_gate.receipts import (
     ReceiptContract,
 )
 
-PROTOCOL_DIGEST = "sha256:33af33787bd74a862579ca43ddbbc313043135a8ea7b15baa0a7f01feaa6af2f"
-PROBE_PATH = "/opt/agent-boundary-gate/probes/http/0.1.0/gate-http-probe"
+PROTOCOL_DIGEST = "sha256:7962045299568a25cd16d121203ae5dfd25dcda9eeea08288859e44b03dc4a4d"
+PROBE_PATH = "/opt/agent-boundary-gate/probes/http/0.2.0/gate-http-probe"
 DOMAIN = b"agent-boundary-gate/probe-delivery-receipt/1.0\0"
 
 
 class RustProbeArtifact(ReceiptContract):
     """Out-of-band baseline pins; never derive expected values from a download."""
 
-    package_version: Literal["0.1.0"] = "0.1.0"
+    package_version: Literal["0.2.0"] = "0.2.0"
     protocol: Literal["agent-boundary-gate/http-probe/1.0"] = "agent-boundary-gate/http-probe/1.0"
     protocol_digest: Literal[PROTOCOL_DIGEST] = PROTOCOL_DIGEST
     target: Literal["x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"]

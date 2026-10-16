@@ -1,11 +1,11 @@
 [package]
 name = "gate-http-probe"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.98"
 license = "Apache-2.0"
 publish = false
-description = "Experimental fixed IP-literal HTTP action for independent boundary evaluation"
+description = "Experimental fixed HTTP action (IP literal or resolved hostname) for independent boundary evaluation"
 
 [profile.release]
 panic = "abort"
