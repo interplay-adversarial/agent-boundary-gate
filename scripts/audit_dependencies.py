@@ -111,17 +111,12 @@ def main() -> int:
     optional = parser.add_mutually_exclusive_group()
     optional.add_argument("--gym", action="store_true", help="audit the separate pinned Gym lock")
     optional.add_argument(
-        "--hermes", action="store_true", help="audit the separate Hermes pilot lock"
-    )
-    optional.add_argument(
         "--red-team", action="store_true", help="audit the separate DataDesigner/Interplay lock"
     )
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
     if args.gym:
         project = project / "onboarding/gym"
-    elif args.hermes:
-        project = project / "onboarding/hermes"
     elif args.red_team:
         project = project / "onboarding/red-team"
     with tempfile.TemporaryDirectory(prefix="dependency-audit-") as temporary:
@@ -139,8 +134,7 @@ def main() -> int:
                     "--format",
                     "requirements-txt",
                 ]
-                + (["--no-emit-package", "nemo-gym"] if args.gym or args.hermes else [])
-                + (["--no-emit-package", "hermes-agent"] if args.hermes else [])
+                + (["--no-emit-package", "nemo-gym"] if args.gym else [])
                 + (["--no-emit-package", "interplay-adversarial"] if args.red_team else []),
                 capture_output=True,
                 text=True,
@@ -154,7 +148,7 @@ def main() -> int:
             # running in the core environment; otherwise it could scan wrong pins.
             environment = (
                 {"python_version": "3.14", "python_full_version": "3.14.7"}
-                if args.gym or args.hermes or args.red_team
+                if args.gym or args.red_team
                 else None
             )
             expected = locked_dependencies(export.stdout, marker_environment=environment)

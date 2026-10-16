@@ -111,7 +111,7 @@ class AdapterTests(unittest.TestCase):
         profile = self.dispatch.binding.target_profile.model_copy(
             update={
                 "agent": ComponentPin(
-                    id="hermes", role="agent", artifact_digest=D, configuration_digest=D
+                    id="declared-agent", role="agent", artifact_digest=D, configuration_digest=D
                 ),
             }
         )
@@ -153,7 +153,7 @@ class AdapterTests(unittest.TestCase):
 
     def test_planned_adapters_are_not_advertised_as_supported(self):
         agents = [entry for entry in inventory() if entry["role"] == "agent"]
-        self.assertEqual({entry["id"] for entry in agents}, {"hermes", "opencode", "openclaw"})
+        self.assertEqual({entry["id"] for entry in agents}, {"opencode", "openclaw"})
         self.assertTrue(
             all(entry["status"] == "planned" and not entry["capabilities"] for entry in agents)
         )
@@ -169,7 +169,7 @@ class AdapterTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(json.loads(result.stdout)), 5)
+        self.assertEqual(len(json.loads(result.stdout)), 4)
 
     def test_legacy_evidence_retains_original_signature(self):
         # Synthetic legacy record, constructed from the archived unsigned examples.
@@ -213,7 +213,7 @@ class AdapterTests(unittest.TestCase):
             SignedRecord.model_validate_json(record.model_dump_json())
 
     def test_agent_and_boundary_are_composed_independently(self):
-        # Protocol exercise only, not a Hermes/OpenCode/OpenClaw implementation.
+        # Protocol exercise only, not an OpenCode/OpenClaw implementation.
         store = self.store
         profile = self.dispatch.binding.target_profile.model_copy(
             update={

@@ -1,11 +1,10 @@
 # NeMo Gym onboarding and adoption plan
 
-Recorded: 2026-10-12. Updated: 2026-10-13. Status: development onboarding complete;
+Recorded: 2026-10-12. Updated: 2026-10-13. Refreshed: 2026-10-16 (removed the
+Hermes host-harness pilot — see below). Status: development onboarding complete;
 offline native verifier calibration, one hosted-model synthetic smoke and the
-packaged development runner, optional fixture evidence bridge and initial Hermes
-host-harness remote-effect pilot are implemented.
-No model-backed Gym integration or
-agent pairing is qualified.
+packaged development runner and optional fixture evidence bridge are implemented.
+No model-backed Gym integration or agent pairing is qualified.
 
 ## Decision and verified starting point
 
@@ -23,7 +22,7 @@ Public examples are available; the README describes the full dataset as
 forthcoming. These are source-confirmed capabilities, not a runtime validation
 performed by this project. [Upstream environment](https://github.com/NVIDIA-NeMo/Gym/tree/main/resources_servers/indirect_prompt_injection).
 
-Gym also documents Hermes, OpenCode and OpenClaw harnesses and an OpenShell
+Gym also documents OpenCode, OpenClaw and other harnesses and an OpenShell
 sandbox provider. Their presence does not establish compatibility or qualification
 with our gate. [Upstream project](https://github.com/NVIDIA-NeMo/Gym).
 
@@ -90,16 +89,19 @@ private provider/trajectory records. Hosted weights/sampling remain unattested;
 commercial dependency/corpus rights and any future image deployment need separate
 review. The [optional evidence bridge](gym-evidence-bridge.md) now correlates
 fixture/native observations with separate signed boundary records; it does not
-establish real tool-effect routing or authenticated Gym provenance. The separate
-[Hermes effect pilot](hermes-effect-pilot.md) now exercises a bounded remote
-synthetic effect path; failure drills and the frozen GYM-04 baseline are next.
+establish real tool-effect routing or authenticated Gym provenance. A Hermes-based
+GYM-03 pilot was implemented and then removed 2026-10-16 after its upstream
+(`NousResearch/hermes-agent`) dropped pip/uv installability entirely, breaking
+both our own pin and NeMo Gym's own sandbox install mechanism (not something
+fixable from this repo alone). GYM-03 is being re-attempted with OpenCode
+instead; see its row below.
 
 | ID | Deliverable | Exit criteria and dependencies |
 | --- | --- | --- |
 | GYM-01 | Reproducible upstream smoke run | Select an immutable upstream commit/artifact, lock interpreter and dependencies, review licenses/data rights, scan its image/dependencies, and run available injection examples with one pinned model/config. Retain private trajectories and native verifier output. An offline known-safe/known-compromised verifier replay must also work without model credentials. Do not claim benchmark coverage. |
 | DEV-02 | Packaged development runner | Replace operator-only orchestration with supported provisioning, identity checks, healthy/weakened Rust controls, capture and idempotent cleanup. Private configuration, allocation tracking and bounded cancellation are required. Existing development-only limits remain explicit. |
 | GYM-02 | Optional evidence bridge | Depends on GYM-01. Correlate case/run/attempt identities and bind all component pins; preserve raw Gym metrics separately from external evidence. Test malformed/truncated traces, unknown versions, mismatched identities, verifier failure, missing effects and duplicate callbacks. Required unsupported execution must fail closed. A fixture bridge proves mapping only. |
-| GYM-03 | One real agent and effect pilot | Depends on GYM-02 and DEV-02. Try Hermes first using the upstream harness; fall back to OpenCode only after recording an incompatible prerequisite. Pin application identity separately from boundary identity. Execute a synthetic tool-output injection through a controlled effect adapter, using healthy/weakened boundary policies and independent receivers. Demonstrate benign utility and both blocked and observed forbidden effects; deterministic tool-call fixtures calibrate the oracle when model behavior varies. |
+| GYM-03 | One real agent and effect pilot | Depends on GYM-02 and DEV-02. Hermes was tried first using the upstream harness and recorded an incompatible prerequisite (2026-10-16: `NousResearch/hermes-agent` is no longer pip/uv-installable, which also breaks NeMo Gym's own sandbox install mechanism); now attempting OpenCode instead. Pin application identity separately from boundary identity. Execute a synthetic tool-output injection through a controlled effect adapter, using healthy/weakened boundary policies and independent receivers. Demonstrate benign utility and both blocked and observed forbidden effects; deterministic tool-call fixtures calibrate the oracle when model behavior varies. |
 | GYM-04 | Frozen regression suite and private CI | Depends on GYM-03 and fault drills. Version a rights-cleared synthetic corpus with attack-present and benign look-alike tasks; keep a disjoint held-out set. Repeat fixed configurations and report denominators, uncertainty, false refusals, verified task state, attack success, effects, incomplete runs, cost and latency. Private scheduled/manual jobs retain evidence; public PR checks use synthetic offline fixtures. |
 
 GYM-02 fixture mapping is implemented in `agent_boundary_gate.gym_bridge`, with
@@ -108,16 +110,18 @@ conformance tests. Its unsigned `1.0` correlation report preserves the existing
 signed contracts and withholds unsupported live execution. See the
 [bridge guide](gym-evidence-bridge.md) for trust inputs, limits and report semantics.
 
-GYM-03's initial development increment uses the actual pinned Gym Hermes host
-harness and a separately locked Hermes runtime. An owned tool adapter routes
-constant Rust HTTP actions through disposable targets; the model cannot choose
-commands, endpoints or infrastructure identities. Healthy/weakened live profiles
-observed allowed/forbidden counts `3/0` and `3/1`, retained final capture and cleaned
-owned resources. Native fake-model calibration establishes attempted injection
-plus blocked/observed effects; hosted benign/injection episodes were complete and
-useful for this one synthetic task. Hermes runs outside the selected boundary and
-its `no_sandbox_runtime` gap remains explicit. This is not authenticated agent
-pairing or process containment qualification. See the [pilot guide](hermes-effect-pilot.md).
+GYM-03's first development increment used the actual pinned Gym Hermes host
+harness and a separately locked Hermes runtime: an owned tool adapter routed
+constant Rust HTTP actions through disposable targets, with healthy/weakened
+live profiles observing allowed/forbidden counts `3/0` and `3/1`. That pilot
+(`scripts/hermes_pilot.py`, `onboarding/hermes`) was removed 2026-10-16: its
+upstream `hermes-agent` package stopped supporting pip/uv installation in favor
+of a shell-installer/Docker/Nix-only distribution, which also breaks NeMo Gym's
+own `responses_api_agents/hermes_agent/sandbox.py` install mechanism (not our
+code, and not something a pin change on our side can fix). GYM-03 is being
+re-attempted with OpenCode, which NeMo Gym already integrates via
+`responses_api_agents/opencode_agent` (supports plain local execution, no
+sandbox provider required) — not yet started.
 
 For GYM-01, record an onboarding manifest containing upstream commit, lock/image
 digest, interpreter, harness, model identifier/provider configuration, prompts,

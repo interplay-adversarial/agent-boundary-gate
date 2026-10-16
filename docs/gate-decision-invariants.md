@@ -4,7 +4,7 @@ REL-01 adds eleven property groups in
 [test_gate_invariants.py](../tests/test_gate_invariants.py). They exercise the actual
 `evaluate` function with validated wire records and real Ed25519 signatures.
 Hypothesis is pinned to `6.169.0` in the **development** dependency group; runtime
-dependencies, signed wire versions and optional Gym/Hermes locks are unchanged.
+dependencies, signed wire versions and the optional Gym lock are unchanged.
 
 Run from the source checkout:
 
@@ -73,6 +73,5 @@ credential or cluster traffic is used, and archived evidence is not rewritten.
 No production decision change was needed for this increment. REL-01 remains open
 for broader blocked-adapter deadline enforcement, resource bounds and live fault
 qualification. GYM-04 freezing follows its pilot/fault criteria; optional Interplay
-integration remains deferred. See the [roadmap](improvement-roadmap.md),
-[controller drills](development-failure-drills.md) and
-[worker/proxy drills](hermes-effect-pilot.md#worker-and-proxy-failure-drills).
+integration remains deferred. See the [roadmap](improvement-roadmap.md) and
+[controller drills](development-failure-drills.md).

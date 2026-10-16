@@ -97,7 +97,7 @@ correctness, broad/held-out attack coverage and dependency license review for
 packaging remain open. An image deployment would also need its own digest and
 scan; no Gym image has been built or admitted by this onboarding.
 
-The bridge/effect adapter, Hermes pairing, task-state utility oracle and failure
-qualification remain later milestones. Keep model credentials and private traces
+The bridge/effect adapter, a real agent pairing, task-state utility oracle and
+failure qualification remain later milestones. Keep model credentials and private traces
 outside the evaluated target and public repository. A verifier replay or shipped
 upstream harness does not qualify an agent/backend pairing.

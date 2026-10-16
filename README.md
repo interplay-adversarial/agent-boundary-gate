@@ -5,7 +5,7 @@ boundaries. Agent adapters, boundary backends and independent observers compose
 through signed, versioned contracts. OpenShell is the first implementation backend.
 
 **Prototype:** release authorization remains disabled. OpenShell has not been
-qualified against a live target. Hermes, OpenCode and OpenClaw adapters are planned.
+qualified against a live target. OpenCode and OpenClaw adapters are planned.
 
 Start with the [tools, library APIs and use-case guide](docs/tools-and-use-cases.md)
 for workflow selection across boundary evidence, adaptive assessments and native
@@ -68,10 +68,9 @@ runnable offline/loopback examples, stored evidence verification and live integr
 - An [optional Gym evidence bridge](docs/gym-evidence-bridge.md) correlates private
   native observations with independently authenticated boundary records. Fixture
   mapping/fault conformance is implemented; authenticated real-agent mapping remains planned.
-- A [Hermes development effect pilot](docs/hermes-effect-pilot.md) uses the pinned
-  upstream host harness with a bounded synthetic toolset and remote Rust execution
-  inside disposable targets. Native conformance includes exhaustion/cancellation;
-  Hermes process containment and authenticated qualification remain open.
+  A first real-agent effect pilot (initially Hermes, removed 2026-10-16 after its
+  upstream dropped pip/uv installability; now being re-attempted with OpenCode)
+  remains open — see the [NeMo Gym adoption plan](docs/nemo-gym-adoption.md).
 
 All built-in backends and adapters live in this repository initially. See
 [ADR-0002](docs/adr/0002-portable-adapters-and-repository-boundaries.md) for the
@@ -202,8 +201,7 @@ criteria, implementation status and qualification blockers.
 The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
 prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
 reports. Offline onboarding, model-backed smoke and optional fixture evidence mapping
-are implemented. The Hermes development pilot exercises remote synthetic effects;
-no Gym agent pairing is qualified.
+are implemented. No real-agent effect pilot or Gym agent pairing is qualified.
 
 ## License
 

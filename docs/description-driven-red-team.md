@@ -23,7 +23,7 @@ uv sync --project onboarding/red-team --frozen --no-editable
 The lock pins Python 3.14.7, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
 Interplay commit `e03063a1c7659be07dfe68af393688c4b94725e2`. The bundled
 `_pins/red-team.json` verifies the installed Git origin/revision, selected package
-versions and assessment source digests before admission. Gym/Hermes/Rust baselines
+versions and assessment source digests before admission. Gym/Rust baselines
 remain separate. This source pin selects the adaptive-feedback Interplay increment; review and
 merge that reusable change before promoting this dependent gate integration.
 
@@ -83,7 +83,7 @@ The first target adapter calls an OpenAI-compatible chat endpoint once per probe
 It records response content and optional top-level JSON `logs`/`traces` returned by
 that endpoint, labeled `endpoint-reported`. The retained request/message conversation
 is distinct from internal execution traces. Interplay exposes a `TargetAdapter`
-protocol for future Hermes/Gym or other instrumented targets; those integrations
+protocol for future Gym or other instrumented targets; those integrations
 are not implemented by this increment.
 
 Require `logs` and/or `traces` in `required_surfaces` when the criterion needs them.
