@@ -179,6 +179,14 @@ def main() -> int:
         failure = {"error": "opencode-smoke-incomplete", "release_eligible": False}
         if isinstance(error, CredentialReflectionError):
             failure["reason"] = "provider-credential-reflection"
+        elif not created:
+            # Every exception reachable before the output directory exists is one
+            # of our own fixed, secret-free diagnostic strings (manifest/provider
+            # validation, or the literal "model-credential-unavailable"): nothing
+            # live (subprocess/model output) has run yet, so this is always safe
+            # to surface, unlike anything that could fail after.
+            failure["preflight_error_type"] = type(error).__name__
+            failure["preflight_error"] = str(error)
         if created:
             try:
                 write_private(args.output, "failure.json", failure)

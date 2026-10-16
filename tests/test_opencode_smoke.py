@@ -1,8 +1,10 @@
 """Install/config/parse plumbing for the OpenCode smoke script, no live CLI or network."""
 
 import json
+import os
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -124,3 +126,39 @@ class OpenCodeSmokeTests(unittest.TestCase):
             self.assertTrue(report["smoke_complete"])
             self.assertTrue(report["session_artifact_present"])
             self.assertTrue(report["assistant_text_present"])
+
+    def test_main_reports_a_safe_preflight_error_without_an_output_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            provider_path = Path(root) / "provider.json"
+            provider_path.write_text(
+                json.dumps(
+                    {
+                        "base_url": "https://example.com/v1",
+                        "api_key_env": "OPENCODE_SMOKE_SELFTEST_UNSET_KEY",
+                        "model": "openai/m",
+                    }
+                )
+            )
+            provider_path.chmod(0o600)
+            output_dir = Path(root) / "output"
+            env = {**os.environ}
+            env.pop("OPENCODE_SMOKE_SELFTEST_UNSET_KEY", None)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.opencode_smoke",
+                    "--provider",
+                    str(provider_path),
+                    "--output",
+                    str(output_dir),
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse(output_dir.exists())
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["preflight_error_type"], "ValueError")
+            self.assertEqual(payload["preflight_error"], "model-credential-unavailable")
