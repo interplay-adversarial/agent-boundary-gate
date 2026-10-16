@@ -39,7 +39,7 @@ only what remains open.
 | INT-01 | P3 | EvalHub integration and reports | Stable result/status mapping, sanitized evidence references, explicit unsupported/incomplete outcomes and actionable explanations; no live qualification implied by integration. | Planned; not started. |
 | INT-02 | P3 | Interplay attack campaign integration | Optional adapter for pinned `interplay-adversarial/interplay` campaigns; correlate campaign/case/run/attempt and component pins, retain original attack/judge findings separately from independent boundary effects, reject unsupported/missing/mismatched evidence, and exercise offline failure conformance plus one bounded private pilot. Endpoint attacks must not be presented as tool instrumentation or containment proof. | Planned at William's request; depends on the GYM-03 effect path and GYM-04 frozen baseline/fault reporting. [Interplay](https://github.com/interplay-adversarial/interplay) remains a separate optional dependency; no adapter is implemented. Upstream's `red_teaming` attack-runner module (TAP/GOAT/SLIP/Crescendo/Multimodal/PAIR, a configurable judge panel with IRR reporting) is a future dependency once started; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | RT-01 | P2 | Description-driven DataDesigner research campaigns | Pinned Interplay+DataDesigner generation/judging via `red-team-run`/`red-team-recover`, with batch and adaptive search modes, evidence-dependent criteria, lineage/feedback export and interrupted-run recovery. | A future NeMo Gym `TargetAdapter` for stateful agent rollouts, an authorized adaptive provider pilot and instrumented target adapters remain open. [Guide](description-driven-red-team.md) |
-| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` (two major versions behind) and the `hermes-agent` pin (diverged from its fork's current `main`, needs commit-range inspection) remain open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
+| DEP-01 | P2 | Pinned dependency freshness | Core, dev-group and onboarding (`red-team`/`gym`/`hermes`) pins stay within a bounded distance of upstream; version/commit drift is reviewed on a schedule, not only when `pip-audit`/`cargo-audit` flag a CVE. | Onboarding `pyarrow` is blocked on an upstream `data-designer==0.9.5` constraint (no action possible until `data-designer` ships a newer stable release) and the `hermes-agent` pin (diverged from its fork's current `main`, needs commit-range inspection) remains open; see the [dependency freshness audit](#dependency-and-pin-freshness-audit-2026-10-15). |
 | DEP-02 | P2 | Python 3.14 compatibility investigation | Confirm whether core (`pyproject.toml`'s `requires-python = ">=3.12"`) and onboarding pins (`onboarding/red-team`'s exact `3.13.14`, Gym, Hermes) can move to Python 3.14 without breaking pinned dependencies (`pydantic`, `cryptography`, `pyarrow`, `data-designer`, `uv` itself) or CI's musl Rust builds. | Planned; not started. No code should change until compatibility is verified. |
 
 P1 marks qualification blockers. P2 marks reliability and engineering controls.
@@ -181,11 +181,14 @@ interruption drills remain the next reliability-track item.
 
 Checked every pinned package/commit against its upstream latest. Still open:
 
-`onboarding/red-team`'s `pyarrow` pin (24.0.0 vs. latest 26.0.0, two major
-versions) needs its own compatibility check against
-`interplay/assessment/storage.py`'s `to_arrow` schema construction before
-bumping. `any-llm-sdk` (1.33.0 vs. 1.36.0) and `openai` (3.28.0 vs. 3.31.0)
-have smaller version gaps still open.
+`onboarding/red-team`'s `pyarrow` pin (24.0.0 vs. latest 26.0.0) is **blocked**,
+not just untried: `data-designer==0.9.5` (the latest stable release) hard-pins
+`pyarrow>=24,<25`, and PyPI has no `24.x` release newer than `24.0.0` to move
+to instead (confirmed 2026-10-15 — `uv lock` fails the bump with this exact
+conflict). The only newer `data-designer` release is `1.0.0rc1`, a
+prerelease; bumping `pyarrow` needs that line to ship stable first, or
+`data-designer` to relax the constraint. `any-llm-sdk` (1.33.0 vs. 1.36.0) and
+`openai` (3.28.0 vs. 3.31.0) have smaller version gaps still open.
 
 `onboarding/gym` and `onboarding/hermes`'s NeMo Gym pin was bumped 2026-10-15
 from `f444b802` to `b454c9a` (`NVIDIA-NeMo/Gym`'s `main` at the time, 70
