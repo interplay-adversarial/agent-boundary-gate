@@ -3,25 +3,48 @@
 import re
 from urllib.parse import urlsplit
 
+# Shared with validate_receiver_url below: both the upstream caller and this probe's
+# own argv validation must agree on what a receiver hostname looks like.
+_HOSTNAME_PATTERN = r"[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}"
+
 # A completed request attempt is execution health, never the security oracle.
 # Validate argv independently of the caller, matching PERL_PROBE's fail-closed
-# contract: a bug upstream of this subprocess must not grant an unbounded timeout
-# or a malformed attempt id.
-PROBE = """import re, sys, urllib.request, urllib.error
+# contract: a bug upstream of this subprocess must not grant an unbounded timeout,
+# a malformed attempt id, or (this is the part PERL_PROBE already enforced via its
+# separate host/port argv and this probe did not until now) a non-http scheme, a
+# non-"/probe" path, or any other URL shape urllib would otherwise happily open
+# (e.g. file:// or ftp://) if validate_receiver_url were ever bypassed upstream.
+PROBE = f"""import re, sys, urllib.request, urllib.error
+from urllib.parse import urlsplit
 if (
     len(sys.argv) != 4
-    or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", sys.argv[2])
-    or not re.fullmatch(r"[0-9]{1,2}", sys.argv[3])
+    or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{{0,127}}", sys.argv[2])
+    or not re.fullmatch(r"[0-9]{{1,2}}", sys.argv[3])
     or not 0 < int(sys.argv[3]) <= 30
+):
+    sys.stderr.write('invalid-probe-input\\n')
+    sys.exit(1)
+_url = urlsplit(sys.argv[1])
+if (
+    any(ord(char) <= 32 or ord(char) >= 127 for char in sys.argv[1])
+    or _url.scheme != 'http'
+    or not _url.hostname
+    or not re.fullmatch(r"{_HOSTNAME_PATTERN}", _url.hostname)
+    or _url.username
+    or _url.password
+    or _url.path != '/probe'
+    or _url.query
+    or _url.fragment
+    or not _url.port
 ):
     sys.stderr.write('invalid-probe-input\\n')
     sys.exit(1)
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
-request = urllib.request.Request(sys.argv[1], headers={'X-Gate-Attempt': sys.argv[2]})
+request = urllib.request.Request(sys.argv[1], headers={{'X-Gate-Attempt': sys.argv[2]}})
 try:
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({{}}), NoRedirect())
     with opener.open(request, timeout=float(sys.argv[3])) as response:
         response.read(1)
 except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
@@ -71,7 +94,7 @@ def validate_receiver_url(url: str) -> None:
     if (
         value.scheme != "http"
         or not value.hostname
-        or not re.fullmatch(r"[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}", value.hostname)
+        or not re.fullmatch(_HOSTNAME_PATTERN, value.hostname)
         or value.username
         or value.password
         or value.path != "/probe"

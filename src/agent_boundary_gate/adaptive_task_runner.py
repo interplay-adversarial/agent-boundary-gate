@@ -33,7 +33,9 @@ from agent_boundary_gate.receipts import ReceiptContract
 DEMO_INSTRUCTION_TAIL_CHARS = 4000
 JUDGE_DETAIL_TAIL_CHARS = 2000
 JUDGE_CLASSIFICATIONS = frozenset({"same_failure", "different_failure", "closer", "resolved"})
-_ENV_LINE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]{0,80})=(.*)$")
+_ENV_VAR_NAME = r"[A-Za-z_][A-Za-z0-9_]{0,80}"
+_ENV_LINE = re.compile(rf"^({_ENV_VAR_NAME})=(.*)$")
+_ENV_VAR_NAME_ONLY = re.compile(rf"^{_ENV_VAR_NAME}$")
 
 
 def load_env_file(path: Path) -> dict[str, str]:
@@ -355,7 +357,16 @@ def _gym_eval_run(
     if config.model_url:
         argv += ["--model-url", config.model_url]
     if config.model_api_key_env:
-        argv += ["--model-api-key", os.environ.get(config.model_api_key_env, "")]
+        if not _ENV_VAR_NAME_ONLY.match(config.model_api_key_env):
+            raise ValueError(f"invalid model_api_key_env name: {config.model_api_key_env!r}")
+        # Interpolated, not materialized here: Gym's --model-api-key becomes a literal
+        # Hydra override token on this process's own argv (visible to any local user via
+        # /proc/<pid>/cmdline for the life of the subprocess). OmegaConf's built-in oc.env
+        # resolver reads the named variable from the *subprocess's* environment at Hydra
+        # config-resolution time instead, so the secret bytes themselves never appear in
+        # this argv -- only the variable's name. _gym_environment already places that
+        # variable in the subprocess's environment.
+        argv += ["--model-api-key", f"${{oc.env:{config.model_api_key_env}}}"]
     bounded_process(
         argv,
         deadline=time.monotonic() + config.attempt_seconds,
@@ -414,6 +425,29 @@ def _read_jsonl_rows(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _infra_error_record(
+    task_id: str,
+    attempt_number: int,
+    reason: str,
+    rollouts_ref: str,
+    reward_profile_ref: str,
+) -> AttemptRecord:
+    # Shared by every "the run or the profiling step produced no scoreable result"
+    # path (missing rollout_infos, or a reward-profile row shaped unexpectedly):
+    # treat it as a masked zero rather than raising out of the loop.
+    return AttemptRecord(
+        task_id=task_id,
+        attempt_number=attempt_number,
+        reward=0.0,
+        mask_sample=True,
+        failure_kind="harbor:attempt_infra_error",
+        failure_reason=reason,
+        decision=StopDecision.ABANDON,  # overwritten by the caller immediately after
+        rollouts_ref=rollouts_ref,
+        reward_profile_ref=reward_profile_ref,
+    )
+
+
 def _attempt_record(
     task_id: str, attempt_number: int, rollouts_path: Path, profile_path: Path, store: EvidenceStore
 ) -> tuple[AttemptRecord, dict[str, Any] | None]:
@@ -425,28 +459,43 @@ def _attempt_record(
     reward_profile_ref = store.persist_json(profile_rows[0] if profile_rows else {})
 
     if not profile_rows or not profile_rows[0].get("rollout_infos"):
-        # The run or the profiling step produced no scoreable result (crash, timeout, infra
-        # failure). Treat it as a masked zero rather than raising out of the loop.
         return (
-            AttemptRecord(
-                task_id=task_id,
-                attempt_number=attempt_number,
-                reward=0.0,
-                mask_sample=True,
-                failure_kind="harbor:attempt_infra_error",
-                failure_reason="no scoreable rollout_infos in the reward profile",
-                decision=StopDecision.ABANDON,  # overwritten by the caller immediately after
-                rollouts_ref=rollouts_ref,
-                reward_profile_ref=reward_profile_ref,
+            _infra_error_record(
+                task_id,
+                attempt_number,
+                "no scoreable rollout_infos in the reward profile",
+                rollouts_ref,
+                reward_profile_ref,
             ),
             raw_row,
         )
 
     rollout_info = profile_rows[0]["rollout_infos"][0]
-    reward = float(rollout_info.get("reward", 0.0))
+    try:
+        # Gym's reward-profiling output is an external, unvalidated contract: a null
+        # reward or a non-numeric tests_passed/tests_total shape this loop has not seen
+        # yet must not raise out of here as a raw TypeError/ValueError -- that would
+        # escape every handler in this module and in cli.py, crashing the whole run
+        # instead of masking the one malformed attempt, exactly like the no-rollout_infos
+        # case just above.
+        reward = float(rollout_info.get("reward", 0.0))
+        tests_passed_raw = rollout_info.get("tests_passed")
+        tests_total_raw = rollout_info.get("tests_total")
+        tests_passed = int(tests_passed_raw) if tests_passed_raw is not None else None
+        tests_total = int(tests_total_raw) if tests_total_raw is not None else None
+    except (TypeError, ValueError) as exc:
+        return (
+            _infra_error_record(
+                task_id,
+                attempt_number,
+                f"malformed reward-profile fields: {type(exc).__name__}",
+                rollouts_ref,
+                reward_profile_ref,
+            ),
+            raw_row,
+        )
+
     mask_sample = bool((raw_row or {}).get("mask_sample", False))
-    tests_passed = rollout_info.get("tests_passed")
-    tests_total = rollout_info.get("tests_total")
     return (
         AttemptRecord(
             task_id=task_id,
@@ -455,8 +504,8 @@ def _attempt_record(
             mask_sample=mask_sample,
             failure_kind=(raw_row or {}).get("failure_kind"),
             failure_reason=(raw_row or {}).get("failure_reason"),
-            tests_passed=int(tests_passed) if tests_passed is not None else None,
-            tests_total=int(tests_total) if tests_total is not None else None,
+            tests_passed=tests_passed,
+            tests_total=tests_total,
             decision=StopDecision.ABANDON,  # overwritten by the caller immediately after
             rollouts_ref=rollouts_ref,
             reward_profile_ref=reward_profile_ref,

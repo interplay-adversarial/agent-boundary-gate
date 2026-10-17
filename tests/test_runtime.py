@@ -679,6 +679,52 @@ class DirectDriverTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.driver(probe_runtime="sh")
 
+    def test_oversized_pinned_executable_is_rejected_bounded(self):
+        # A read_bytes() with no size cap would instead load however many bytes a
+        # swapped-in oversized file contains before ever comparing its digest.
+        with (
+            patch("agent_boundary_gate.backends.openshell._MAX_EXECUTABLE_BYTES", 4),
+            tempfile.TemporaryDirectory() as root,
+        ):
+            oversized = Path(root) / "openshell"
+            oversized.write_bytes(b"too-large-for-the-patched-limit")
+            lease, _ = lease_and_binding()
+            broker = FakeReceiptBroker()
+            with self.assertRaises(ValueError):
+                OpenShellBackend(
+                    executable=oversized,
+                    executable_digest=bytes_digest(oversized.read_bytes()),
+                    gateway="rig",
+                    sandbox="gate-1",
+                    sandbox_uid="sandbox-1",
+                    policy_digest=lease.effective_policy_digest,
+                    policy_revision=1,
+                    lease=lease,
+                    receipt_provider=broker,
+                    receipt_verifier=broker.verifier,
+                )
+
+    def test_command_executes_a_private_snapshot_not_the_original_path(self):
+        driver = self.driver()
+        captured = {}
+
+        def fake_bounded_process(argv, **kwargs):
+            captured["argv0"] = argv[0]
+            captured["mode"] = Path(argv[0]).stat().st_mode & 0o777
+            captured["exists_during_call"] = Path(argv[0]).is_file()
+            return ProcessResult(0, b"")
+
+        with patch(
+            "agent_boundary_gate.backends.openshell.bounded_process",
+            side_effect=fake_bounded_process,
+        ):
+            driver._command([], time.monotonic() + 1, Event(), phase="readiness")
+        self.assertNotEqual(captured["argv0"], driver.executable)
+        self.assertEqual(captured["mode"], 0o500)
+        self.assertTrue(captured["exists_during_call"])
+        # The private snapshot directory is cleaned up once the call returns.
+        self.assertFalse(Path(captured["argv0"]).exists())
+
     def test_cli_errors_are_classified_without_private_output(self):
         driver = self.driver()
         for phase in ("readiness", "replay", "cleanup"):

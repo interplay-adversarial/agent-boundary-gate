@@ -7,6 +7,7 @@ This driver does not provision containment, issue leases or invent supervisor re
 import json
 import math
 import re
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from urllib.parse import urlsplit
 from agent_boundary_gate.auth import digest
 from agent_boundary_gate.backends import BackendFailure, Readiness, UnsupportedCapability
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
+from agent_boundary_gate.doctor import read_regular_input
 from agent_boundary_gate.evidence import bytes_digest
 from agent_boundary_gate.probe_delivery import (
     DeliveryProvider,
@@ -34,6 +36,11 @@ from agent_boundary_gate.receipts import (
     ReceiptRejected,
     ReceiptVerifier,
 )
+
+# Matches doctor.py's _inspect and command_transport.py's CommandTransport.call: any
+# pinned-executable read in this repo is bounded, never a bare read_bytes() that would
+# let a swapped-in oversized file exhaust memory.
+_MAX_EXECUTABLE_BYTES = 64 * 1024 * 1024
 
 
 class OpenShellBackend:
@@ -68,7 +75,15 @@ class OpenShellBackend:
             item is not None for item in (rust_deployment, delivery_provider, delivery_verifier)
         ):
             raise ValueError("rust delivery configuration requires explicit rust selection")
-        if bytes_digest(executable.read_bytes()) != executable_digest:
+        # Resolve before the bounded read below: read_regular_input's O_NOFOLLOW (by
+        # design -- it must reject an untrusted symlink swap) would otherwise reject a
+        # legitimate symlinked executable path, which self.executable below has always
+        # accepted via .resolve().
+        executable = executable.resolve()
+        if (
+            bytes_digest(read_regular_input(executable, limit=_MAX_EXECUTABLE_BYTES))
+            != executable_digest
+        ):
             raise ValueError("OpenShell binary does not match its pin")
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}", gateway):
             raise ValueError("invalid gateway name")
@@ -120,14 +135,28 @@ class OpenShellBackend:
             return None
 
     def _command(self, args: list[str], deadline: float, cancelled: Event, *, phase: str):
-        if bytes_digest(Path(self.executable).read_bytes()) != self.executable_digest:
+        try:
+            executable_bytes = read_regular_input(
+                Path(self.executable), limit=_MAX_EXECUTABLE_BYTES
+            )
+        except OSError:
+            raise ValueError("OpenShell binary unreadable after validation") from None
+        if bytes_digest(executable_bytes) != self.executable_digest:
             raise ValueError("OpenShell binary changed after validation")
         try:
-            result = bounded_process(
-                [self.executable, "--gateway", self.gateway, *args],
-                deadline=deadline,
-                cancelled=cancelled,
-            )
+            # Execute the bytes just hashed, not the original path again: same idiom as
+            # doctor.py's _inspect and CommandTransport.call, closing the gap between
+            # this check and bounded_process below where the path itself could otherwise
+            # be swapped out from under us.
+            with tempfile.TemporaryDirectory(prefix="gate-openshell-cli-") as directory:
+                snapshot = Path(directory) / "openshell"
+                snapshot.write_bytes(executable_bytes)
+                snapshot.chmod(0o500)
+                result = bounded_process(
+                    [str(snapshot), "--gateway", self.gateway, *args],
+                    deadline=deadline,
+                    cancelled=cancelled,
+                )
         except AttemptStopped as stopped:
             if stopped.reason == "cancelled":
                 raise
