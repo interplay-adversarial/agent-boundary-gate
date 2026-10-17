@@ -17,7 +17,7 @@ from pydantic import Field, model_validator
 
 from agent_boundary_gate.development import RUN_LABEL, Namespace
 from agent_boundary_gate.doctor import read_regular_input
-from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.evidence import EvidenceStore, bytes_digest, write_json_atomic
 from agent_boundary_gate.process import AttemptStopped, bounded_process
 from agent_boundary_gate.receipts import ReceiptContract
 from agent_boundary_gate.rig_transport import UnixClient, private_parent
@@ -86,8 +86,6 @@ class NamespaceAllocator:
         try:
             fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             # Bind retained records to this exact operator-owned deployment.
-            from agent_boundary_gate.development_run import _write
-
             # Partial writes are never proof; only committed records count.
             for pending in self.store.root.glob("*.pending"):
                 if pending.name == "allocator-config.pending" or re.fullmatch(
@@ -103,7 +101,7 @@ class NamespaceAllocator:
                 }:
                     raise ValueError("namespace-allocator-config-changed")
             else:
-                _write(binding, {"digest": config_digest})
+                write_json_atomic(binding, {"digest": config_digest})
             raw = read_regular_input(config.kubernetes_executable, limit=256 * 1024 * 1024)
             if bytes_digest(raw) != config.kubernetes_digest:
                 raise ValueError("namespace-allocator-executable-changed")
@@ -170,8 +168,6 @@ class NamespaceAllocator:
         return AllocationRecord(intent=intent, state="created", uid=value["metadata"].get("uid"))
 
     def handle(self, raw: bytes, deadline: float, cancelled: Event) -> bytes:
-        from agent_boundary_gate.development_run import _write
-
         call = AllocationCall.model_validate_json(raw)
         intent = call.intent
         if (
@@ -204,9 +200,9 @@ class NamespaceAllocator:
                     >= self.config.max_operations
                 ):
                     raise ValueError("namespace-allocator-capacity-exceeded")
-                _write(path, record.model_dump(mode="json"))
+                write_json_atomic(path, record.model_dump(mode="json"))
                 record = self.create(intent, deadline=deadline, cancelled=cancelled)
-                _write(path, record.model_dump(mode="json"))
+                write_json_atomic(path, record.model_dump(mode="json"))
             return record.model_dump_json().encode()
         finally:
             self.serial.release()

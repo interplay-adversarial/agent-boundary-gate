@@ -164,7 +164,7 @@ class LeaseJournal:
                 LeaseBinding.model_validate_json(row["binding_json"]), token, reason
             )
 
-    def _finish(
+    def finish(
         self,
         claim: RecoveryClaim,
         *,
@@ -264,7 +264,7 @@ class RecoveryWorker:
                 raise ValueError("cleanup-not-confirmed")
         except Exception:
             reference = None
-        finished = self.journal._finish(
+        finished = self.journal.finish(
             claim, now=self.clock(), receipt_ref=reference, retry_delay=self.retry_delay
         )
         return "claim-lost" if not finished else "destroyed" if reference else "retry"

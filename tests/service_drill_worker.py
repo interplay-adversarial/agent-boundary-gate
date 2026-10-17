@@ -16,7 +16,7 @@ from agent_boundary_gate.recovery import LeaseJournal
 def launch():
     marker = Path(os.environ["GATE_DRILL_WRITE_FAULT"])
     journal = Path(os.environ["GATE_DRILL_JOURNAL"])
-    persist, finish = EvidenceStore.persist, LeaseJournal._finish
+    persist, finish = EvidenceStore.persist, LeaseJournal.finish
 
     def fail_receipt(store, raw):
         if store.root == journal and marker.exists() and marker.read_text() == "receipt":
@@ -28,7 +28,7 @@ def launch():
             raise sqlite3.OperationalError("synthetic-journal-commit-failure")
         return finish(store, *args, **kwargs)
 
-    EvidenceStore.persist, LeaseJournal._finish = fail_receipt, fail_finish
+    EvidenceStore.persist, LeaseJournal.finish = fail_receipt, fail_finish
     return main()
 
 

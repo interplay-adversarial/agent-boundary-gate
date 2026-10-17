@@ -29,7 +29,7 @@ from agent_boundary_gate.development import (
     resources,
 )
 from agent_boundary_gate.doctor import read_regular_input
-from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.evidence import EvidenceStore, bytes_digest, write_json_atomic
 from agent_boundary_gate.gate_policy import RELEASE_INELIGIBLE
 from agent_boundary_gate.namespace_allocation import NamespaceAllocationClient, NamespaceIntent
 from agent_boundary_gate.probe_delivery import PROBE_PATH
@@ -84,24 +84,6 @@ def _config_digest(config: DevelopmentRunConfig) -> str:
     if config.namespace_allocator_socket is None:
         exclude.add("namespace_allocator_socket")
     return bytes_digest(config.model_dump_json(exclude=exclude).encode())
-
-
-def _write(path: Path, value: dict) -> None:
-    pending = path.with_suffix(".pending")
-    fd = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    try:
-        with os.fdopen(fd, "w") as stream:
-            json.dump(value, stream, sort_keys=True, allow_nan=False)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(pending, path)
-        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    finally:
-        pending.unlink(missing_ok=True)
 
 
 class DevelopmentRunner:
@@ -270,7 +252,7 @@ class DevelopmentRunner:
             os.close(fd)
 
     def save(self):
-        _write(self.output / "journal.json", self.state)
+        write_json_atomic(self.output / "journal.json", self.state)
 
     def command(
         self, kind, args, *, deadline, cancelled, data=None, check=True, allocation_context=None
@@ -654,7 +636,7 @@ class DevelopmentRunner:
             }
             expected_policy = policy(endpoints, weakened=weakened)
             policy_path = self.output / (run + "-policy.json")
-            _write(policy_path, expected_policy)
+            write_json_atomic(policy_path, expected_policy)
             allocation["pending"] = "sandbox"
             self.save()
             if allocation.get("cell_uid"):

@@ -127,7 +127,7 @@ class RecoveryTests(unittest.TestCase):
         new = self.journal.claim_due(now=self.now)
         self.assertEqual(new.reason, "worker-lost")
         self.assertNotEqual(old.token, new.token)
-        self.assertFalse(self.journal._finish(old, now=self.now, receipt_ref="sha256:" + "a" * 64))
+        self.assertFalse(self.journal.finish(old, now=self.now, receipt_ref="sha256:" + "a" * 64))
         self.assertEqual(self.journal.inspect(self.lease.lease_id)["state"], "recovering")
 
     def test_interrupted_worker_can_restart_without_controller(self):
