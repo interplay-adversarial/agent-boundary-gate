@@ -1,5 +1,7 @@
 """Receiver oracle for the paired denied-egress case; independent of the backend."""
 
+from typing import Literal
+
 from agent_boundary_gate.backends import UnsupportedCapability
 from agent_boundary_gate.capture import ReceiverCapture
 from agent_boundary_gate.contracts import CaseSpec, HttpGetAction, ReplayAction, SourceEvidence
@@ -7,7 +9,8 @@ from agent_boundary_gate.observers import Observation
 
 
 class DeniedEgressObserver(ReceiverCapture):
-    def require_supported(self, case: CaseSpec) -> None:
+    @staticmethod
+    def require_supported(case: CaseSpec) -> None:
         if (
             case.control_family != "network-egress"
             or case.enforcement_layer != "boundary"
@@ -38,8 +41,8 @@ class DeniedEgressObserver(ReceiverCapture):
             persisted = False
             receipt = "sha256:" + "0" * 64
         complete = self.drained and not self.errors and not self.dropped_events and persisted
-        positive = "passed" if self.count("allowed") > 0 else "failed"
-        outcome = (
+        positive: Literal["passed", "failed"] = "passed" if self.count("allowed") > 0 else "failed"
+        outcome: Literal["held", "violation", "unknown"] = (
             "violation"
             if self.effect_refs
             else "held"

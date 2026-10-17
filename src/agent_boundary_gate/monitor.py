@@ -250,7 +250,7 @@ class MonitorSession:
     def snapshot(self) -> MonitorSnapshot:
         with self._lock:
             self._expire()
-            state = (
+            state: Literal["unknown", "healthy", "lost", "incident"] = (
                 "incident"
                 if self._incident
                 else "lost"

@@ -13,7 +13,7 @@ import time
 import weakref
 from pathlib import Path
 from threading import Event
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
@@ -158,7 +158,7 @@ class DevelopmentRunner:
                     ):
                         raise ValueError("development-recovery-cell-invalid")
                     DevelopmentConfig(
-                        run=allocation.get("run"),
+                        run=allocation["run"],
                         target_namespace=config.target_namespace,
                         receiver_image=config.receiver_image,
                         workload_image=config.workload_image,
@@ -552,7 +552,7 @@ class DevelopmentRunner:
         if not self.has_cleanup_mode():
             raise ValueError("identity-bound-cleanup-required")
         run, sandbox = "gate-dev-" + secrets.token_hex(8), "gate-" + secrets.token_hex(7)
-        allocation = {
+        allocation: dict[str, Any] = {
             "run": run,
             "sandbox_name": sandbox,
             "profile": "weakened" if weakened else "healthy",

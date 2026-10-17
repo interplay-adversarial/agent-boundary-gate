@@ -7,11 +7,15 @@ from agent_boundary_gate.backends import Readiness, UnsupportedCapability
 from agent_boundary_gate.contracts import Binding, ComponentIdentity, HttpGetAction, ReplayAction
 from agent_boundary_gate.probes import PROBE
 from agent_boundary_gate.process import bounded_process
+from agent_boundary_gate.receipts import LeaseBinding
 
 
 class LoopbackBackend:
     backend_id = "loopback"
-    lease = None
+    # Always None: there is no authenticated provisioning lease for this fixture
+    # driver. Annotated as the BoundaryBackend Protocol's full LeaseBinding | None,
+    # not just None, so this still satisfies that (mutable) attribute's declared type.
+    lease: LeaseBinding | None = None
     capabilities = frozenset({"network-egress"})
 
     def __init__(self, policy_digest: str, *, weakened: bool = False):

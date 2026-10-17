@@ -3,6 +3,7 @@
 import time
 from datetime import UTC, datetime, timedelta
 from threading import Event, Lock, Thread
+from typing import Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -130,7 +131,7 @@ def run_attempt(
     status = RunStatus.COMPLETE
     ready = Readiness((), dispatch.binding.effective_policy_digest, False)
     replay_completed = False
-    cleanup = "unknown"
+    cleanup: Literal["destroyed", "failed", "unknown"] = "unknown"
     watch_done = Event()
     monitor_loss_seen = Event()
     monitor_ready_at_start = False
@@ -179,7 +180,7 @@ def run_attempt(
         if driver.backend_id != profile.boundary.id:
             raise UnsupportedCapability("boundary-backend-profile-mismatch")
         if (profile.agent is None) != (agent is None) or (
-            agent is not None and agent.agent_id != profile.agent.id
+            agent is not None and profile.agent is not None and agent.agent_id != profile.agent.id
         ):
             raise UnsupportedCapability("agent-adapter-unavailable-or-mismatched")
         capabilities = (

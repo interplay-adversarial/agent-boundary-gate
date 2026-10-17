@@ -35,11 +35,14 @@ def bounded_seconds(value: float, *, maximum: float = 60) -> None:
         raise ValueError("recovery budgets must be finite and bounded")
 
 
+RecoveryReason = Literal["lease-expired", "controller-lost", "worker-lost", "clock-regressed"]
+
+
 @dataclass(frozen=True)
 class RecoveryClaim:
     lease: LeaseBinding
     token: str
-    reason: Literal["lease-expired", "controller-lost", "worker-lost", "clock-regressed"]
+    reason: RecoveryReason
 
 
 class LeaseJournal:
@@ -145,7 +148,7 @@ class LeaseJournal:
             ).fetchone()
             if row is None:
                 return None
-            reason = (
+            reason: RecoveryReason = (
                 "clock-regressed"
                 if row["updated_at"] > current
                 else "worker-lost"

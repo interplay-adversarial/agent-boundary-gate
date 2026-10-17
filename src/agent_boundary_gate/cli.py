@@ -179,7 +179,7 @@ def main() -> int:
                 plan = GymEffectPlan.model_validate_json(
                     read_regular_input(args.plan, limit=65536, private=True)
                 )
-                config = GymEffectConfig.model_validate_json(
+                gym_effect_config = GymEffectConfig.model_validate_json(
                     read_regular_input(args.config, limit=65536, private=True)
                 )
                 cancelled = Event()
@@ -189,7 +189,7 @@ def main() -> int:
                 }
                 try:
                     report = run_gym_attempt(
-                        plan, config, args.output, args.python, cancelled=cancelled
+                        plan, gym_effect_config, args.output, args.python, cancelled=cancelled
                     )
                 finally:
                     for number, handler in previous.items():
@@ -203,14 +203,18 @@ def main() -> int:
             from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
             from agent_boundary_gate.live import read_private
 
-            config = DevelopmentRunConfig.model_validate_json(read_private(args.config))
+            development_run_config = DevelopmentRunConfig.model_validate_json(
+                read_private(args.config)
+            )
             cancelled = Event()
             previous = {}
             try:
                 for number in (signal.SIGINT, signal.SIGTERM):
                     previous[number] = signal.signal(number, lambda *_: cancelled.set())
                 with DevelopmentRunner(
-                    config, args.output, recover=args.command == "development-recover"
+                    development_run_config,
+                    args.output,
+                    recover=args.command == "development-recover",
                 ) as runner:
                     report = (
                         runner.recover()
@@ -233,8 +237,10 @@ def main() -> int:
             from agent_boundary_gate.development import DevelopmentConfig, prepare
             from agent_boundary_gate.live import read_private
 
-            config = DevelopmentConfig.model_validate_json(read_private(args.config))
-            print(json.dumps(prepare(config, args.output), indent=2))
+            development_plan_config = DevelopmentConfig.model_validate_json(
+                read_private(args.config)
+            )
+            print(json.dumps(prepare(development_plan_config, args.output), indent=2))
             return 0
         if args.command in (
             "authority-serve",
@@ -287,10 +293,12 @@ def main() -> int:
             from agent_boundary_gate.legacy.auth import authenticate_legacy
             from agent_boundary_gate.legacy.v0_1 import SignedRecord as LegacyRecord
 
-            records = TypeAdapter(list[LegacyRecord]).validate_json(args.records.read_bytes())
-            key = Ed25519PublicKey.from_public_bytes(args.public_key.read_bytes())
-            authenticated = bool(records) and all(
-                authenticate_legacy(r, {args.signer: key}) for r in records
+            legacy_records = TypeAdapter(list[LegacyRecord]).validate_json(
+                args.records.read_bytes()
+            )
+            legacy_verifier_key = Ed25519PublicKey.from_public_bytes(args.public_key.read_bytes())
+            authenticated = bool(legacy_records) and all(
+                authenticate_legacy(r, {args.signer: legacy_verifier_key}) for r in legacy_records
             )
             print(
                 json.dumps(
@@ -345,9 +353,9 @@ def main() -> int:
             )
 
             if args.env_file is not None:
-                for key, value in load_env_file(args.env_file).items():
-                    os.environ.setdefault(key, value)
-            config = AdaptiveTaskRunnerConfig.model_validate_json(
+                for name, value in load_env_file(args.env_file).items():
+                    os.environ.setdefault(name, value)
+            adaptive_task_runner_config = AdaptiveTaskRunnerConfig.model_validate_json(
                 read_regular_input(args.config, limit=65536, private=True)
             )
             cancelled = Event()
@@ -355,7 +363,9 @@ def main() -> int:
             try:
                 for number in (signal.SIGINT, signal.SIGTERM):
                     previous[number] = signal.signal(number, lambda *_: cancelled.set())
-                report = adaptive_task_runner_run(config, args.output, cancelled=cancelled)
+                report = adaptive_task_runner_run(
+                    adaptive_task_runner_config, args.output, cancelled=cancelled
+                )
             finally:
                 for number, handler in previous.items():
                     signal.signal(number, handler)
@@ -365,11 +375,11 @@ def main() -> int:
         if args.command == "local-run":
             decision = local_run(args.case, args.output, weakened=args.weakened)
         elif args.command == "demo":
-            dispatch, record, key = fixture(args.scenario, now=now)
+            dispatch, record, signing_key = fixture(args.scenario, now=now)
             decision = evaluate(
                 dispatch,
                 [record],
-                {"fixture-verifier": key.public_key()},
+                {"fixture-verifier": signing_key.public_key()},
                 now=now,
                 job_complete=True,
                 server_aggregate=record.result.invariant_held,

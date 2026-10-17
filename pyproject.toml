@@ -16,7 +16,7 @@ Repository = "https://github.com/interplay-adversarial/agent-boundary-gate"
 Issues = "https://github.com/interplay-adversarial/agent-boundary-gate/issues"
 
 [dependency-groups]
-dev = ["ruff==0.17.1", "pre-commit==4.7.0", "pip-audit==2.10.1", "hypothesis==6.169.4"]
+dev = ["ruff==0.17.1", "pre-commit==4.7.0", "pip-audit==2.10.1", "hypothesis==6.169.4", "mypy==2.4.0"]
 
 [build-system]
 requires = ["hatchling>=1.27,<2"]
@@ -31,3 +31,22 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src/agent_boundary_gate"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_equality = true
+
+# Full --strict surfaces ~360 errors (mostly missing annotations on existing untyped
+# function signatures across the whole package) that would need a much larger,
+# separate pass to fix correctly; this configuration is the default-mode baseline
+# plus a few flags confirmed not to add any new findings on top of it.
+
+[[tool.mypy.overrides]]
+# Heavy, optional dependencies only ever imported lazily inside the separate
+# onboarding/gym-native and onboarding/red-team venvs (their own lockfiles, not this
+# package's dependencies) -- never installed where this package's own mypy run executes.
+module = ["interplay.*", "aiohttp", "nemo_gym.*", "omegaconf", "responses_api_agents.*"]
+ignore_missing_imports = true

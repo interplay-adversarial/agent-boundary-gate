@@ -190,7 +190,16 @@ def live_run(config: LiveConfig, output: Path) -> tuple[dict, int]:
             record = run_attempt(
                 config.dispatch,
                 case,
-                backend,
+                # OpenShellBackend deliberately narrows BoundaryBackend's Protocol-level
+                # lease: LeaseBinding | None to a required LeaseBinding, and replay's
+                # url: str | None to a required str: unlike the loopback/fixture
+                # backend, a real OpenShell probe always has an authenticated lease and
+                # a concrete receiver URL, and every method on this class already relies
+                # on that without a None-guard. Widening either to satisfy the Protocol
+                # would be the wrong direction -- it would weaken a real invariant, not
+                # fix a bug. See backends/openshell.py's __init__/replay for where that
+                # invariant is actually enforced.
+                backend,  # type: ignore[arg-type]
                 observer,
                 store,
                 key,

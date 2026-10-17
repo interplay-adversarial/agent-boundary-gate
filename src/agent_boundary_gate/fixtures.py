@@ -152,7 +152,7 @@ def fixture(
         issued_at=now - timedelta(seconds=1),
         valid_until=now + timedelta(minutes=5),
     )
-    exceptions = ()
+    exceptions: tuple[ExceptionRecord, ...] = ()
     if scenario.startswith("waived-veto"):
         exceptions = (
             ExceptionRecord(
