@@ -118,12 +118,19 @@ def interrupted(output):
     )
     events = output / "killed" / "adapter" / attempt_id / "events.jsonl"
     end = time.monotonic() + 20
-    while time.monotonic() < end and not (
-        events.exists() and b"tool-attempted" in events.read_bytes()
-    ):
+    reached = False
+    while time.monotonic() < end and controller.poll() is None:
+        if events.exists() and b"tool-attempted" in events.read_bytes():
+            reached = True
+            break
         time.sleep(0.05)
-    os.kill(controller.pid, signal.SIGKILL)
+    # The controller may already be gone (crash or early exit); never signal a dead pid.
+    if controller.poll() is None:
+        os.kill(controller.pid, signal.SIGKILL)
     controller.wait()
+    if not reached:
+        # Recovering now would misreport an interruption after tool intent that never happened.
+        raise SystemExit("interrupt-point-not-reached: no tool-attempted event before the kill")
     before = [row["kind"] for row in read_journal(output / "killed")[1]]
     recovered = recover_gym_attempt(output / "killed")
     return {
