@@ -201,3 +201,9 @@ class OpenCodeSmokeTests(unittest.TestCase):
             self.assertEqual(output_dir.stat().st_mode & 0o777, 0o700)
             payload = json.loads(result.stdout)
             self.assertNotIn("preflight_error_type", payload)
+            self.assertNotIn("preflight_error", payload)
+            # Only the exception's class name is safe to surface once a real
+            # subprocess may have run -- never str(error), which could embed
+            # unscreened stdout/stderr.
+            self.assertIn("smoke_error_type", payload)
+            self.assertIsInstance(payload["smoke_error_type"], str)

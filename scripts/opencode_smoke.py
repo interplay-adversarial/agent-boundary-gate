@@ -197,6 +197,13 @@ def main() -> int:
             # to surface, unlike anything that could fail after.
             failure["preflight_error_type"] = type(error).__name__
             failure["preflight_error"] = str(error)
+        else:
+            # Only the exception's class name, never str(error): once the
+            # subprocess has run, an exception's message may embed captured
+            # stdout/stderr (e.g. subprocess.TimeoutExpired, CalledProcessError)
+            # which reject_reflected_bytes has not screened yet. The class name
+            # alone can never contain credential bytes.
+            failure["smoke_error_type"] = type(error).__name__
         if created:
             try:
                 write_private(args.output, "failure.json", failure)
