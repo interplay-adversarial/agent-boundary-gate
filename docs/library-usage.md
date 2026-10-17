@@ -51,7 +51,7 @@ report interpretation and limitations for read-only inspection.
 
 ## Install from source
 
-Requires Python 3.12+. From a checkout:
+Requires Python 3.13+. From a checkout:
 
 ```sh
 uv sync --frozen --no-editable
