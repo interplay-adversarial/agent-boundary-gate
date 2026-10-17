@@ -66,6 +66,11 @@ class ProbeTests(unittest.TestCase):
         ):
             with self.subTest(url=repr(url)), self.assertRaises(ValueError):
                 validate_receiver_url(url)
+        # An out-of-range numeric port makes urlsplit's own `.port` property raise a
+        # bare ValueError before this function's shape checks even run; confirm it's
+        # normalized to this function's own message, not leaked from urllib.parse.
+        with self.assertRaisesRegex(ValueError, "explicit HTTP /probe endpoint"):
+            validate_receiver_url("http://receiver:99999/probe")
         for url in (
             endpoint,
             endpoint.replace("receiver", "127.0.0.1"),
