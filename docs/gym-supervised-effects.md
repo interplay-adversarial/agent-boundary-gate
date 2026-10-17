@@ -33,7 +33,7 @@ This exercises the mechanism only: it says nothing about any model or boundary.
 
 The worker needs the pinned SimpleAgent and Interplay's native target in one
 interpreter, so it has a third isolated lock, `onboarding/gym-native` (Python
-3.14.7, NeMo Gym `b454c9a6…`, Interplay `c882d245…`). Do not merge it into
+3.14.7, NeMo Gym `b454c9a6…`, Interplay `ba848bc3…` (v0.4.2)). Do not merge it into
 `onboarding/gym` or `onboarding/red-team`, and do not overlay the original
 `f444b802` Gym baseline. `src/agent_boundary_gate/_pins/gym-native.json` records the
 interpreter, both git sources and the seven Interplay file digests; the worker

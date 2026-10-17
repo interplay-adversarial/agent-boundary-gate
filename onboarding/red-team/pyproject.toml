@@ -3,7 +3,7 @@ name = "agent-boundary-gate-designer-campaigns"
 version = "0.1.0"
 requires-python = "==3.14.7"
 dependencies = [
-  "interplay-adversarial[assessment] @ git+https://github.com/interplay-adversarial/interplay.git@c882d245433584f874ce5350691a7a21a1d68bf0",
+  "interplay-adversarial[assessment] @ git+https://github.com/interplay-adversarial/interplay.git@ba848bc3fc1dc7fff47861a798c87deb338c37e0",
   "data-designer==0.9.5",
   "pyarrow==24.0.0",
   "pydantic==2.14.0",

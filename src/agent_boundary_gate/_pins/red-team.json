@@ -1,7 +1,7 @@
 {
-  "commit": "c882d245433584f874ce5350691a7a21a1d68bf0",
+  "commit": "ba848bc3fc1dc7fff47861a798c87deb338c37e0",
   "files": {
-    "interplay/__init__.py": "sha256:510d99a52416026e21e10a759e5e872f0ad75c74f6bf8573956ac19f6a738537",
+    "interplay/__init__.py": "sha256:a70691fdc9a251adb62f1f2b8d40292c76c282834150279484fa862feb0b2ad2",
     "interplay/assessment/__init__.py": "sha256:a8d4746f9d483b72a4c727bce5df5678e31421a4d5a69e0a6c0dabbc1702ccb1",
     "interplay/assessment/cli.py": "sha256:83b17d5e953635f83226d3a5e8aea9763d8904d82168487a136625fc244f240f",
     "interplay/assessment/designer.py": "sha256:0cdf2cee842d2a7b7f51bbf7c6b08ffeb1fea27965ad84bb755b5ca86a1afd3f",
@@ -18,21 +18,21 @@
     "interplay/red_teaming/base.py": "sha256:b27f51d2fd0bf4878bbbec8163458b647338e86fd9b8421d78eba86edb63d7f4",
     "interplay/red_teaming/cli.py": "sha256:01bace6cfed519baf70ba6f07bfee17576ff4fd2393eecbd2835b040f961e385",
     "interplay/red_teaming/crescendo_runner.py": "sha256:b5a57fa2a7c9ca1a96e4eec6e24f3f33bf0059ee62a88f14e299e677bd832388",
-    "interplay/red_teaming/garak_runner.py": "sha256:d6c61e25896588216e98febf6c701a025a6875910f24ed9993f7499f59d8cf5f",
+    "interplay/red_teaming/garak_runner.py": "sha256:a2f69556a33900bc2ea2ddee7ff4400967b6e1465fe6bf3534ded45eb242ba47",
     "interplay/red_teaming/goat_runner.py": "sha256:dac2c5612d33efcd0a6931004461148bfee26b4f36b2806597ad0b95f8df98ad",
     "interplay/red_teaming/multimodal_runner.py": "sha256:9ae6552788ea828b660c3a580148b86fd2132ee62918362ca3e8179966e295c7",
     "interplay/red_teaming/pair_runner.py": "sha256:bb9f30d224bbfb74f66bae2174cfe397dfb471e7ae52dbca55b51e7287bc45b0",
     "interplay/red_teaming/session.py": "sha256:492dde882ea2b7bb659979d4f3b206fe2b06b337430af68067d8c2fc5f05996b",
     "interplay/red_teaming/slip_runner.py": "sha256:690bae165d13082afd496d1ac44c2e3f646f37cccf797406a560f9c4e742e264",
     "interplay/red_teaming/tap_runner.py": "sha256:59db89cf7a3fa228e75161a2dde5c8f13d66d1e80bc276a4956c6c430f46cbc3",
-    "interplay/red_teaming/transport.py": "sha256:8fd8209fb8b3f8fc591a287f751c6ec29c1784a8420e5356ff58b0e76d880c3f"
+    "interplay/red_teaming/transport.py": "sha256:08656cb949ebecc0e481442eb24d608ec16bf8ccda3a5cd9d0aee8ee52ca1cff"
   },
   "packages": {
     "any-llm-sdk": "1.37.0",
     "data-designer": "0.9.5",
     "data-designer-config": "0.9.5",
     "data-designer-engine": "0.9.5",
-    "interplay-adversarial": "0.3.1",
+    "interplay-adversarial": "0.4.2",
     "openai": "3.33.0",
     "pyarrow": "24.0.0",
     "pydantic": "2.14.0"

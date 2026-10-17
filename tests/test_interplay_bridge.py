@@ -125,14 +125,17 @@ class InterplayBridgeTests(unittest.TestCase):
 
     def test_previous_admitted_plan_remains_readable_without_rewriting_evidence(self):
         original = self.store.read(self.plan.record_ref)
-        old_plan = self.plan.model_copy(
-            update={"interplay_commit": "6372206d6d7f90b45bdfd2f2953cdde35617f2c0"}
-        )
-        report = self.evaluate(plan=old_plan)
-        self.assertTrue(report.correlation_complete)
-        self.assertEqual(report, self.evaluate(plan=old_plan))
-        self.assertEqual(original, self.store.read(self.plan.record_ref))
-        self.assertFalse(report.release_eligible)
+        for commit in (
+            "6372206d6d7f90b45bdfd2f2953cdde35617f2c0",
+            "c882d245433584f874ce5350691a7a21a1d68bf0",
+        ):
+            with self.subTest(commit=commit):
+                old_plan = self.plan.model_copy(update={"interplay_commit": commit})
+                report = self.evaluate(plan=old_plan)
+                self.assertTrue(report.correlation_complete)
+                self.assertEqual(report, self.evaluate(plan=old_plan))
+                self.assertEqual(original, self.store.read(self.plan.record_ref))
+                self.assertFalse(report.release_eligible)
 
     def test_all_row_identity_bindings_reject_replay(self):
         for name, value in (
