@@ -6,7 +6,8 @@ freshness audit). Cleaned up: 2026-10-15 (removed fully-closed items, trimmed
 partial items to their remaining gap, added DEP-02). Updated: 2026-10-17
 (SEC-03: enabled Dependabot security updates, added an advisory
 `dependency-review` Action; DEV-01: added an isolated distribution build,
-content and installed-package smoke audit, and mypy type checking). Scope:
+content and installed-package smoke audit, and mypy type checking; SEC-02: closed after the
+scheduled daily audit and Dependabot weekly proposals were observed in production). Scope:
 portable gate core, built-in adapters and qualification.
 
 The project remains an M0 prototype. All decisions retain
@@ -21,7 +22,6 @@ only what remains open.
 
 | ID | Priority | Improvement | Acceptance criteria | Remaining gap |
 | --- | --- | --- | --- | --- |
-| SEC-02 | P2 | Continuous security checks | Daily and manual audits, Python 3.13 (floor) and 3.14 PR validation, plus a floor-consistency test, weekly uv/Actions update proposals and a stable aggregate check. | First scheduled daily audit run and weekly uv/Actions update proposal not yet observed in production. |
 | SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Build-tool/platform-marker/runtime-image auditing remain unimplemented. (Ruleset `protect-main` requiring the `Required checks` aggregate is active. Dependabot security updates (`automated-security-fixes`) enabled and a `dependency-review` Action added 2026-10-17, advisory rather than required so it does not yet block merges. Dependency Graph was enabled by an org owner the same day, confirmed via a populated `dependency-graph/sbom` response; the `dependency-review` check now evaluates real PR diffs instead of failing with "not supported on this repository.") |
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Trusted lease issuance, broker transport and real independent attestations remain open (receipt verifier/backend merged in PR #8). |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Live deployment, escaped-process/supervisor-failure handling and orphan-cell qualification remain open. [Drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
@@ -250,6 +250,11 @@ which `check_environment`'s duplicate-package check correctly rejects; a
 `uv`-managed interpreter (as CI already uses via `actions/setup-python`)
 doesn't have this issue. (This migration also covered `onboarding/hermes`,
 since removed — see below.)
+
+**SEC-02 closed (2026-10-17).** The scheduled daily `Checks` run (cron `17 6 * * *`, full job set
+including the dependency, Rust, publication, distribution and secret audits) succeeded on 2026-10-12
+through 2026-10-17, and Dependabot opened weekly uv and Actions update PRs
+(#3-#7 on 2026-10-12, #20 and #21 on 2026-10-13), all since merged.
 
 **Core floor is Python 3.13 (2026-10-17).** `requires-python` is `>=3.13`, `.python-version` is
 `3.13`, and the CI `validate` matrix tests `3.13` (the floor) and `3.14`. Ruff's `target-version`
