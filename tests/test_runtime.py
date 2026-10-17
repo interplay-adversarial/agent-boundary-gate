@@ -20,6 +20,7 @@ from agent_boundary_gate.backends import BackendFailure, Readiness, UnsupportedC
 from agent_boundary_gate.backends.fixture import LoopbackBackend
 from agent_boundary_gate.backends.openshell import OpenShellBackend, validate_receiver_url
 from agent_boundary_gate.case_registry import load_case
+from agent_boundary_gate.contracts import HttpGetAction
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
 from agent_boundary_gate.fixtures import fixture
 from agent_boundary_gate.gate_policy import evaluate
@@ -785,6 +786,79 @@ class DirectDriverTests(unittest.TestCase):
         argv = command.call_args.args[0]
         self.assertEqual(argv[argv.index("--") + 1], "perl")
         self.assertEqual(argv[-4:-1], ["receiver", "80", binding.attempt_id])
+
+    def test_probe_timeout_is_clamped_to_the_remaining_replay_deadline(self):
+        # action.timeout_seconds (up to 30) must never exceed the deadline the
+        # caller actually gives replay(): a short deadline should clamp the
+        # probe's own internal budget down, not let the outer sandbox exec kill
+        # it mid-flight while the probe still thinks it has the full 30s.
+        for probe_runtime in ("python3", "perl"):
+            with self.subTest(probe_runtime=probe_runtime):
+                driver = self.driver(probe_runtime=probe_runtime)
+                _, binding = lease_and_binding()
+                driver.require_binding(binding)
+                with patch.object(driver, "_command", side_effect=self.responses()):
+                    self.assertTrue(
+                        driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                    )
+                action = HttpGetAction(
+                    operation="http_get", receiver="allowed", path="/probe", timeout_seconds=30
+                )
+                with patch.object(
+                    driver,
+                    "_command",
+                    return_value=ProcessResult(
+                        0, ("agent-boundary-gate-probe-complete:" + binding.attempt_id).encode()
+                    ),
+                ) as command:
+                    driver.replay(
+                        action,
+                        "http://receiver:80/probe",
+                        binding.attempt_id,
+                        deadline=time.monotonic() + 1,
+                        cancelled=Event(),
+                    )
+                argv = command.call_args.args[0]
+                self.assertEqual(argv[-1], "1")
+                self.assertEqual(argv[argv.index("--timeout") + 1], "1")
+
+    def test_probe_input_prevalidation_rejects_a_malformed_attempt_id_before_any_subprocess_call(
+        self,
+    ):
+        # attempt_id is always lease-validated upstream in practice, so this never
+        # fires live; simulate the upstream invariant breaking (bypassing the
+        # frozen contract's own validation, which would otherwise make this
+        # unreachable) and confirm python3/perl now reject it in-process, before
+        # ever spawning a subprocess -- parity with rust's own pre-existing check.
+        for probe_runtime in ("python3", "perl"):
+            with self.subTest(probe_runtime=probe_runtime):
+                driver = self.driver(probe_runtime=probe_runtime)
+                _, binding = lease_and_binding()
+                driver.require_binding(binding)
+                with patch.object(driver, "_command", side_effect=self.responses()):
+                    self.assertTrue(
+                        driver.readiness(deadline=time.monotonic() + 1, cancelled=Event()).ready
+                    )
+                # Corrupt the already-validated lease only now, simulating the
+                # upstream invariant breaking after every legitimate check (the
+                # binding-digest match in require_binding, the lease/readiness
+                # window) has already passed.
+                malformed = "bad attempt id"
+                object.__setattr__(driver.lease, "attempt_id", malformed)
+                action = HttpGetAction(
+                    operation="http_get", receiver="allowed", path="/probe", timeout_seconds=1
+                )
+                with patch.object(driver, "_command") as command:
+                    with self.assertRaises(UnsupportedCapability) as caught:
+                        driver.replay(
+                            action,
+                            "http://receiver:80/probe",
+                            malformed,
+                            deadline=time.monotonic() + 1,
+                            cancelled=Event(),
+                        )
+                    self.assertEqual(str(caught.exception), "probe-input-unsupported")
+                    command.assert_not_called()
 
     def responses(self, *, status="loaded", hash_value="a" * 64, active_version=3, uid="sandbox-1"):
         if hash_value == "a" * 64:

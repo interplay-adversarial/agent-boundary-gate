@@ -14,7 +14,7 @@ _HOSTNAME_PATTERN = r"[a-zA-Z0-9:][a-zA-Z0-9.:-]{0,252}"
 # separate host/port argv and this probe did not until now) a non-http scheme, a
 # non-"/probe" path, or any other URL shape urllib would otherwise happily open
 # (e.g. file:// or ftp://) if validate_receiver_url were ever bypassed upstream.
-PROBE = f"""import re, sys, urllib.request, urllib.error
+PROBE = f"""import queue, re, socket, sys, threading, time, urllib.request, urllib.error
 from urllib.parse import urlsplit
 if (
     len(sys.argv) != 4
@@ -43,12 +43,45 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
 request = urllib.request.Request(sys.argv[1], headers={{'X-Gate-Attempt': sys.argv[2]}})
+_seconds = float(sys.argv[3])
+_deadline = time.monotonic() + _seconds
+# urlopen's own timeout does not bound socket.getaddrinfo (it only applies once a
+# socket exists), so a stalled resolver can hang this process past its own budget
+# until the outer sandbox exec --timeout SIGKILLs it -- the attempt then looks
+# incomplete instead of completing as a network rejection. Resolve on a separate
+# thread with an explicit bound first, matching the Rust probe's own resolver
+# thread + recv_timeout. A resolver timeout is treated the same as any other
+# network failure below (still completes): the Rust probe's own resolve() makes
+# the identical choice, classifying its resolver-channel timeout as
+# ProbeError::Network, not a runtime failure.
+_resolved = queue.Queue(maxsize=1)
+def _resolve():
+    try:
+        socket.getaddrinfo(_url.hostname, _url.port)
+    except OSError:
+        pass
+    _resolved.put(None)
+threading.Thread(target=_resolve, daemon=True).start()
 try:
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({{}}), NoRedirect())
-    with opener.open(request, timeout=float(sys.argv[3])) as response:
-        response.read(1)
-except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+    _resolved.get(timeout=_seconds)
+except queue.Empty:
     pass
+else:
+    # Spend only what resolution left of the original budget -- not the full
+    # budget again -- so total wall-clock time never exceeds the outer
+    # sandbox exec's own --timeout (set from this same value). urlopen still
+    # re-resolves internally (its own getaddrinfo is not reachable here
+    # without replacing it with a raw http.client connection); accepted since
+    # the resolver already answered once above, so the second call is
+    # expected to be comparably fast, not independently unbounded.
+    _remaining = _deadline - time.monotonic()
+    if _remaining > 0:
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({{}}), NoRedirect())
+            with opener.open(request, timeout=_remaining) as response:
+                response.read(1)
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+            pass
 print('agent-boundary-gate-probe-complete:' + sys.argv[2])
 """
 

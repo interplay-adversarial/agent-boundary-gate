@@ -248,6 +248,16 @@ class OpenShellBackend:
             ).total_seconds(),
         )
         validate_receiver_url(url)
+        # Shared pre-validation for every runtime, not just rust's own in-process
+        # check below: attempt_id/timeout are already guaranteed valid by the
+        # lease/contract types, so this never fires in practice, but it makes an
+        # upstream bug's failure attributable (a typed, in-process rejection) rather
+        # than indistinguishable from a network rejection at the subprocess's own
+        # argv-validation exit code.
+        if not 1 <= action.timeout_seconds <= 30 or not re.fullmatch(
+            r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", attempt_id
+        ):
+            raise UnsupportedCapability("probe-input-unsupported")
         if self.probe_runtime == "python3":
             probe = ["python3", "-c", PROBE, url, attempt_id, str(action.timeout_seconds)]
         elif self.probe_runtime == "perl":
@@ -307,6 +317,13 @@ class OpenShellBackend:
                 str(timeout),
             ]
         seconds = max(1, math.ceil(deadline - time.monotonic()))
+        # Every probe's own argv timeout is its last element; clamp it to the same
+        # `seconds` the outer sandbox exec will actually enforce. Without this, a
+        # probe's internal budget can exceed the remaining lease/readiness (or, for
+        # rust, delivery-receipt) deadline, so the outer timeout kills the process
+        # mid-flight instead of letting the probe itself complete as a network
+        # rejection -- the attempt then looks incomplete rather than completing.
+        probe[-1] = str(min(int(probe[-1]), seconds))
         result = self._command(
             [
                 "sandbox",
