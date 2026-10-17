@@ -306,6 +306,13 @@ class DevelopmentRunTests(unittest.TestCase):
                     result = runner.run(Event())
                     self.assertFalse(result["development_campaign_completed"])
                     self.assertTrue(result["profiles"][0]["cleanup_complete"])
+                    if fault == "capture-loss":
+                        # cleanup()'s own final re-sample is where this is caught; it
+                        # must not be swallowed down to just the capture_lost boolean.
+                        self.assertEqual(
+                            result["profiles"][0]["capture_lost_code"],
+                            "development-capture-incomplete",
+                        )
                 finally:
                     runner.close()
 
@@ -314,6 +321,13 @@ class DevelopmentRunTests(unittest.TestCase):
         runner.fault = "create-timeout"
         result = runner.run(Event())
         self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        # AttemptStopped's message is never recorded raw (only safe fixed ValueError
+        # text qualifies); its class name still identifies what kind of failure this
+        # was, instead of the journal recording nothing at all.
+        self.assertEqual(result["profiles"][0]["failure_code"], "AttemptStopped")
+        self.assertEqual(
+            result["profiles"][0]["cleanup_failure_code"], "development-allocation-unresolved"
+        )
         self.assertIsNotNone(runner.namespace)
         self.assertFalse(any(a[0] == "delete" for _, a, _ in runner.calls))
         self.assertFalse(runner.recover()["development_cleanup_complete"])
@@ -469,6 +483,9 @@ class DevelopmentRunTests(unittest.TestCase):
         runner.fault = "cleanup-failure"
         result = runner.run(Event())
         self.assertFalse(result["profiles"][0]["cleanup_complete"])
+        # profile() itself succeeded; only cleanup()'s own query("cleanup", ...) raised.
+        self.assertIsNone(result["profiles"][0]["failure_code"])
+        self.assertEqual(result["profiles"][0]["cleanup_failure_code"], "synthetic-cleanup-failure")
         runner.fault = None
         self.assertTrue(runner.recover()["development_cleanup_complete"])
         allocation = runner.state["allocations"][0]

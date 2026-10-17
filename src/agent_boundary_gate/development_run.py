@@ -749,8 +749,18 @@ class DevelopmentRunner:
                 raise ValueError("development-probe-digest-mismatch")
             self.exercise(allocation, endpoints, active, **bounds)
             allocation["complete"] = True
-        except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
+        except (OSError, ValueError, KeyError, TypeError, AttemptStopped) as exc:
             allocation["failed"] = True
+            # Every ValueError this file and its own command()/query() helpers raise is
+            # already one of a fixed set of development-* identifiers, never subprocess
+            # output -- safe to keep. The other exception types here may not be (an
+            # OSError's message can embed a path, bounded_process's own AttemptStopped
+            # is fixed-reason but conservatively treated the same way), so only their
+            # class name is recorded. This is the one diagnostic the journal previously
+            # discarded on every failed attempt.
+            allocation["failure_code"] = (
+                str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            )
         finally:
             self.save()
             self.cleanup(allocation)
@@ -924,8 +934,11 @@ class DevelopmentRunner:
                         for name in final
                     }
                     allocation["final_capture"] = True
-                except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
+                except (OSError, ValueError, KeyError, TypeError, AttemptStopped) as exc:
                     allocation["capture_lost"] = True
+                    allocation["capture_lost_code"] = (
+                        str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+                    )
                 self.save()
                 options = {
                     "apiVersion": "v1",
@@ -994,9 +1007,12 @@ class DevelopmentRunner:
                     )
                 allocation["grant_absent"] = True
             allocation["cleanup_complete"] = True
-        except (OSError, ValueError, KeyError, TypeError, AttemptStopped):
+        except (OSError, ValueError, KeyError, TypeError, AttemptStopped) as exc:
             allocation["cleanup_complete"] = False
             allocation["cleanup_failed"] = True
+            allocation["cleanup_failure_code"] = (
+                str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            )
         self.save()
 
     @staticmethod
@@ -1025,6 +1041,13 @@ class DevelopmentRunner:
             "expected_behavior_observed": bool(observed),
             "cleanup_complete": allocation.get("cleanup_complete", False),
             "sampled_after_target_cleanup": sampled_after_cleanup,
+            # The diagnostic the broad except clauses in profile()/cleanup() previously
+            # discarded on every failure, down to just failed/cleanup_failed booleans.
+            # None (not a missing key) when that path never failed, so a caller can
+            # distinguish "did not fail" from "failed with an unrecorded code."
+            "failure_code": allocation.get("failure_code"),
+            "cleanup_failure_code": allocation.get("cleanup_failure_code"),
+            "capture_lost_code": allocation.get("capture_lost_code"),
             "qualification": "development-only",
             **RELEASE_INELIGIBLE,
         }
