@@ -113,9 +113,16 @@ def main() -> int:
     optional.add_argument(
         "--red-team", action="store_true", help="audit the separate DataDesigner/Interplay lock"
     )
+    optional.add_argument(
+        "--gym-native",
+        action="store_true",
+        help="audit the separate native Gym worker (Gym plus Interplay) lock",
+    )
     args = parser.parse_args()
     project = Path(__file__).resolve().parents[1]
-    if args.gym:
+    if args.gym_native:
+        project = project / "onboarding/gym-native"
+    elif args.gym:
         project = project / "onboarding/gym"
     elif args.red_team:
         project = project / "onboarding/red-team"
@@ -134,8 +141,12 @@ def main() -> int:
                     "--format",
                     "requirements-txt",
                 ]
-                + (["--no-emit-package", "nemo-gym"] if args.gym else [])
-                + (["--no-emit-package", "interplay-adversarial"] if args.red_team else []),
+                + (["--no-emit-package", "nemo-gym"] if args.gym or args.gym_native else [])
+                + (
+                    ["--no-emit-package", "interplay-adversarial"]
+                    if args.red_team or args.gym_native
+                    else []
+                ),
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -148,7 +159,7 @@ def main() -> int:
             # running in the core environment; otherwise it could scan wrong pins.
             environment = (
                 {"python_version": "3.14", "python_full_version": "3.14.7"}
-                if args.gym or args.red_team
+                if args.gym or args.red_team or args.gym_native
                 else None
             )
             expected = locked_dependencies(export.stdout, marker_environment=environment)

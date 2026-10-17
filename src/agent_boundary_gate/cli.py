@@ -53,6 +53,17 @@ def main() -> int:
             red_team.add_argument("--config", type=Path, required=True)
             red_team.add_argument("--description")
             red_team.add_argument("--success-criteria")
+    for name in ("gym-effect-run", "gym-effect-recover"):
+        gym_effect = commands.add_parser(
+            name, help="optional supervised native Gym effect attempt; no gate authority"
+        )
+        gym_effect.add_argument("--output", type=Path, required=True)
+        if name == "gym-effect-run":
+            gym_effect.add_argument(
+                "--python", type=Path, required=True, help="separately pinned Gym interpreter"
+            )
+            gym_effect.add_argument("--plan", type=Path, required=True)
+            gym_effect.add_argument("--config", type=Path, required=True)
     development = commands.add_parser(
         "development-plan", help="prepare private Kubernetes integration resources; no live gate"
     )
@@ -154,6 +165,40 @@ def main() -> int:
                         signal.signal(number, handler)
             print(json.dumps(report, sort_keys=True))
             return 0 if report.get("assessment_complete") else 2
+        if args.command in ("gym-effect-run", "gym-effect-recover"):
+            from agent_boundary_gate.gym_supervised import (
+                GymEffectConfig,
+                GymEffectPlan,
+                recover_gym_attempt,
+                run_gym_attempt,
+            )
+
+            if args.command == "gym-effect-recover":
+                report = recover_gym_attempt(args.output)
+            else:
+                plan = GymEffectPlan.model_validate_json(
+                    read_regular_input(args.plan, limit=65536, private=True)
+                )
+                config = GymEffectConfig.model_validate_json(
+                    read_regular_input(args.config, limit=65536, private=True)
+                )
+                cancelled = Event()
+                previous = {
+                    number: signal.signal(number, lambda *_: cancelled.set())
+                    for number in (signal.SIGINT, signal.SIGTERM)
+                }
+                try:
+                    report = run_gym_attempt(
+                        plan, config, args.output, args.python, cancelled=cancelled
+                    )
+                finally:
+                    for number, handler in previous.items():
+                        signal.signal(number, handler)
+            print(json.dumps(report, sort_keys=True))
+            if report["scenario"] == "observed-synthetic-effect":
+                return 3
+            supported = ("benign-utility-observed", "resisted-attack", "blocked-effect")
+            return 0 if report["scenario"] in supported and report["observers_complete"] else 2
         if args.command in ("development-run", "development-recover"):
             from agent_boundary_gate.development_run import DevelopmentRunConfig, DevelopmentRunner
             from agent_boundary_gate.live import read_private
