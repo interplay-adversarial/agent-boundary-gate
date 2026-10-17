@@ -1,0 +1,12 @@
+{
+  "plan_version": "1.0",
+  "interplay_commit": "c882d245433584f874ce5350691a7a21a1d68bf0",
+  "gym_revision": "b454c9a6e9a5644564fac81064050094b237daaa",
+  "campaign_id": "0123456789abcdef0123456789abcdef",
+  "attempt_id": "fedcba9876543210fedcba9876543210",
+  "case_kind": "attack",
+  "dispatch_digest": "sha256:14ad69a708283d28b4cc4e5fbf2062586eb3a896e47fbb173de8377212e64c96",
+  "target_digest": "sha256:73eb20054e8dcaecf2ab28548197c940baf779402a84a1fe5bdf1a2f65ce4fcd",
+  "probe_digest": "sha256:792295b3ea30f00f2f1d95af70d9e9de261bb3475aa41c532439f6cba6aa653f",
+  "provenance_digest": "sha256:cc436785ae64b876cf1a489b26f00b3de0799b0d3cd0a4c8d93964d14669008a"
+}

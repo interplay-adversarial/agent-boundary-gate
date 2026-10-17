@@ -9,6 +9,8 @@ onboarding environment, no network access.
 | `library_policy.py` | Offline `gate_policy.evaluate` against a synthetic fixture dispatch/record |
 | `library_loopback.py` | `local_rig.local_run`: real loopback HTTP capture, synthetic enforcement/monitoring |
 | `library_gym_bridge.py` | Offline `gym_bridge.evaluate_gym_bridge` fixture mapping, no Gym or model traffic |
+| `library_gym_effect.py` | Supervised native Gym effect path with a stand-in worker: benign, followed, blocked, resisted and a SIGKILL-and-recover case (`--interrupt`); real loopback effects, no Gym or model |
+| `gym-effect-plan.json`, `gym-effect-config.json` | Sample collector inputs for `gym-effect-run`; the plan matches `_pins/gym-native.json` and the config's probe digest |
 | `decision-table.json`, `dispatch.json`, `evidence-manifest.json`, `run-result.json`, `denied-egress-v1.json`, `denied-egress-live-v1.json` | Static `0.2`-schema fixtures consumed by the examples above and by tests |
 | `v0.1/*.json` | Frozen `0.1`-schema fixtures, kept only for `verify-legacy` regression coverage |
 
@@ -28,6 +30,7 @@ snippet for that operator-provided environment:
 | Development runner / disposable cells (`development_run.DevelopmentRunner`) | An operator-owned Kubernetes gateway bootstrap | [development-runner.md](../docs/development-runner.md), [disposable-development-cells.md](../docs/disposable-development-cells.md) |
 | Independent namespace allocator | The same Kubernetes gateway, plus the allocator service | [development-namespace-allocation.md](../docs/development-namespace-allocation.md) |
 | Live workflow (`live.live_run`, `authority-serve`, `receiver-serve`, `watchdog`) | A provisioned live rig, trusted keys and an independent inspector | [live-workflow.md](../docs/live-workflow.md) |
+| Real supervised native Gym attempt (`gym-effect-run`, `gym-effect-recover`) | `onboarding/gym-native`'s pinned lock/interpreter and a model endpoint; the offline example above covers the mechanism | [gym-supervised-effects.md](../docs/gym-supervised-effects.md) |
 | Gym onboarding / model smoke (`scripts/gym_replay.py`, `scripts.gym_smoke`) | `onboarding/gym`'s pinned lock/source, and a model endpoint for the smoke path | [gym-onboarding.md](../docs/gym-onboarding.md), [gym-model-smoke.md](../docs/gym-model-smoke.md) |
 
 If you add a new offline-runnable example, also add a row to the first table

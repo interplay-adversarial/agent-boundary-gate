@@ -19,6 +19,7 @@ may change. Every decision carries `qualification: m0-prototype` and
 | Loopback integration | `local_rig.local_run` | Real local HTTP receiver observations with simulated enforcement and monitoring |
 | Custom attempt orchestration | `lifecycle.run_attempt` | Composes backend, observer, optional agent, monitor and lease recovery interfaces |
 | Offline Gym evidence-bridge fixture mapping | `gym_bridge.evaluate_gym_bridge` (runnable: `examples/library_gym_bridge.py`) | Correlated native observations and a separate signed boundary decision; no Gym or model traffic |
+| Supervised native Gym effect attempt and recovery | `gym_supervised.run_gym_attempt` / `recover_gym_attempt`, CLI `gym-effect-run` / `gym-effect-recover` (runnable offline: `examples/library_gym_effect.py`) | Journaled intent, independent receiver counts and benign/resisted/blocked/observed classification; research-only, unsigned, no containment ([guide](gym-supervised-effects.md)) |
 | Read-only OpenShell inspection | `doctor.openshell_doctor` / CLI `doctor` | Pinned CLI, lease expiry, sandbox identity/phase and active policy observations; no authenticated readiness |
 | Live OpenShell qualification | Pending | Requires a pinned isolated rig, independent services and fault qualification |
 | Shared-gateway Kubernetes development | `development.resources`, `policy`, `inspect_pod`, `inspect_target_pair` | Portable per-test receivers/policy delta and independently registered Pod/image checks; no gate receipts or whole-cell claims |
@@ -86,6 +87,17 @@ Builds a synthetic native Gym trace/metrics pair and correlates it with a fixtur
 boundary record through `gym_bridge.evaluate_gym_bridge`. No Gym harness, model
 or network traffic is used; see the [evidence bridge guide](gym-evidence-bridge.md)
 for the trusted-input model this example simplifies.
+
+## Run an offline supervised Gym effect exercise
+
+```sh
+uv run --no-sync python examples/library_gym_effect.py --interrupt
+```
+
+Runs five attempts through `gym_supervised.run_gym_attempt` with a standard-library stand-in
+worker and real loopback receivers, then SIGKILLs and recovers one. No Gym, model or network
+traffic is used; see the [supervised effects guide](gym-supervised-effects.md) for the real
+worker, inputs and limits.
 
 The core call is:
 
