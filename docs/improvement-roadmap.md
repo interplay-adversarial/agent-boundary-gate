@@ -3,8 +3,10 @@
 Recorded: 2026-10-11. Reprioritized: 2026-10-12. Updated: 2026-10-13. Refreshed:
 2026-10-15 (added RT-01/DEP-01, updated SEC-03/INT-02, dependency and pin
 freshness audit). Cleaned up: 2026-10-15 (removed fully-closed items, trimmed
-partial items to their remaining gap, added DEP-02). Scope: portable gate core,
-built-in adapters and qualification.
+partial items to their remaining gap, added DEP-02). Updated: 2026-10-17
+(SEC-03: enabled Dependabot security updates, added an advisory
+`dependency-review` Action). Scope: portable gate core, built-in adapters and
+qualification.
 
 The project remains an M0 prototype. All decisions retain
 `qualification: m0-prototype` and `release_eligible: false`. Completing a local
@@ -19,7 +21,7 @@ only what remains open.
 | ID | Priority | Improvement | Acceptance criteria | Remaining gap |
 | --- | --- | --- | --- | --- |
 | SEC-02 | P2 | Continuous security checks | Daily and manual audits, Python 3.13/3.14 PR validation, weekly uv/Actions update proposals and a stable aggregate check. | First scheduled daily audit run and weekly uv/Actions update proposal not yet observed in production. |
-| SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Dependabot security updates (`automated-security-fixes`) remain disabled; no `dependency-review` Action is configured; build-tool/platform-marker/runtime-image auditing remain unimplemented. (Ruleset `protect-main` requiring the `Required checks` aggregate is active.) |
+| SEC-03 | P2 | Merge enforcement and supply-chain coverage | Require the aggregate check in a repository ruleset; enable security updates and dependency review; audit build tools, supported platform markers and runtime images separately. | Build-tool/platform-marker/runtime-image auditing remain unimplemented. (Ruleset `protect-main` requiring the `Required checks` aggregate is active. Dependabot security updates (`automated-security-fixes`) enabled and a `dependency-review` Action added 2026-10-17, advisory rather than required so it does not yet block merges.) |
 | LIFE-01 | P1 | Authenticated lifecycle receipts | Verify trusted signer, freshness, attempt/lease identity, sandbox UID/generation and policy digest for readiness and cleanup; reject replayed or mismatched receipts. | Trusted lease issuance, broker transport and real independent attestations remain open (receipt verifier/backend merged in PR #8). |
 | LIFE-02 | P1 | Independent monitoring and recovery | Monitoring begins unknown; an authenticated healthy handshake is required before execution; external watchdog and lease expiry reconcile controller crashes and confirm idempotent cleanup. | Live deployment, escaped-process/supervisor-failure handling and orphan-cell qualification remain open. [Drills](service-watchdog-failure-drills.md), [command ownership](command-parent-death-supervision.md) |
 | QUAL-01 | P1 | Whole-cell containment and live OpenShell qualification | Independent allowed/forbidden receivers demonstrate positive controls and boundary effects; policy mutation, telemetry loss, cancellation, restart and cleanup faults cannot create approval; publish only sanitized qualification summaries. | Whole-cell containment, authenticated deployment and fault qualification remain open; depends on LIFE-01/LIFE-02. |
