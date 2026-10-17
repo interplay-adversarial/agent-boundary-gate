@@ -207,8 +207,11 @@ not just untried: `data-designer==0.9.5` (the latest stable release) hard-pins
 to instead (confirmed 2026-10-15 — `uv lock` fails the bump with this exact
 conflict). The only newer `data-designer` release is `1.0.0rc1`, a
 prerelease; bumping `pyarrow` needs that line to ship stable first, or
-`data-designer` to relax the constraint. `any-llm-sdk` (1.33.0 vs. 1.36.0) and
-`openai` (3.28.0 vs. 3.31.0) have smaller version gaps still open.
+`data-designer` to relax the constraint. `any-llm-sdk` and `openai` were
+bumped to their latest stable releases 2026-10-17 (1.33.0 -> 1.37.0, 3.28.0 ->
+3.33.0; `src/agent_boundary_gate/_pins/red-team.json`'s `check_environment`
+package pin updated alongside `onboarding/red-team/pyproject.toml`/`uv.lock`,
+matching the earlier interplay-pin bump's pattern) and have no remaining gap.
 
 `onboarding/gym`'s NeMo Gym pin was bumped 2026-10-15 from `f444b802` to
 `b454c9a` (`NVIDIA-NeMo/Gym`'s `main` at the time, 70 commits ahead of the old

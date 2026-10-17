@@ -22,10 +22,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "any-llm-sdk", specifier = "==1.33.0" },
+    { name = "any-llm-sdk", specifier = "==1.37.0" },
     { name = "data-designer", specifier = "==0.9.5" },
     { name = "interplay-adversarial", extras = ["assessment"], git = "https://github.com/interplay-adversarial/interplay.git?rev=c882d245433584f874ce5350691a7a21a1d68bf0" },
-    { name = "openai", specifier = "==3.28.0" },
+    { name = "openai", specifier = "==3.33.0" },
     { name = "pyarrow", specifier = "==24.0.0" },
     { name = "pydantic", specifier = "==2.14.0" },
 ]
@@ -69,7 +69,7 @@ wheels = [
 
 [[package]]
 name = "any-llm-sdk"
-version = "1.33.0"
+version = "1.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -80,9 +80,9 @@ dependencies = [
     { name = "rich" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/da/6797a683237f511ae40bdfaa54fdb9944df4e691db6f3826b2d6dd43a220/any_llm_sdk-1.33.0.tar.gz", hash = "sha256:0010805821ddfb4e6f26b748830462708b67fa5b8503254e103506be272860e5", size = 253146, upload-time = "2026-10-09T18:39:05.492Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/c3/754d9eeb1fcbf24d811912d17e6a77c942843ad57dd4f38ef9a32240ca8b/any_llm_sdk-1.37.0.tar.gz", hash = "sha256:43348783adab2a6050e5803d2f396937cf9928d76c182ce1604ee579e4ecf97f", size = 281585, upload-time = "2026-10-16T17:23:38.991Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/15/f89e0f17babc68d8507c059c3cc0fe25901c802c318702a495ef3c4faf65/any_llm_sdk-1.33.0-py3-none-any.whl", hash = "sha256:e1bc5bda1e00549d584f7f0b796a3c5a56c33bc3409971e6899fb5cceed7ab5a", size = 312977, upload-time = "2026-10-09T18:39:03.805Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/45/b49aaacc60847c98ad3ea056472e0fe3a48617ddb86a5b1265369a7c3692/any_llm_sdk-1.37.0-py3-none-any.whl", hash = "sha256:7149338f63419a17234f59364aa42e1db5cd8321eb147c9e3da6dd9c05f1d38b", size = 345533, upload-time = "2026-10-16T17:23:37.572Z" },
 ]
 
 [[package]]
@@ -959,7 +959,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "3.28.0"
+version = "3.33.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -969,9 +969,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/a3/3b5576af9c4b8cb7eef1383d33c48a9431b292983fe4b78cbffb31d0aeeb/openai-3.28.0.tar.gz", hash = "sha256:cf0509d32d7bd8eb6a3db02417957cb455212b6629d071826b9ea1f61659e2a4", size = 1827445, upload-time = "2026-10-09T20:50:14.477Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/34/8d/ff5a4348116f667d04c90c12104028de2d5dc31e7bacfb9b18fcc8a7f0d1/openai-3.33.0.tar.gz", hash = "sha256:1865f5ce6a5c2f28a926303cb97f2489dba5ee7c7b7a45910d48466c10a187c4", size = 2230912, upload-time = "2026-10-17T00:30:21.045Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/4a/5c807ade1a86ab8accad20dc993ca7de5d1f7b2e78d4674c300c2e6a47b9/openai-3.28.0-py3-none-any.whl", hash = "sha256:1ea40a084ffe2f9f16fd3bea6e870f757853b536b18d8e737c518ef849a2920c", size = 2171532, upload-time = "2026-10-09T20:50:12.282Z" },
+    { url = "https://files.pythonhosted.org/packages/af/af/afcdd2ddb36b1e015e72ae4150e70f5bd5e1655ac9aea77444f5cd23aab5/openai-3.33.0-py3-none-any.whl", hash = "sha256:a29d04e07dabcd9c94362e6339eb243c1181fd73d2d0432e1ff885a520b71664", size = 2258124, upload-time = "2026-10-17T00:30:18.691Z" },
 ]
 
 [[package]]
