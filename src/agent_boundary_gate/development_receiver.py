@@ -101,5 +101,11 @@ class Server(ThreadingHTTPServer):
 
 if __name__ == "__main__":
     capture = Capture(os.environ["GATE_ATTEMPT"], Path("/tmp/capture.json"))
+    # This module's only deployment path is as ConfigMap data run inside an isolated,
+    # credential-free Pod (see development.py's "receiver-code" resource): 0.0.0.0 here
+    # means "every interface inside that Pod's own network namespace," which is required
+    # for the workload Pod to reach it over the pod network -- not a host-wide bind. Do
+    # not default this to loopback; that would make the receiver unreachable from the
+    # workload it exists to observe.
     with Server(("0.0.0.0", 8000), capture) as server:
         server.serve_forever(poll_interval=0.05)
