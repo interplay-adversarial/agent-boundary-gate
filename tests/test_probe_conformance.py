@@ -196,7 +196,9 @@ class ProbeTests(unittest.TestCase):
             sys.executable,
             "-c",
             stalled_resolver + PROBE,
-            "http://stalled-resolver.invalid:80/probe",
+            # getaddrinfo is monkeypatched above, so this is never actually
+            # resolved; "localhost" is just a syntactically valid placeholder.
+            "http://localhost:80/probe",
             "probe-test",
             "1",
         ]
