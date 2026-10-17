@@ -130,6 +130,10 @@ The pre-commit hooks and pull-request checks run:
 - A pip-audit CVE check for all applicable locked runtime and development dependencies.
 - A separate CVE audit for the optional Gym onboarding lock and a model-free PR replay.
 - Publication privacy checks. PR checks also scan Git history with Gitleaks.
+- An isolated sdist/wheel build (from exactly the Git index's tree, not the live working
+  directory) scanned for private data/secrets, a self-containedness check (the sdist
+  builds into the same wheel on its own), and an installed-package smoke check in a
+  fresh environment with no dev dependencies or editable `src/` on its path.
 - An advisory GitHub `dependency-review` check flags newly introduced vulnerable
   or disallowed-license dependencies in a PR's manifest/lockfile diff; it does
   not yet gate merges. Dependabot security updates are enabled separately.
