@@ -150,12 +150,25 @@ def ensure_opencode(
     """
     command = opencode_command(install_dir)
     if not command.is_file():
-        result = run(
-            ["npm", "install", "--no-save", "--prefix", str(install_dir), f"opencode-ai@{version}"],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
+        try:
+            result = run(
+                [
+                    "npm",
+                    "install",
+                    "--no-save",
+                    "--prefix",
+                    str(install_dir),
+                    f"opencode-ai@{version}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except OSError as error:
+            # Covers a missing npm on PATH the same way the --version check
+            # below already covers a missing opencode binary: a clear, fixed,
+            # secret-free diagnostic instead of a raw, unwrapped OSError.
+            raise RuntimeError("opencode-install-failed") from error
         if result.returncode != 0:
             raise RuntimeError("opencode-install-failed")
     try:

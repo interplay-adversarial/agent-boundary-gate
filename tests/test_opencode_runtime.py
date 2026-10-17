@@ -150,6 +150,22 @@ class OpenCodeRuntimeTests(unittest.TestCase):
             self.assertIn(str(install_dir), calls[0])
             self.assertIn(f"opencode-ai@{OPENCODE_VERSION}", calls[0])
 
+    def test_ensure_opencode_wraps_a_missing_npm_in_a_clear_diagnostic(self):
+        # A missing npm on PATH raised a raw, unwrapped FileNotFoundError
+        # before this fix -- the same class of diagnostic gap the
+        # --version check below already guards against for a missing
+        # opencode binary.
+        with tempfile.TemporaryDirectory() as root:
+            install_dir = Path(root)
+
+            def fake_run(args, **kwargs):
+                raise FileNotFoundError(2, "No such file or directory", "npm")
+
+            with self.assertRaises(RuntimeError) as caught:
+                ensure_opencode(OPENCODE_VERSION, install_dir, timeout_seconds=5, run=fake_run)
+            self.assertEqual(str(caught.exception), "opencode-install-failed")
+            self.assertIsInstance(caught.exception.__cause__, FileNotFoundError)
+
     def test_ensure_opencode_rejects_an_unpinned_installed_version(self):
         with tempfile.TemporaryDirectory() as root:
             install_dir = Path(root)
