@@ -6,10 +6,13 @@ import unittest
 from pathlib import Path
 
 from agent_boundary_gate.agents.opencode_runtime import (
+    OPENCODE_PROVIDER_NAME,
     OPENCODE_VERSION,
     OpenCodeProvider,
+    build_opencode_config,
     ensure_opencode,
     is_opencode_ready,
+    opencode_model_reference,
 )
 
 
@@ -18,7 +21,7 @@ class OpenCodeRuntimeTests(unittest.TestCase):
         base = {
             "base_url": "https://example.com/v1",
             "api_key_env": "MODEL_API_KEY",
-            "model": "openai/m",
+            "model": "m",
         }
         self.assertEqual(OpenCodeProvider.model_validate(base).timeout_seconds, 120)
         for change in (
@@ -36,13 +39,35 @@ class OpenCodeRuntimeTests(unittest.TestCase):
 
     def test_saved_baseline_has_evaluation_parameters_without_credential_references(self):
         provider = OpenCodeProvider(
-            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="openai/m"
+            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="m"
         )
         baseline = provider.baseline()
         self.assertEqual(baseline["base_url"], provider.base_url)
-        self.assertEqual(baseline["model"], "openai/m")
+        self.assertEqual(baseline["model"], "m")
         self.assertNotIn("api_key_env", baseline)
         self.assertNotIn("MODEL_API_KEY", str(baseline))
+
+    def test_opencode_model_reference_prefixes_the_bare_model_with_our_provider(self):
+        provider = OpenCodeProvider(
+            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="m"
+        )
+        self.assertEqual(opencode_model_reference(provider), f"{OPENCODE_PROVIDER_NAME}/m")
+
+    def test_build_opencode_config_authenticates_via_header_template_not_apikey(self):
+        provider = OpenCodeProvider(
+            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="m"
+        )
+        config = build_opencode_config(provider)
+        provider_config = config["provider"][OPENCODE_PROVIDER_NAME]
+        self.assertEqual(provider_config["npm"], "@ai-sdk/openai-compatible")
+        self.assertEqual(provider_config["options"]["baseURL"], provider.base_url)
+        self.assertNotIn("apiKey", provider_config["options"])
+        self.assertEqual(
+            provider_config["options"]["headers"]["Authorization"], "Bearer {env:MODEL_API_KEY}"
+        )
+        self.assertIn("m", provider_config["models"])
+        # The template references the env var name, never a literal secret value.
+        self.assertNotIn("MODEL_API_KEY=", str(config))
 
     def test_is_opencode_ready_requires_a_present_and_pinned_binary(self):
         with tempfile.TemporaryDirectory() as root:

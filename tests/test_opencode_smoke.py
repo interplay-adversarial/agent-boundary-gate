@@ -90,7 +90,7 @@ class OpenCodeSmokeTests(unittest.TestCase):
 
     def test_smoke_rejects_credential_reflected_in_opencode_output(self):
         provider = OpenCodeProvider(
-            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="openai/m"
+            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="m"
         )
         credential = "synthetic-credential"
 
@@ -108,7 +108,7 @@ class OpenCodeSmokeTests(unittest.TestCase):
 
     def test_smoke_reports_completion_from_a_real_session_artifact(self):
         provider = OpenCodeProvider(
-            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="openai/m"
+            base_url="https://example.com/v1", api_key_env="MODEL_API_KEY", model="m"
         )
 
         def fake_run(args, **kwargs):
@@ -135,7 +135,7 @@ class OpenCodeSmokeTests(unittest.TestCase):
                     {
                         "base_url": "https://example.com/v1",
                         "api_key_env": "OPENCODE_SMOKE_SELFTEST_UNSET_KEY",
-                        "model": "openai/m",
+                        "model": "m",
                     }
                 )
             )
@@ -171,7 +171,7 @@ class OpenCodeSmokeTests(unittest.TestCase):
                     {
                         "base_url": "https://example.com/v1",
                         "api_key_env": "OPENCODE_SMOKE_SELFTEST_KEY",
-                        "model": "openai/m",
+                        "model": "m",
                     }
                 )
             )

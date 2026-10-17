@@ -5,6 +5,7 @@ OpenCode session can only be verified by running it for real (see
 docs/opencode-model-smoke.md), which these tests deliberately do not attempt.
 """
 
+import json
 import subprocess
 import tempfile
 import time
@@ -21,7 +22,7 @@ D = "sha256:" + "a" * 64
 
 def _provider() -> OpenCodeProvider:
     return OpenCodeProvider(
-        base_url="https://example.com/v1", api_key_env="UNUSED", model="openai/m"
+        base_url="https://example.com/v1", api_key_env="TEST_API_KEY", model="m"
     )
 
 
@@ -108,6 +109,12 @@ class OpenCodeAgentAdapterTests(unittest.TestCase):
             tool_files = list((project_dir / ".opencode" / "tool").glob("*.ts"))
             self.assertEqual(len(tool_files), 1)
             self.assertIn("@opencode-ai/plugin", tool_files[0].read_text())
+            config = json.loads((project_dir / "opencode.json").read_text())
+            provider_config = config["provider"]["gate"]
+            self.assertEqual(
+                provider_config["options"]["headers"]["Authorization"], "Bearer {env:TEST_API_KEY}"
+            )
+            self.assertIn("m", provider_config["models"])
             env = kwargs["env"]
             Path(env["AGENT_BOUNDARY_GATE_RECEIPT_PATH"]).write_text(
                 "agent-boundary-gate-tool-complete:"
@@ -125,8 +132,10 @@ class OpenCodeAgentAdapterTests(unittest.TestCase):
             self.assertEqual(len(calls), 1)
             args, kwargs = calls[0]
             self.assertEqual(args[1], "run")
-            self.assertIn("secret", kwargs["env"]["OPENAI_API_KEY"])
+            self.assertEqual(args[3], "gate/m")
+            self.assertIn("secret", kwargs["env"]["TEST_API_KEY"])
             self.assertEqual(kwargs["env"]["OPENCODE_DISABLE_AUTOUPDATE"], "true")
+            self.assertNotIn("OPENCODE_DISABLE_PROJECT_CONFIG", kwargs["env"])
 
     def test_request_tool_rejects_a_mismatched_or_missing_receipt(self):
         with tempfile.TemporaryDirectory() as root:

@@ -30,8 +30,10 @@ from agent_boundary_gate.agents.opencode_runtime import (
     OPENCODE_VERSION,
     SESSION_INHERITED_ENV_NAMES,
     OpenCodeProvider,
+    build_opencode_config,
     is_opencode_ready,
     opencode_command,
+    opencode_model_reference,
 )
 from agent_boundary_gate.backends import Readiness
 from agent_boundary_gate.contracts import ComponentIdentity, ToolRequestAction
@@ -121,6 +123,9 @@ class OpenCodeAgentAdapter:
             # "/" and "." and this becomes a filesystem path component.
             tool_name = "gate-tool-" + hashlib.sha256(action.tool_id.encode()).hexdigest()[:16]
             (tool_dir / f"{tool_name}.ts").write_text(_TOOL_TEMPLATE)
+            (project_dir / "opencode.json").write_text(
+                json.dumps(build_opencode_config(self.provider))
+            )
             data_home = root / "data"
             data_home.mkdir()
             home_dir = root / "home"
@@ -133,10 +138,11 @@ class OpenCodeAgentAdapter:
                 {
                     "HOME": str(home_dir),
                     "XDG_DATA_HOME": str(data_home),
-                    "OPENAI_BASE_URL": self.provider.base_url,
-                    "OPENAI_API_KEY": self._credential,  # pragma: allowlist secret
+                    self.provider.api_key_env: self._credential,  # pragma: allowlist secret
+                    # Protect the pinned version; project config must stay enabled
+                    # -- it is how the provider config and custom tool above
+                    # actually reach OpenCode.
                     "OPENCODE_DISABLE_AUTOUPDATE": "true",
-                    "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
                     "AGENT_BOUNDARY_GATE_RECEIPT_PATH": str(receipt_path),
                     "AGENT_BOUNDARY_GATE_ATTEMPT_ID": attempt_id,
                 }
@@ -146,7 +152,15 @@ class OpenCodeAgentAdapter:
                 "and nothing else. Do not call any other tool."
             )
             result = self._run(
-                [str(command), "run", "-m", self.provider.model, "--dir", str(project_dir), prompt],
+                [
+                    str(command),
+                    "run",
+                    "-m",
+                    opencode_model_reference(self.provider),
+                    "--dir",
+                    str(project_dir),
+                    prompt,
+                ],
                 cwd=str(project_dir),
                 env=env,
                 capture_output=True,

@@ -25,6 +25,11 @@ OPENCODE_VERSION = "1.17.11"
 # which touch no external endpoint and run no generated code.
 SESSION_INHERITED_ENV_NAMES = frozenset({"PATH", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR"})
 
+# The provider key this project's own generated opencode.json always registers
+# the operator's endpoint under -- distinct from NeMo Gym's own "nemo" to avoid
+# any confusion if the two ever appear side by side.
+OPENCODE_PROVIDER_NAME = "gate"
+
 
 class OpenCodeProvider(BaseModel):
     """An operator-selected model endpoint for OpenCode's stock openai-compatible provider.
@@ -38,8 +43,10 @@ class OpenCodeProvider(BaseModel):
 
     base_url: str
     api_key_env: str
-    # OpenCode's own "<provider>/<model>" reference for its stock openai-compatible
-    # provider, e.g. "openai/qwen38-27b" -- not a bare model name.
+    # A bare model identifier as the endpoint itself names it (e.g. "qwen38-27b"),
+    # not a "<provider>/<model>" reference -- the provider half is always
+    # OPENCODE_PROVIDER_NAME, this project's own generated provider, never one
+    # of OpenCode's built-in ones.
     model: str
     timeout_seconds: int = Field(default=120, ge=1, le=900)
 
@@ -82,6 +89,37 @@ class OpenCodeProvider(BaseModel):
 
 def opencode_command(install_dir: Path) -> Path:
     return install_dir / "node_modules" / ".bin" / "opencode"
+
+
+def opencode_model_reference(provider: OpenCodeProvider) -> str:
+    return f"{OPENCODE_PROVIDER_NAME}/{provider.model}"
+
+
+def build_opencode_config(provider: OpenCodeProvider) -> dict:
+    """An @ai-sdk/openai-compatible provider authenticated by an explicit header.
+
+    Deliberately not the SDK's own `apiKey` option: confirmed empirically
+    (2026-10-16, against a real self-hosted MaaS gateway) that `apiKey` alone
+    produces an opaque server-side error regardless of model or install/env
+    state, while an explicit `Authorization: Bearer <token>` header -- a
+    known-working configuration for the same endpoint -- works. `{env:NAME}`
+    is OpenCode's own config templating syntax; it substitutes the named
+    environment variable at run time, so the real credential is written here
+    only as a template reference, never as a literal value. Verified with a
+    synthetic local mock endpoint and a fake credential before relying on it.
+    """
+    return {
+        "provider": {
+            OPENCODE_PROVIDER_NAME: {
+                "npm": "@ai-sdk/openai-compatible",
+                "options": {
+                    "baseURL": provider.base_url,
+                    "headers": {"Authorization": f"Bearer {{env:{provider.api_key_env}}}"},
+                },
+                "models": {provider.model: {"name": provider.model}},
+            }
+        }
+    }
 
 
 def is_opencode_ready(
