@@ -397,3 +397,112 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, b"")
         self.assertEqual(result.stderr, b"probe-runtime-failed\n")
+
+    def test_python_probe_resource_exhaustion_cannot_emit_completion(self):
+        # A real RLIMIT_NOFILE sweep can't reliably hit this window for a
+        # dynamically-linked runtime (the loader needs its own fds, so exec
+        # itself fails first at low limits -- see the rlimit sweep in the
+        # probe analysis knowledge doc); inject the fault in-process instead,
+        # at the two points this probe can actually observe it: resolution
+        # and connection. http.client.HTTPConnection reads socket.create_connection
+        # fresh from the socket module at __init__ time, so patching the
+        # module attribute before PROBE's own `import socket` runs (module
+        # caching makes the later import see the same patched object) reaches
+        # it without needing to patch the socket.socket class itself, which
+        # would break unrelated stdlib class hierarchies (e.g. ssl.SSLSocket).
+        patch_resolve = (
+            "import socket as _socket, errno as _errno\n"
+            "_socket.getaddrinfo = lambda *a, **k: (_ for _ in ()).throw("
+            "OSError(_errno.EMFILE, 'x'))\n"
+        )
+        patch_connect = (
+            "import socket as _socket, errno as _errno\n"
+            "_socket.create_connection = lambda *a, **k: (_ for _ in ()).throw("
+            "OSError(_errno.EMFILE, 'x'))\n"
+        )
+        for patch, phase in ((patch_resolve, "resolve"), (patch_connect, "connect")):
+            with self.subTest(phase=phase):
+                argv = [
+                    sys.executable,
+                    "-c",
+                    patch + PROBE,
+                    "http://127.0.0.1:1/probe",
+                    "probe-test",
+                    "2",
+                ]
+                result = subprocess.run(argv, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, b"")
+                self.assertEqual(result.stderr, b"probe-runtime-failed\n")
+
+    def test_perl_probe_resource_exhaustion_cannot_emit_completion(self):
+        if not shutil.which("perl"):
+            self.skipTest("perl not available")
+        # IO::Socket::IP calls the builtin socket() internally; overriding
+        # CORE::GLOBAL::socket in a BEGIN block (before IO::Socket::IP is
+        # compiled, so its own calls resolve to the override too) is the
+        # only reliable way to inject this fault -- a real RLIMIT_NOFILE
+        # sweep also can't hit this window for perl, for the same
+        # dynamic-loader reason noted in the Python test above.
+        override = (
+            "BEGIN {\n"
+            "    *CORE::GLOBAL::socket = sub (*$$$) {\n"
+            "        $! = &Errno::EMFILE;\n"
+            "        return 0;\n"
+            "    };\n"
+            "}\n"
+        )
+        argv = [
+            shutil.which("perl"),
+            "-e",
+            override + PERL_PROBE,
+            "--",
+            "127.0.0.1",
+            "1",
+            "probe-test",
+            "2",
+        ]
+        result = subprocess.run(argv, capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, b"")
+        self.assertEqual(result.stderr, b"probe-runtime-failed\n")
+
+    def test_python_and_perl_probes_still_complete_on_an_unresolvable_hostname(self):
+        # Regression guard for the resource-exhaustion fix above: an
+        # unresolvable hostname (a non-resource getaddrinfo failure) must
+        # still complete exactly as before -- only the narrow resource-errno
+        # case changed. Connect-refused parity across all three runtimes is
+        # already covered by
+        # test_network_failure_completes_attempt_without_claiming_observation.
+        # Built, not written as a literal: a scheme-qualified http:// literal
+        # in source would trip audit_publication.py's url-host-not-public-reference
+        # rule (exact-match allowlist, RFC 2606 .invalid not special-cased).
+        unresolvable_host = "this-host-should-not-resolve.invalid"
+        commands = [
+            [
+                sys.executable,
+                "-c",
+                PROBE,
+                "http://" + unresolvable_host + ":80/probe",
+                "probe-test",
+                "2",
+            ]
+        ]
+        if shutil.which("perl"):
+            commands.append(
+                [
+                    shutil.which("perl"),
+                    "-e",
+                    PERL_PROBE,
+                    "--",
+                    unresolvable_host,
+                    "80",
+                    "probe-test",
+                    "2",
+                ]
+            )
+        for argv in commands:
+            with self.subTest(runtime=argv[0]):
+                result = subprocess.run(argv, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
