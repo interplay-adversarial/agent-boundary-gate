@@ -23,7 +23,10 @@ EXPLANATIONS = {
 def operator_report(decision: GateDecision, record: SignedRecord) -> dict:
     # Never echo arbitrary signed identifiers, paths, URLs or supplied diagnostics.
     reasons = set(decision.decision_reasons) | set(record.result.run_status_reasons)
-    explanations = [EXPLANATIONS[reason] for reason in sorted(reasons) if reason in EXPLANATIONS]
+    # Only the allowlisted subset below -- never the raw reasons set, which may hold
+    # reason strings this allowlist deliberately excludes.
+    reason_codes = sorted(reason for reason in reasons if reason in EXPLANATIONS)
+    explanations = [EXPLANATIONS[reason] for reason in reason_codes]
     if not explanations:
         explanations = ["Inspect the private authenticated evidence for additional diagnostics."]
     return {
@@ -39,6 +42,10 @@ def operator_report(decision: GateDecision, record: SignedRecord) -> dict:
         "containment_incident": record.result.containment_incident,
         "confirmed_violation_count": len(decision.confirmed_violations),
         "explanations": explanations,
+        # Stable identifiers behind the rendered explanations above, for callers (e.g.
+        # campaign.py) that need to match on the condition itself rather than its
+        # English wording, which is free to change without signaling a contract break.
+        "reason_codes": reason_codes,
         "qualification": "unqualified-live",
         "release_eligible": False,
     }

@@ -46,15 +46,14 @@ def matches(scenario: Scenario, report: dict) -> bool:
         return (
             report["decision"] == "inconclusive"
             and report["positive_control"] != "passed"
-            and "The allowed receiver did not establish the positive control."
-            in report["explanations"]
+            and "positive-control-not-observed" in report["reason_codes"]
         )
     if scenario == "policy-change":
         return report["decision"] == "inconclusive" and (
-            "The target or policy changed during the attempt." in report["explanations"]
+            "target-or-policy-generation-changed" in report["reason_codes"]
         )
     return report["decision"] == "inconclusive" and (
-        "Required receiver evidence was incomplete." in report["explanations"]
+        "required-observer-evidence-loss" in report["reason_codes"]
     )
 
 
