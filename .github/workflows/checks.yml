@@ -50,6 +50,8 @@ jobs:
         run: uv run --no-sync python scripts/audit_dependencies.py --gym-native
       - name: Publication privacy audit
         run: python scripts/audit_publication.py
+      - name: Isolated distribution build, content and installed-package smoke audit
+        run: uv run --no-sync python -m scripts.audit_distribution
       - name: Gitleaks secret scan
         shell: bash
         run: |
