@@ -87,8 +87,13 @@ def bounded_process(
         finally:
             os.close(reader)
             os.close(status_writer)
+        # stdout=subprocess.PIPE above guarantees this is never None; a local variable
+        # (rather than repeated child.stdout attribute access) lets mypy's narrowing
+        # survive the loop and finally block below.
+        stdout = child.stdout
+        assert stdout is not None
         try:
-            os.set_blocking(child.stdout.fileno(), False)
+            os.set_blocking(stdout.fileno(), False)
             output = bytearray()
             while True:
                 if cancelled.is_set():
@@ -97,7 +102,7 @@ def bounded_process(
                     raise AttemptStopped("timeout")
                 returncode = child.poll()
                 try:
-                    chunk = os.read(child.stdout.fileno(), min(65536, max_output - len(output) + 1))
+                    chunk = os.read(stdout.fileno(), min(65536, max_output - len(output) + 1))
                 except BlockingIOError:
                     chunk = None
                 if chunk:
@@ -111,7 +116,7 @@ def bounded_process(
                 if chunk == b"":
                     cancelled.wait(delay)
                 else:
-                    select.select([child.stdout], [], [], delay)
+                    select.select([stdout], [], [], delay)
         finally:
             # Close ownership first, so cancellation lets the supervisor kill
             # and reap its command rather than killing the owner prematurely.
@@ -126,7 +131,7 @@ def bounded_process(
                     child.wait(timeout=1)
                 except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
                     pass
-            child.stdout.close()
+            stdout.close()
             os.set_blocking(status_reader, False)
             try:
                 status = os.read(status_reader, 2)

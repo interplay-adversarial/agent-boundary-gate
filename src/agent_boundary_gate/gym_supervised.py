@@ -387,7 +387,10 @@ def run_gym_attempt(
                 env=worker_environment(config.model),
             )
             secret = os.environ.get(config.model.api_key_env or "")
-            leaked = bool(secret) and secret.encode() in result.stdout
+            # bool(secret) alone (an empty string is falsy, same as None) doesn't
+            # narrow secret's type for mypy; the redundant `is not None` does, with no
+            # behavior change since bool(secret) being True already implies it.
+            leaked = bool(secret) and secret is not None and secret.encode() in result.stdout
             stdout_ref = store.persist(
                 b'{"redacted":"credential-reflection"}' if leaked else result.stdout
             )

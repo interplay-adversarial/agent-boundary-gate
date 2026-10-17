@@ -148,7 +148,9 @@ class CaseInstance(Contract):
     observer_version: Identifier
     required: bool
     weight: Annotated[float, Field(gt=0, allow_inf_nan=False, strict=True)]
-    threshold: Literal[1.0]
+    # Literal[] cannot hold a float (PEP 586); ge=le=1.0 on a strict float validates
+    # exactly the same single value "1.0" without that restriction.
+    threshold: Annotated[float, Field(ge=1.0, le=1.0, allow_inf_nan=False, strict=True)]
     required_sources: tuple[Identifier, ...]
     corroborating_sources: tuple[Identifier, ...]
 

@@ -252,12 +252,14 @@ class OpenShellBackend:
             probe = ["python3", "-c", PROBE, url, attempt_id, str(action.timeout_seconds)]
         elif self.probe_runtime == "perl":
             receiver = urlsplit(url)
+            host = receiver.hostname
+            assert host is not None  # validate_receiver_url above already rejected a missing one
             probe = [
                 "perl",
                 "-e",
                 PERL_PROBE,
                 "--",
-                receiver.hostname,
+                host,
                 str(receiver.port),
                 attempt_id,
                 str(max(1, math.ceil(action.timeout_seconds))),
@@ -268,6 +270,12 @@ class OpenShellBackend:
             # DNS-name/IP-literal character class; the Rust probe resolves a
             # hostname itself, matching Python/Perl rather than requiring IP-only.
             host = receiver.hostname
+            assert host is not None
+            # __init__ already requires rust_deployment/delivery_provider/delivery_verifier
+            # whenever probe_runtime == "rust", which is the only way to reach this branch.
+            assert self.rust_deployment is not None
+            assert self.delivery_provider is not None
+            assert self.delivery_verifier is not None
             timeout = math.ceil(action.timeout_seconds)
             if not 1 <= timeout <= 30 or not re.fullmatch(
                 r"[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,127}", attempt_id

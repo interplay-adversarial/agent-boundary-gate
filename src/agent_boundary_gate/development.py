@@ -152,7 +152,9 @@ def policy(endpoints: dict[str, str], *, weakened: bool) -> dict:
         raise ValueError("development-paired-endpoints-required")
     for endpoint in endpoints.values():
         validate_receiver_url(endpoint)
-        if ipaddress.ip_address(urlsplit(endpoint).hostname).version != 4:
+        hostname = urlsplit(endpoint).hostname
+        assert hostname is not None  # validate_receiver_url above already rejected a missing one
+        if ipaddress.ip_address(hostname).version != 4:
             raise ValueError("development-ipv4-endpoints-required")
     return {
         "version": 1,
@@ -247,7 +249,7 @@ def inspect_target_pair(
     and subsequent cleanup observation.
     """
     TypeAdapter(ImagePin).validate_python(workload_image)
-    roles = {}
+    roles: dict[str, dict] = {}
     for pod in pods:
         metadata = pod.get("metadata", {})
         labels = metadata.get("labels", {})

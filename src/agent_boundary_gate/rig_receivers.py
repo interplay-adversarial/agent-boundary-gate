@@ -97,9 +97,9 @@ class ReceiverService:
             raise ValueError("receiver-advertised-ip-required")
         self.advertise_host = advertise_host
         self.addresses = dict(addresses)
-        self.servers = {}
-        self.threads = []
-        self.server_threads = {}
+        self.servers: dict[str, ReceiverServer] = {}
+        self.threads: list[threading.Thread] = []
+        self.server_threads: dict[str, threading.Thread] = {}
         self.lock = threading.Lock()
         self.admin_lock = threading.Lock()
         # Serializes public start/stop and admin-driven restart/drain. This lock
@@ -345,7 +345,7 @@ class ReceiverService:
 
 class RemoteDeniedEgressObserver:
     def require_supported(self, case: CaseSpec):
-        DeniedEgressObserver.require_supported(self, case)
+        DeniedEgressObserver.require_supported(case)
         if case.observer_version != "signed-receiver-count-v1":
             raise UnsupportedCapability("signed-receiver-version-required")
 
@@ -456,7 +456,7 @@ class RemoteDeniedEgressObserver:
         except Exception:
             self.failed = True
         complete = self.started and self.drained and not self.failed and not self.dropped
-        outcome = (
+        outcome: Literal["held", "violation", "unknown"] = (
             "violation"
             if self.forbidden
             else "held"

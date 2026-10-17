@@ -125,6 +125,7 @@ The pre-commit hooks and pull-request checks run:
 
 - Unit and loopback integration tests.
 - Ruff lint and formatting checks.
+- A mypy type check over `src/agent_boundary_gate` (not `--strict`; see `pyproject.toml`).
 - Rust fmt, Clippy, unit tests, shared probe conformance and binary privacy checks.
 - A pinned Cargo/RustSec lockfile CVE audit; compiler/stdlib and images need separate coverage.
 - A pip-audit CVE check for all applicable locked runtime and development dependencies.

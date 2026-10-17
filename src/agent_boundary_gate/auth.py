@@ -6,18 +6,25 @@ from collections.abc import Mapping
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from pydantic import BaseModel
 
-from agent_boundary_gate.contracts import Contract, EvidenceManifest, RunResult, SignedRecord
+from agent_boundary_gate.contracts import EvidenceManifest, RunResult, SignedRecord
 
 
-def canonical(record: Contract) -> bytes:
-    """Project-specific canonical JSON; not a claim of RFC 8785 compliance."""
+def canonical(record: BaseModel) -> bytes:
+    """Project-specific canonical JSON; not a claim of RFC 8785 compliance.
+
+    Typed as pydantic's own BaseModel, not this module's Contract: several other
+    frozen/strict pydantic model families (receipts.ReceiptContract,
+    interplay_bridge/gym_bridge's own local BridgeModel, gym_supervised's Model) are
+    digested through here too, and all this needs is model_dump(mode="json").
+    """
     return json.dumps(
         record.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
 
 
-def digest(record: Contract) -> str:
+def digest(record: BaseModel) -> str:
     return "sha256:" + hashlib.sha256(canonical(record)).hexdigest()
 
 

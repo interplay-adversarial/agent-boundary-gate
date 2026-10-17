@@ -267,7 +267,10 @@ class RigAuthority:
 
 class AuthorityClient:
     def __init__(self, path: Path, store: EvidenceStore | None = None):
-        self.client, self.store = UnixClient(path), store
+        # CommandAuthorityClient below overrides this with a CommandTransport: both
+        # share the same call(raw, *, deadline, cancelled) -> bytes interface.
+        self.client: UnixClient | CommandTransport = UnixClient(path)
+        self.store = store
 
     def fetch(self, request: Request, *, deadline: float, cancelled: Event) -> bytes:
         raw = self.client.call(

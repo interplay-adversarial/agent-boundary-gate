@@ -5,7 +5,7 @@ silently changing the baseline or replacing the independent services with fixtur
 """
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -82,7 +82,7 @@ def live_campaign(plan: CampaignPlan, output: Path) -> tuple[dict, int]:
     for ordinal, (entry, config) in enumerate(zip(plan.entries, configs, strict=True), start=1):
         try:
             report, _ = live_run(config, output / f"attempt-{ordinal:02d}")
-            result = {
+            result: dict[str, Any] = {
                 "scenario": entry.scenario,
                 "expectation_met": matches(entry.scenario, report),
                 "report": report,
