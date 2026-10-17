@@ -109,7 +109,7 @@ runnable example task and three equivalent ways to configure a run.
 
 ## Develop and validate
 
-Requires Python 3.12+, [uv](https://github.com/astral-sh/uv), and Rust/Cargo 1.98.1
+Requires Python 3.13+, [uv](https://github.com/astral-sh/uv), and Rust/Cargo 1.98.1
 with rustfmt and Clippy for source development. Python library consumers do not
 need Rust to use the existing APIs. Install the pinned Rust CVE auditor:
 

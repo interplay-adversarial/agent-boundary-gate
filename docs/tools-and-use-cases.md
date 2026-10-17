@@ -36,7 +36,7 @@ not qualify a live agent/boundary pairing.
 
 | Component | Responsibility | Installation/scope |
 | --- | --- | --- |
-| Gate CLI and Python package | Policy, evidence storage, orchestration and adapter contracts | Core source checkout, Python 3.12+ |
+| Gate CLI and Python package | Policy, evidence storage, orchestration and adapter contracts | Core source checkout, Python 3.13+ |
 | Pydantic | Strict versioned contracts and configuration validation | Core dependency |
 | `cryptography` / Ed25519 | Terminal/lifecycle signature verification | Trusted keys supplied independently of returned data |
 | OpenShell CLI/backend | Selected runtime execution path | Operator-owned executable/image/policy pins; implementation is unqualified |

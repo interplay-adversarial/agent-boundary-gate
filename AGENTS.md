@@ -16,7 +16,7 @@ before changing contracts or adapter boundaries.
 - Treat signed wire versions as immutable. Never rewrite archived evidence.
 - Every required unsupported combination must withhold approval.
 - Do not enable release eligibility during refactoring or local fixture work.
-- Python 3.12+, strict Pydantic contracts, Ruff lint/format. Use the project uv environment.
+- Python 3.13+, strict Pydantic contracts, Ruff lint/format. Use the project uv environment.
 - Run the gate and adapter tests plus loopback integration tests for behavioral changes.
 - Keep private artifacts, credentials and signing keys out of Git and shared output.
 

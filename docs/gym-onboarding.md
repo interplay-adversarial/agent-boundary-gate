@@ -64,7 +64,7 @@ known CVEs, skipped packages, mismatched/duplicate rows and advisory-service
 failure. The Git-sourced Gym package is excluded from the PyPI advisory inventory:
 its immutable source pin is checked by replay, not covered by that package audit.
 The selected Python version controls marker evaluation even when the auditor
-runs under core Python 3.12. OS/interpreter/toolchain/image/source vulnerabilities
+runs under core Python 3.13. OS/interpreter/toolchain/image/source vulnerabilities
 need separate coverage. Do not describe this as a complete-stack security audit.
 
 Pre-commit and PR checks include this separate lock audit. A dedicated model-free
