@@ -152,7 +152,11 @@ def main() -> int:
         credential = os.environ.get(provider.api_key_env, "")
         if not credential or any(ord(c) <= 32 or ord(c) >= 127 for c in credential):
             raise ValueError("model-credential-unavailable")
-        args.output.mkdir(mode=0o700, exist_ok=False)
+        # parents=True: a non-leaf parent (e.g. an as-yet-nonexistent "outputs/"
+        # staging directory) gets default permissions, not 0700 -- only this
+        # leaf directory does -- but it holds no content of its own, only this
+        # and future private smoke subdirectories by name.
+        args.output.mkdir(mode=0o700, parents=True, exist_ok=False)
         created = True
         manifest = {
             "opencode_version": args.opencode_version,
