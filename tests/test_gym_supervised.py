@@ -27,6 +27,7 @@ from agent_boundary_gate.gym_supervised import (
     AttemptJournal,
     GymEffectConfig,
     GymEffectPlan,
+    GymModelEndpoint,
     classify,
     read_journal,
     recover_gym_attempt,
@@ -196,6 +197,20 @@ class ClassifyTests(unittest.TestCase):
         self.assertIs(result["containment_evaluated"], False)
 
 
+class EndpointTests(unittest.TestCase):
+    def test_plain_http_is_loopback_only_and_https_is_open(self):
+        for url in (
+            "http://127.0.0.1:8000/v1",
+            "http://localhost:8000/v1",
+            "http://[::1]:8000/v1",
+            "https://example.com/v1",
+        ):
+            with self.subTest(url=url):
+                GymModelEndpoint(base_url=url, model="synthetic")
+        with self.assertRaisesRegex(ValueError, "gym-model-endpoint-requires-https"):
+            GymModelEndpoint(base_url="http://example.com/v1", model="synthetic")
+
+
 class JournalTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -226,6 +241,15 @@ class JournalTests(unittest.TestCase):
         (self.root / "journal" / "0002-dispatch.json").unlink()
         self.journal.last = None
         (self.root / "journal" / "0003-final.json").write_bytes(b"{}")
+        with self.assertRaisesRegex(ValueError, "journal-invalid"):
+            read_journal(self.root)
+
+    def test_chain_is_bounded_by_distinct_ranks_not_kinds(self):
+        for kind in ("worker-finished", "observers", "recovered", "final"):
+            self.journal.append(kind, {})
+        _, records = read_journal(self.root)
+        self.assertEqual(len(records), 6)
+        (self.root / "journal" / "0007-final.json").write_bytes(b"{}")
         with self.assertRaisesRegex(ValueError, "journal-invalid"):
             read_journal(self.root)
 

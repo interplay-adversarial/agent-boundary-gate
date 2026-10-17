@@ -326,6 +326,21 @@ class GymEvalRunApiKeyTests(unittest.TestCase):
             # OmegaConf's oc.env resolver to read at Hydra config-resolution time.
             self.assertEqual(captured["env"]["FAKE_MODEL_API_KEY"], "sk-super-secret")
 
+    def test_unset_env_var_fails_before_gym_launches(self):
+        with tempfile.TemporaryDirectory() as root:
+            root_path = Path(root)
+            config = _config(model_api_key_env="DEFINITELY_UNSET_MODEL_KEY")
+            with (
+                patch.dict("os.environ", clear=False) as environment,
+                patch("agent_boundary_gate.adaptive_task_runner.bounded_process") as launched,
+                self.assertRaisesRegex(ValueError, "is not set"),
+            ):
+                environment.pop("DEFINITELY_UNSET_MODEL_KEY", None)
+                _gym_eval_run(
+                    config, root_path / "task-a", root_path / "attempt", cancelled=Event()
+                )
+            launched.assert_not_called()
+
     def test_rejects_malformed_env_var_name(self):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)

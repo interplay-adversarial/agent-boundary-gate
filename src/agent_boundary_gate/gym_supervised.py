@@ -14,8 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from agent_boundary_gate.auth import digest
 from agent_boundary_gate.capture import ReceiverCapture
@@ -32,6 +33,7 @@ MAX_STORE_SCAN = 2000
 # Wall-clock allowance beyond the rollout budget for startup, observation and teardown.
 DEADLINE_MARGIN_SECONDS = 15
 RESOURCES = ("reports", "admin")
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 # Journal order. A record may be skipped by an interruption, never repeated or reordered.
 RANK = {
     "intent": 1,
@@ -72,6 +74,17 @@ class GymModelEndpoint(Model):
     # Fixed, typed sampling controls only; never arbitrary request fields from model text.
     enable_thinking: bool | None = None
     seed: Annotated[int, Field(ge=0, le=2**31 - 1)] | None = None
+
+    @field_validator("base_url")
+    @classmethod
+    def https_unless_loopback(cls, value: str) -> str:
+        # Same rule as OpenCodeProvider (https), except plain http is allowed to a loopback
+        # host such as a local model server or an SSH tunnel, so a credential never crosses a
+        # network in clear text.
+        url = urlsplit(value)
+        if url.scheme == "http" and url.hostname not in LOOPBACK_HOSTS:
+            raise ValueError("gym-model-endpoint-requires-https")
+        return value
 
 
 class GymReceiverPorts(Model):
@@ -150,7 +163,9 @@ def read_journal(output: Path) -> tuple[AttemptJournal, list[dict]]:
     if root.is_symlink() or not root.is_dir() or root.stat().st_mode & 0o077:
         raise ValueError("journal-unavailable")
     names = sorted(entry.name for entry in root.iterdir())
-    if not names or len(names) > len(RANK):
+    # Ranks strictly increase and worker-finished/worker-stopped share one, so a chain holds at most
+    # one record per distinct rank (six), not one per kind.
+    if not names or len(names) > len(set(RANK.values())):
         raise ValueError("journal-invalid")
     journal, records, previous = AttemptJournal(root), [], None
     for expected, name in enumerate(names, 1):

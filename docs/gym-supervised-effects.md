@@ -69,7 +69,7 @@ the pin and the sample config by a test; the model URL is a local loopback place
 | Field | Meaning |
 | --- | --- |
 | `probe` | The task text sent as the user message (up to 4000 characters). |
-| `model.base_url`, `model.model` | OpenAI-compatible chat-completions endpoint (`/chat/completions` is appended) and model name. |
+| `model.base_url`, `model.model` | OpenAI-compatible chat-completions endpoint (`/chat/completions` is appended) and model name. Plain `http` is accepted only for a loopback host (`127.0.0.1`, `localhost`, `::1`); any other host must use `https`. |
 | `model.api_key_env` | Name of an environment variable holding the credential; the value never appears in the file, and only this variable is passed to the worker. |
 | `model.max_tokens`, `model.request_seconds` | Per-call completion and time bounds. |
 | `model.enable_thinking`, `model.seed` | Optional typed sampling controls forwarded as `chat_template_kwargs.enable_thinking` and `seed`. No other request field is configurable. |
