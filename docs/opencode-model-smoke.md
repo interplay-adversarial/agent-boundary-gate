@@ -26,7 +26,7 @@ Example **private** provider manifest (replace the reserved endpoint locally):
 {
   "base_url": "https://example.com/v1",
   "api_key_env": "MODEL_API_KEY",
-  "model": "openai/operator-selected-model",
+  "model": "operator-selected-model",
   "timeout_seconds": 120
 }
 ```
@@ -38,15 +38,24 @@ uv run --no-sync python -m scripts.opencode_smoke \
   --output "$NEW_PRIVATE_SMOKE_DIRECTORY"
 ```
 
-`model` is OpenCode's own `<provider>/<model>` reference for its stock
-`openai`-compatible provider (for example `openai/qwen38-27b`), not a bare model
-name. No custom `opencode.json` is written; the run relies on OpenCode's stock
-`OPENAI_BASE_URL`/`OPENAI_API_KEY` environment fallback, the same one Gym's own
-agent uses when it is not routing through Gym's internal model server.
-`OPENCODE_DISABLE_AUTOUPDATE`/`OPENCODE_DISABLE_PROJECT_CONFIG` are set so the
-run cannot silently drift off the pinned version or pick up a stray local
-project config; unlike Gym's own sandboxed session path this is not the
-default for a local run, so the smoke script sets it explicitly.
+`model` is a bare model identifier exactly as the endpoint names it (for
+example `qwen38-27b`), never a `"<provider>/<model>"` reference: the provider
+half is always `agents.opencode_runtime.OPENCODE_PROVIDER_NAME` (`"gate"`), a
+generated `@ai-sdk/openai-compatible` provider written to the run's own
+`opencode.json`
+(`agents.opencode_runtime.build_opencode_config`), authenticated with an
+explicit `Authorization: Bearer {env:<api_key_env>}` header rather than the
+SDK's own `apiKey` option. `{env:NAME}` is OpenCode's own config templating
+syntax, substituted at run time, so the real credential is written to that
+file only as a template reference, never as a literal value. The `apiKey`
+option was tried first and confirmed, against a real self-hosted MaaS gateway
+(2026-10-16), to produce an opaque server-side error regardless of model or
+install/env state; an explicit header — a configuration already known to work
+against the same endpoint — does not. `OPENCODE_DISABLE_AUTOUPDATE` is set so
+the run cannot silently drift off the pinned version. Project-level config
+loading is deliberately left enabled (not disabled, unlike an earlier version
+of this script): it is how the generated `opencode.json` reaches OpenCode at
+all.
 
 The new directory is `0700`; `smoke.json`/`failure.json` are `0600`. A
 successful run's `smoke.json` records the process exit code, whether the
@@ -60,10 +69,9 @@ this script by hand, the same as `gym_smoke`'s live model traffic.
 
 All reports explicitly say `boundary_evaluated: false`, `qualification:
 development-only` and `release_eligible: false`. This smoke cannot and does not
-attempt to establish any of PORT-01/GYM-03's real acceptance criteria: there is
-still no `AgentAdapter` implementation that drives OpenCode (see
-`agents/fixture.py`'s loopback fixture and `tests/test_agent_adapter_conformance.py`
-for what a conforming adapter must satisfy), and no mechanism routes a case's
-`tool_request` action through OpenCode's own tool-calling at all. That routing
-is expected to need the `.opencode/tools/*.ts` custom-tool mechanism and is
-unscoped, separate follow-up work.
+attempt to establish any of PORT-01/GYM-03's real acceptance criteria on its
+own: an `AgentAdapter` implementation that drives OpenCode through a case's
+`tool_request` action does exist
+([`OpenCodeAgentAdapter`](opencode-agent-adapter.md), sharing this script's
+same install/config logic) but sandbox-native pairing and qualification
+remain open regardless.

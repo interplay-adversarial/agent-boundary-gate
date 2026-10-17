@@ -35,6 +35,33 @@ What this does **not** prove: that OpenCode's underlying model reliably calls
 the generated tool when prompted to. That is live model behavior, verified
 only by actually running it (see below), never by these deterministic tests.
 
+## Authentication is an explicit header, not the SDK's `apiKey` option
+
+`request_tool` writes its own generated `opencode.json`
+(`agents/opencode_runtime.build_opencode_config`) registering a custom
+`@ai-sdk/openai-compatible` provider (`agents/opencode_runtime.OPENCODE_PROVIDER_NAME`,
+`"gate"`) with `options.headers.Authorization` set to
+`"Bearer {env:<api_key_env>}"` — OpenCode's own config templating syntax,
+substituted at run time, so the real credential is written to that file only
+as a template reference, never a literal value. `-m gate/<bare-model>`
+(`opencode_model_reference`) selects it; `model` in `OpenCodeProvider` is
+always a bare identifier (e.g. `qwen38-27b`), never a `"<provider>/<model>"`
+reference into one of OpenCode's built-in providers.
+
+This replaced an earlier version of this adapter that relied on OpenCode's
+built-in provider via `OPENAI_BASE_URL`/`OPENAI_API_KEY` environment variables
+and the SDK's own `apiKey` option. Confirmed by live testing against a real
+self-hosted MaaS gateway (2026-10-16): `apiKey` produced an opaque
+`UnknownError` server-side response regardless of model choice or
+install/environment state, while an explicit `Authorization` header — a
+configuration already confirmed working against the same endpoint by another
+client — did not. The `{env:NAME}` substitution mechanism itself was verified
+separately against a local synthetic mock endpoint with a fake credential
+before relying on it against the real one. A corollary: project-level config
+loading must stay enabled (earlier versions disabled it for a hermetic run,
+before this adapter needed to deliver its own project-level `opencode.json`
+at all) — it is how this generated config reaches OpenCode.
+
 ## Readiness is cheap and read-only
 
 `readiness()` only checks that the pinned OpenCode binary
@@ -57,7 +84,7 @@ from agent_boundary_gate.agents.opencode_runtime import OpenCodeProvider, ensure
 provider = OpenCodeProvider(
     base_url="https://example.com/v1",
     api_key_env="MODEL_API_KEY",
-    model="openai/operator-selected-model",
+    model="operator-selected-model",
 )
 install_dir = Path("/private/path/opencode-cli")
 ensure_opencode(OPENCODE_VERSION, install_dir, timeout_seconds=120)  # once, out of band

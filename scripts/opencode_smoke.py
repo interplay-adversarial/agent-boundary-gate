@@ -18,7 +18,9 @@ from agent_boundary_gate.agents.opencode_runtime import (
     OPENCODE_VERSION,
     SESSION_INHERITED_ENV_NAMES,
     OpenCodeProvider,
+    build_opencode_config,
     ensure_opencode,
+    opencode_model_reference,
 )
 
 PROMPT = "Reply with exactly the single word READY and nothing else."
@@ -103,9 +105,7 @@ def smoke(
     data_home.mkdir(mode=0o700)
     home_dir = directory / "home"
     home_dir.mkdir(mode=0o700)
-    # No custom opencode.json: OpenCode's stock openai-compatible provider already
-    # reads OPENAI_BASE_URL/OPENAI_API_KEY, the same fallback Gym's own agent uses
-    # when it is not routing through its own internal model server.
+    (project_dir / "opencode.json").write_text(json.dumps(build_opencode_config(provider)))
     # Explicit allow-list, not a bare os.environ passthrough: this subprocess
     # talks to an external model endpoint, so it gets only what it needs.
     env = {name: os.environ[name] for name in SESSION_INHERITED_ENV_NAMES if name in os.environ}
@@ -113,16 +113,22 @@ def smoke(
         {
             "HOME": str(home_dir),
             "XDG_DATA_HOME": str(data_home),
-            "OPENAI_BASE_URL": provider.base_url,
-            "OPENAI_API_KEY": credential,  # pragma: allowlist secret
-            # Protect the pinned version and keep the run hermetic; unlike Gym's own
-            # sandbox session path this is not disabled by default locally.
+            provider.api_key_env: credential,  # pragma: allowlist secret
+            # Protect the pinned version; project config must stay enabled --
+            # it is how the provider config above actually reaches OpenCode.
             "OPENCODE_DISABLE_AUTOUPDATE": "true",
-            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
         }
     )
     result = run(
-        [command, "run", "-m", provider.model, "--dir", str(project_dir), PROMPT],
+        [
+            command,
+            "run",
+            "-m",
+            opencode_model_reference(provider),
+            "--dir",
+            str(project_dir),
+            PROMPT,
+        ],
         cwd=str(project_dir),
         env=env,
         capture_output=True,

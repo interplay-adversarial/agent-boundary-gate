@@ -47,9 +47,7 @@ def _opencode_factory() -> OpenCodeAgentAdapter:
         )
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
-    provider = OpenCodeProvider(
-        base_url="https://example.com/v1", api_key_env="UNUSED", model="openai/m"
-    )
+    provider = OpenCodeProvider(base_url="https://example.com/v1", api_key_env="UNUSED", model="m")
     return OpenCodeAgentAdapter(provider, "synthetic-credential", install_dir, run=fake_run)
 
 
