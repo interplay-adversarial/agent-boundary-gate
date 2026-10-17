@@ -24,6 +24,7 @@ not qualify a live agent/boundary pairing.
 | Is this environment compatible before I attempt a readiness/cleanup cycle? | `agent-boundary-gate doctor` / `doctor.openshell_doctor` | Sanitized CLI/lease/policy/sandbox compatibility report | Read-only, no execution; cannot verify Rust probe prerequisites (no fallback/Rust selector) |
 | Should I pick the Python, Perl or Rust probe path? | `OpenShellBackend(probe_runtime=...)` | Interpreter/module check (Python/Perl) or signed delivery admission (Rust) | All three support hostname/IP-literal receivers; see [Rust usage](rust-probe-usage.md), [Rust delivery](rust-probe-delivery.md) and [remaining design work](rust-probe-exploration.md) |
 | How does a model behave under generated/adaptive probes? | `red-team-run` / `red_team_run` | Interplay research rows and private control artifacts | Supervised research; no automatic tool instrumentation or signed effect conversion |
+| Does a supervised native Gym agent's synthetic tool call produce an independently observed effect? | `gym-effect-run` / `gym_supervised.run_gym_attempt`; `gym-effect-recover` | Journal, native events and independent receiver counts classified as benign-utility, resisted, blocked or observed effect ([guide](gym-supervised-effects.md)) | Separate `onboarding/gym-native` environment; loopback receivers, unsigned classification, no containment or cleanup proof; live pilot pending |
 | Does a Gym verifier recognize a synthetic tool trace? | `scripts/gym_replay.py` | Native safety/utility/reward calibration | Offline synthetic replay, not a model or boundary test |
 | Can a model drive the Gym tool harness? | `scripts.gym_smoke` | Native trajectories and benign/injected task scores | Synthetic in-process tools; `boundary_evaluated: false` |
 | Does the pinned OpenCode CLI install and run against my model endpoint? | `scripts.opencode_smoke` | One headless run's exit code and session-database readback | Plumbing only, no adapter/tool-routing/boundary; `boundary_evaluated: false` |
@@ -83,6 +84,7 @@ not OpenShell isolation. For runnable Python examples and the full trusted-input
 | `development_run.DevelopmentRunner` | Execute/recover configured development profiles |
 | `gym_bridge.evaluate_gym_bridge` | Correlate collector-owned native observations and signed boundary records |
 | `red_team.red_team_run`, `red_team.red_team_recover` | Supervise the optional Interplay campaign/recovery worker |
+| `gym_supervised.run_gym_attempt`, `gym_supervised.recover_gym_attempt` | Supervise one native Gym effect attempt; recover from retained bytes with zero replay |
 
 Read the relevant contracts before implementing a component. An application
 adapter's permissions and a boundary backend's enforcement are separate identities.

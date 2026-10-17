@@ -1,0 +1,24 @@
+{
+  "gym": {
+    "commit": "b454c9a6e9a5644564fac81064050094b237daaa",
+    "repository": "https://github.com/NVIDIA-NeMo/Gym.git"
+  },
+  "interplay": {
+    "commit": "c882d245433584f874ce5350691a7a21a1d68bf0",
+    "files": {
+      "interplay/__init__.py": "sha256:510d99a52416026e21e10a759e5e872f0ad75c74f6bf8573956ac19f6a738537",
+      "interplay/assessment/__init__.py": "sha256:a8d4746f9d483b72a4c727bce5df5678e31421a4d5a69e0a6c0dabbc1702ccb1",
+      "interplay/assessment/gym.py": "sha256:e7c490d0473694d0852ced637728789516613f5f2f9d7ce951405b3f4adb6af4",
+      "interplay/assessment/gym_source_b454.json": "sha256:042e26cb698687bd5fef1e5b740064d5947211eab1a216c3390f01e8783b4586",
+      "interplay/assessment/models.py": "sha256:006c06091f65c88499956bba8fe3a5ed1588900333397d2d8127cdab350283e9",
+      "interplay/assessment/runner.py": "sha256:3ccab03fa9f66d366c1126cfe99cde8f09f6df6f82a1a83db4b5c4c04582743a",
+      "interplay/assessment/storage.py": "sha256:e25b7263a89be47ebbfdeecde42e94e7c75a9b460b36e91d0c9d6033683bf204"
+    },
+    "repository": "https://github.com/interplay-adversarial/interplay.git"
+  },
+  "python": [
+    3,
+    14,
+    7
+  ]
+}

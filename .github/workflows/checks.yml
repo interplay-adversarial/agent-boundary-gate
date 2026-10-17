@@ -46,6 +46,8 @@ jobs:
         run: uv run --no-sync python scripts/audit_dependencies.py --gym
       - name: Separate DataDesigner/Interplay locked dependency vulnerability check
         run: uv run --no-sync python scripts/audit_dependencies.py --red-team
+      - name: Separate native Gym worker locked dependency vulnerability check
+        run: uv run --no-sync python scripts/audit_dependencies.py --gym-native
       - name: Publication privacy audit
         run: python scripts/audit_publication.py
       - name: Gitleaks secret scan
@@ -105,6 +107,25 @@ jobs:
       - name: Test native generation, target observation, judging, export and recovery
         run: PYTHONPATH=src onboarding/red-team/.venv/bin/python -m unittest discover -s tests -p test_red_team_native.py -v
 
+  gym-native-effects:
+    name: Supervised native Gym worker conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14.7'
+      - name: Install isolated locked Gym and Interplay worker environment
+        run: |
+          python -m pip install uv==0.12.17
+          uv sync --project onboarding/gym-native --frozen --no-editable
+      - name: Run actual pinned SimpleAgent worker against a loopback model and receivers
+        run: |
+          GYM_NATIVE_PYTHON="$PWD/onboarding/gym-native/.venv/bin/python" \
+            PYTHONPATH=src onboarding/gym-native/.venv/bin/python \
+            -m unittest discover -s tests -p test_gym_worker_native.py -v
+
   rust-platforms:
     name: Rust probe (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
@@ -157,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     if: always()
-    needs: [validate, rust-platforms, gym-onboarding, red-team-campaigns]
+    needs: [validate, rust-platforms, gym-onboarding, red-team-campaigns, gym-native-effects]
     steps:
       - name: Require every validation matrix entry to pass
         env:
@@ -165,8 +186,10 @@ jobs:
           RUST_RESULT: ${{ needs.rust-platforms.result }}
           GYM_RESULT: ${{ needs.gym-onboarding.result }}
           RED_TEAM_RESULT: ${{ needs.red-team-campaigns.result }}
+          GYM_NATIVE_RESULT: ${{ needs.gym-native-effects.result }}
         run: |
           test "$VALIDATION_RESULT" = success
           test "$RUST_RESULT" = success
           test "$GYM_RESULT" = success
           test "$RED_TEAM_RESULT" = success
+          test "$GYM_NATIVE_RESULT" = success
