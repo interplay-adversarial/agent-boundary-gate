@@ -317,6 +317,7 @@ class SupervisedRunTests(unittest.TestCase):
 
     def test_unavailable_receiver_port_stops_before_dispatch(self):
         allowed, forbidden = free_ports(2)
+        threads_before = threading.active_count()
         with socket.socket() as holder:
             holder.bind(("127.0.0.1", forbidden))
             holder.listen()
@@ -327,6 +328,11 @@ class SupervisedRunTests(unittest.TestCase):
                     "busy",
                     receiver_ports={"allowed": allowed, "forbidden": forbidden},
                 )
+        # The allowed receiver started before the forbidden bind failed; it must be released:
+        # no leftover serving thread, and its port can be bound again.
+        self.assertEqual(threading.active_count(), threads_before)
+        with socket.socket() as again:
+            again.bind(("127.0.0.1", allowed))
         # No intent, dispatch or worker output exists, so recovery refuses rather than guessing.
         self.assertFalse((self.root / "busy" / "adapter").exists())
         self.assertEqual(list((self.root / "busy" / "journal").iterdir()), [])
