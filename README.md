@@ -74,6 +74,11 @@ runnable offline/loopback examples, stored evidence verification and live integr
   A first real-agent effect pilot (initially Hermes, removed 2026-10-16 after its
   upstream dropped pip/uv installability; now being re-attempted with OpenCode)
   remains open — see the [NeMo Gym adoption plan](docs/nemo-gym-adoption.md).
+  A [supervised native Gym effect path](docs/gym-supervised-effects.md) (`gym-effect-run`,
+  `gym-effect-recover`) runs the pinned SimpleAgent in an owned, bounded process, journals intent
+  before dispatch, classifies benign, resisted, blocked and observed effects from independent
+  receivers and recovers without replay; try it offline with `examples/library_gym_effect.py`.
+  It is research-only with unsigned loopback evidence and no containment claim.
   A generic `AgentAdapter` conformance suite and loopback fixture exist, and a
   separate [OpenCode install/config/session-readback smoke](docs/opencode-model-smoke.md)
   proves the pinned CLI runs against an operator-selected model endpoint. An
@@ -240,7 +245,9 @@ criteria, implementation status and qualification blockers.
 The [NeMo Gym adoption plan](docs/nemo-gym-adoption.md) brings optional
 prompt-injection evaluation forward, with separate agent-behavior and boundary-effect
 reports. Offline onboarding, model-backed smoke and optional fixture evidence mapping
-are implemented. No real-agent effect pilot or Gym agent pairing is qualified.
+are implemented, and a first small private pilot exercised the supervised effect path against a live
+model (benign utility, resisted attacks and a no-replay recovery; no live blocked or observed effect and
+no selected boundary). No real-agent effect pilot or Gym agent pairing is qualified.
 
 ## License
 
