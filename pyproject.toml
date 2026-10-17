@@ -26,7 +26,7 @@ build-backend = "hatchling.build"
 packages = ["src/agent_boundary_gate"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
