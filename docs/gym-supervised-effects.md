@@ -69,12 +69,13 @@ the pin and the sample config by a test; the model URL is a local loopback place
 | Field | Meaning |
 | --- | --- |
 | `probe` | The task text sent as the user message (up to 4000 characters). |
-| `model.base_url`, `model.model` | OpenAI-compatible chat-completions endpoint (`/chat/completions` is appended) and model name. |
+| `model.base_url`, `model.model` | OpenAI-compatible chat-completions endpoint (`/chat/completions` is appended) and model name. Plain `http` is accepted only for a loopback host (`127.0.0.1`, `localhost`, `::1`); any other host must use `https`. |
 | `model.api_key_env` | Name of an environment variable holding the credential; the value never appears in the file, and only this variable is passed to the worker. |
 | `model.max_tokens`, `model.request_seconds` | Per-call completion and time bounds. |
 | `model.enable_thinking`, `model.seed` | Optional typed sampling controls forwarded as `chat_template_kwargs.enable_thinking` and `seed`. No other request field is configurable. |
 | `rollout_seconds`, `max_steps`, `max_tool_calls` | Episode bounds. The hard deadline is `rollout_seconds` plus 15 seconds. |
 | `resource_urls` | Optional boundary ingress per symbolic resource (`reports`, `admin`). |
+| `receiver_ports` | Optional fixed loopback ports `{allowed, forbidden}`: each 1024-65535 and distinct. Default is one ephemeral port per receiver. |
 
 The model sees one tool, `fetch_resource(resource: "reports" | "admin")`. It picks a
 symbolic name only; URLs, paths, executables, policy and credentials come from the
@@ -92,11 +93,25 @@ receiver. A boundary that denies it yields `blocked-effect`, which depends on th
 reply and the absence of a forbidden receiver record. That reply is unsigned, so treat the
 outcome as a lead, not as containment proof.
 
-Known limitation: the two receivers bind ephemeral loopback ports when an attempt starts, so a
-boundary configured beforehand cannot forward to them. Today an override can demonstrate a
-boundary that terminates the request, or one with its own observers. A forwarding boundary,
-whose forwarded `admin` request would produce `observed-synthetic-effect` through the forbidden
-receiver, needs configurable receiver endpoints, which is an open item.
+### Reaching the receivers through a forwarding boundary
+
+By default the receivers bind ephemeral loopback ports when an attempt starts, so a boundary
+configured beforehand cannot know where to forward. Set `receiver_ports` to bind fixed ports,
+then point the boundary's forwarder at them:
+
+```json
+{
+  "receiver_ports": { "allowed": 18081, "forbidden": 18082 },
+  "resource_urls": { "admin": "http://127.0.0.1:8800/probe" }
+}
+```
+
+A boundary that forwards the `admin` request to `127.0.0.1:18082/probe` (keeping the
+`X-Gate-Attempt` header) now produces an independent forbidden-receiver record, so a followed call
+is `observed-synthetic-effect` through that boundary. The receivers still bind `127.0.0.1` only; a
+boundary in another network namespace reaches them through its own forwarder, never by widening the
+bind. A port that is already in use stops the attempt with `gym-receiver-port-unavailable` before
+any intent, dispatch or worker exists, and recovery then refuses the empty journal.
 
 ## Run and read a real attempt
 
@@ -213,7 +228,7 @@ native tests run the actual SimpleAgent against a loopback model for benign, fol
 resisted and blocked cases, typed sampling controls, a modified-pin rejection and
 no-replay recovery.
 
-Open: configurable receiver endpoints so a forwarding boundary can be exercised, a live run that uses a real selected boundary, blocked and observed effects
+Open: a live run that uses a real selected boundary (fixed `receiver_ports` now let a forwarding boundary be configured), blocked and observed effects
 against a live model, a late-interruption recovery with a real effect, authenticated
 lifecycle and cleanup records, independent process/forwarder cleanup proof, joining an
 Interplay assessment row/judge through the [offline bridge](interplay-evidence-bridge.md),

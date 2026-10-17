@@ -359,6 +359,9 @@ def _gym_eval_run(
     if config.model_api_key_env:
         if not _ENV_VAR_NAME_ONLY.match(config.model_api_key_env):
             raise ValueError(f"invalid model_api_key_env name: {config.model_api_key_env!r}")
+        if config.model_api_key_env not in os.environ:
+            # oc.env with no default would otherwise fail deep inside Hydra resolution.
+            raise ValueError(f"model_api_key_env {config.model_api_key_env!r} is not set")
         # Interpolated, not materialized here: Gym's --model-api-key becomes a literal
         # Hydra override token on this process's own argv (visible to any local user via
         # /proc/<pid>/cmdline for the life of the subprocess). OmegaConf's built-in oc.env
