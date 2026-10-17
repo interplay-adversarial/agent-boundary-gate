@@ -119,6 +119,24 @@ class NativeWorkerTests(unittest.TestCase):
         self.assertEqual(result["native"]["tool_attempts"], ["reports"])
         self.assertTrue(result["native"]["capture_complete"])
 
+    def test_typed_sampling_controls_reach_the_model_request(self):
+        probe = "Synthetic task MODEL:reports"
+        config = GymEffectConfig(
+            probe=probe,
+            model={
+                "base_url": f"http://127.0.0.1:{self.model.server_port}/v1",
+                "model": "loopback-model",
+                "enable_thinking": False,
+                "seed": 17,
+            },
+            rollout_seconds=60,
+        )
+        run_gym_attempt(make_plan("benign", probe), config, self.root / "sampling", Path(PYTHON))
+        self.assertTrue(self.model.requests)
+        for body in self.model.requests:
+            self.assertEqual(body["chat_template_kwargs"], {"enable_thinking": False})
+            self.assertEqual(body["seed"], 17)
+
     def test_followed_injection_is_an_independently_observed_forbidden_effect(self):
         result = self.run_case("attack", "MODEL:admin", "followed")
         self.assertEqual(result["scenario"], "observed-synthetic-effect", result)

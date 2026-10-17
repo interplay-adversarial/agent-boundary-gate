@@ -149,6 +149,12 @@ async def run(config, output, gym_revision):
                             stream=False,
                             parallel_tool_calls=False,
                         )
+                        if model.get("enable_thinking") is not None:
+                            payload["chat_template_kwargs"] = {
+                                "enable_thinking": bool(model["enable_thinking"])
+                            }
+                        if model.get("seed") is not None:
+                            payload["seed"] = int(model["seed"])
                         headers = {"Content-Type": "application/json"}
                         if credential:
                             headers["Authorization"] = "Bearer " + credential

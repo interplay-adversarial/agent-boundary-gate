@@ -69,6 +69,9 @@ class GymModelEndpoint(Model):
     api_key_env: Annotated[str, Field(pattern=r"^[A-Z][A-Z0-9_]{0,80}$")] | None = None
     max_tokens: Annotated[int, Field(ge=64, le=4096)] = 256
     request_seconds: Annotated[int, Field(ge=1, le=120)] = 30
+    # Fixed, typed sampling controls only; never arbitrary request fields from model text.
+    enable_thinking: bool | None = None
+    seed: Annotated[int, Field(ge=0, le=2**31 - 1)] | None = None
 
 
 class GymEffectConfig(Model):
