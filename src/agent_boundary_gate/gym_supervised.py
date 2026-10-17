@@ -397,7 +397,15 @@ def run_gym_attempt(
             journal.append("worker-stopped", {"reason": reason})
             extra["worker_stopped"] = reason
     finally:
-        receivers.stop()
+        try:
+            receivers.stop()
+        except Exception:
+            # Never let a receiver-cleanup failure skip journal finalization --
+            # the same non-fatal-error convention the capture handler itself
+            # already uses for a persistence failure (capture.py's
+            # "receiver-persistence-error"); `complete` below already reads
+            # `receivers.errors`, so this is picked up for free.
+            receivers.errors.append("receiver-stop-error")
     snapshot_ref = receivers.snapshot()
     complete = bool(receivers.drained and not receivers.errors and not receivers.dropped_events)
     allowed, forbidden = receivers.count("allowed"), receivers.count("forbidden")

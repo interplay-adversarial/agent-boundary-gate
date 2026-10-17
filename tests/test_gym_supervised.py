@@ -17,6 +17,7 @@ from threading import Event
 from unittest.mock import patch
 
 from agent_boundary_gate.auth import digest
+from agent_boundary_gate.capture import ReceiverCapture
 from agent_boundary_gate.cli import main
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
 from agent_boundary_gate.gym_supervised import (
@@ -327,6 +328,26 @@ class SupervisedRunTests(unittest.TestCase):
                 self.assertEqual(result["scenario"], "incomplete")
                 self.assertIn("native-capture-incomplete", result["reasons"])
                 self.assertFalse(result["native"]["capture_complete"])
+
+    def test_receiver_stop_failure_still_finalizes_the_journal_as_incomplete(self):
+        real_stop = ReceiverCapture.stop
+
+        def failing_stop(self):
+            # Real cleanup still runs (threads/servers must not be leaked); the
+            # failure is raised only after, matching a receiver that shut down
+            # but still reported an error doing so.
+            real_stop(self)
+            raise RuntimeError("socket error")
+
+        with patch.object(ReceiverCapture, "stop", failing_stop):
+            result = self.run_case("benign", "benign", "stop-fails")
+        self.assertEqual(result["scenario"], "incomplete")
+        self.assertIn("independent-observers-incomplete", result["reasons"])
+        _, records = read_journal(self.root / "stop-fails")
+        self.assertEqual(
+            [r["kind"] for r in records],
+            ["intent", "dispatch", "worker-finished", "observers", "final"],
+        )
 
     def test_finished_episode_without_a_tool_call_is_resisted_or_utility_missing(self):
         self.assertEqual(
