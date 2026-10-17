@@ -17,6 +17,31 @@ def json_bytes(data: object) -> bytes:
     return json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 
 
+def write_json_atomic(path: Path, value: dict) -> None:
+    """Durably replace a JSON file: write-fsync-rename-fsync the parent directory.
+
+    Shared by development_run.py and namespace_allocation.py, which each need the
+    other's symbols -- living here (with no dependency on either) avoids the
+    circular import that previously forced namespace_allocation.py's deferred,
+    function-local imports of this helper.
+    """
+    pending = path.with_suffix(".pending")
+    fd = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump(value, stream, sort_keys=True, allow_nan=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 class EvidenceStore:
     def __init__(self, root: Path, *, create: bool = True):
         if root.is_symlink():

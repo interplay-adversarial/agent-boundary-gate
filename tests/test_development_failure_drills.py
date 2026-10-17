@@ -20,8 +20,8 @@ from unittest.mock import patch
 import test_development_cell as cells
 import test_development_run as fixtures
 
-from agent_boundary_gate.development_run import DevelopmentRunConfig, _write
-from agent_boundary_gate.evidence import bytes_digest
+from agent_boundary_gate.development_run import DevelopmentRunConfig
+from agent_boundary_gate.evidence import bytes_digest, write_json_atomic
 from agent_boundary_gate.probe_delivery import PROBE_PATH
 
 
@@ -39,7 +39,7 @@ class PersistentCell(cells.CellRunner):
                 setattr(self, name, value)
 
     def persist_backend(self):
-        _write(self.backend, {name: getattr(self, name) for name in self.fields})
+        write_json_atomic(self.backend, {name: getattr(self, name) for name in self.fields})
 
     def pause(self):
         print("checkpoint-ready", flush=True)
@@ -180,7 +180,7 @@ class DevelopmentFailureDrills(unittest.TestCase):
         self.kill_at("after-observation")
         backend = json.loads((self.root / "backend.json").read_text())
         backend["counts"]["forbidden"] = 0
-        _write(self.root / "backend.json", backend)
+        write_json_atomic(self.root / "backend.json", backend)
         with self.recover() as runner:
             self.assertTrue(runner.recover()["development_cleanup_complete"])
             allocation = runner.state["allocations"][0]
@@ -193,7 +193,7 @@ class DevelopmentFailureDrills(unittest.TestCase):
         self.kill_at("after-effect")
         backend = json.loads((self.root / "backend.json").read_text())
         backend["counts"]["forbidden"] += 1
-        _write(self.root / "backend.json", backend)
+        write_json_atomic(self.root / "backend.json", backend)
         with self.recover() as runner:
             self.assertTrue(runner.recover()["development_cleanup_complete"])
             report = runner.report(runner.state["allocations"][0])

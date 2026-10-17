@@ -6,7 +6,7 @@ import sys
 import time
 from pathlib import Path
 
-from agent_boundary_gate.development_run import _write
+from agent_boundary_gate.evidence import write_json_atomic
 
 
 def main():
@@ -23,8 +23,8 @@ def main():
         "metadata": {**manifest["metadata"], "uid": "uid-" + name},
     }
     state[name] = value
-    _write(path, state)
-    _write(root / "api-entered.json", {"name": name, "pid": os.getpid()})
+    write_json_atomic(path, state)
+    write_json_atomic(root / "api-entered.json", {"name": name, "pid": os.getpid()})
     while (root / "block-response").exists():
         time.sleep(0.01)
     if (root / "drop-response").exists():

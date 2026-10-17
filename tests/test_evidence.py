@@ -9,9 +9,38 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent_boundary_gate.auth import canonical, digest, sign
-from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
+from agent_boundary_gate.evidence import EvidenceStore, bytes_digest, write_json_atomic
 from agent_boundary_gate.fixtures import fixture
 from agent_boundary_gate.gate_policy import evaluate
+
+
+class WriteJsonAtomicTests(unittest.TestCase):
+    """Shared by development_run.py and namespace_allocation.py (see recovery.py's
+    LeaseJournal.finish for the analogous public-method fix for the other half of
+    that cross-module/cross-class private-access finding)."""
+
+    def test_writes_readable_json_and_leaves_no_pending_file(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            write_json_atomic(path, {"a": 1})
+            self.assertEqual(json.loads(path.read_text()), {"a": 1})
+            self.assertFalse(path.with_suffix(".pending").exists())
+
+    def test_replaces_existing_content(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            write_json_atomic(path, {"a": 1})
+            write_json_atomic(path, {"a": 2})
+            self.assertEqual(json.loads(path.read_text()), {"a": 2})
+            self.assertFalse(path.with_suffix(".pending").exists())
+
+    def test_leftover_pending_file_is_removed_on_failure(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            with self.assertRaises(TypeError):
+                write_json_atomic(path, {"a": object()})
+            self.assertFalse(path.exists())
+            self.assertFalse(path.with_suffix(".pending").exists())
 
 
 class EvidenceReadTests(unittest.TestCase):

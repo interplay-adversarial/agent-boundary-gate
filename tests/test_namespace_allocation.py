@@ -16,8 +16,8 @@ from unittest.mock import patch
 from test_development_cell import CellRunner
 from test_development_run import IMAGE
 
-from agent_boundary_gate.development_run import DevelopmentRunConfig, _config_digest, _write
-from agent_boundary_gate.evidence import bytes_digest
+from agent_boundary_gate.development_run import DevelopmentRunConfig, _config_digest
+from agent_boundary_gate.evidence import bytes_digest, write_json_atomic
 from agent_boundary_gate.namespace_allocation import (
     AllocationCall,
     AllocationRecord,
@@ -44,7 +44,7 @@ class LedgerRunner(CellRunner):
                 if state[name]["metadata"]["uid"] != kwargs["data"]["preconditions"]["uid"]:
                     raise ValueError("synthetic-api-uid-conflict")
                 del state[name]
-                _write(state_path, state)
+                write_json_atomic(state_path, state)
                 self.pods = []
             return ProcessResult(
                 0, json.dumps(state.get(name, {}) if args[0] == "get" else {}).encode()
@@ -135,7 +135,7 @@ class NamespaceAllocationTests(unittest.TestCase):
 
     def service(self):
         path = self.root / "allocator.json"
-        _write(path, self.allocator_config.model_dump(mode="json"))
+        write_json_atomic(path, self.allocator_config.model_dump(mode="json"))
         child = self.launch(
             ["-m", "agent_boundary_gate.cli", "development-allocation-serve", "--config", str(path)]
         )
@@ -172,7 +172,7 @@ class NamespaceAllocationTests(unittest.TestCase):
     def test_controller_sigkill_after_api_create_recovers_independent_uid_without_replay(self):
         service = self.service()
         (self.root / "block-response").touch()
-        _write(self.root / "runner.json", self.runner_config.model_dump(mode="json"))
+        write_json_atomic(self.root / "runner.json", self.runner_config.model_dump(mode="json"))
         child = self.launch([str(Path(__file__).resolve()), str(self.root)])
         self.wait((self.root / "api-entered.json").exists)
         journal = json.loads((self.root / "campaign/journal.json").read_text())
@@ -268,7 +268,7 @@ class NamespaceAllocationTests(unittest.TestCase):
         state_path = self.root / "api-state.json"
         state = json.loads(state_path.read_text())
         state[allocation["cell_name"]]["metadata"]["uid"] = "replacement-uid"
-        _write(state_path, state)
+        write_json_atomic(state_path, state)
         self.assertFalse(runner.recover()["development_cleanup_complete"])
         self.assertNotIn("cell_uid", allocation)
         self.assertFalse(any(args[0] == "delete" for _, args, _ in runner.calls))
@@ -283,7 +283,7 @@ class NamespaceAllocationTests(unittest.TestCase):
                 state = json.loads(state_path.read_text())
                 name = args[2].rsplit("/", 1)[1]
                 state[name]["metadata"]["uid"] = "raced-replacement"
-                _write(state_path, state)
+                write_json_atomic(state_path, state)
             return command(kind, args, **kwargs)
 
         with patch.object(runner, "command", replace_before_delete):
@@ -316,7 +316,7 @@ class NamespaceAllocationTests(unittest.TestCase):
                 self.allocator_config.model_copy(update={"context": "another-context"})
             )
         pending = self.allocator_config.ledger_directory / ("a" * 32 + ".pending")
-        _write(
+        write_json_atomic(
             self.allocator_config.ledger_directory / ("a" * 32 + ".json"),
             AllocationRecord(intent=self.intent(), state="unresolved").model_dump(mode="json"),
         )
@@ -337,7 +337,7 @@ class NamespaceAllocationTests(unittest.TestCase):
 
     def test_disappeared_original_is_reconciled_without_deleting_replacement_by_name(self):
         runner = self.prepared_lost_response("cell")
-        _write(self.root / "api-state.json", {})
+        write_json_atomic(self.root / "api-state.json", {})
         self.assertTrue(runner.recover()["development_cleanup_complete"])
         self.assertFalse(any(args[0] == "delete" for _, args, _ in runner.calls))
 
@@ -356,7 +356,7 @@ class NamespaceAllocationTests(unittest.TestCase):
         self.addCleanup(allocator.close)
         intent = self.intent()
         raw = AllocationCall(operation="create", intent=intent).model_dump_json().encode()
-        write = _write
+        write = write_json_atomic
 
         def failed_write(path, value):
             if value.get("state") == "created":
@@ -369,7 +369,7 @@ class NamespaceAllocationTests(unittest.TestCase):
             return_value=AllocationRecord(intent=intent, state="created", uid="original-uid"),
         ) as create:
             with (
-                patch("agent_boundary_gate.development_run._write", failed_write),
+                patch("agent_boundary_gate.namespace_allocation.write_json_atomic", failed_write),
                 self.assertRaises(OSError),
             ):
                 allocator.handle(raw, time.monotonic() + 2, Event())

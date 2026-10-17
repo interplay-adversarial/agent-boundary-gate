@@ -467,7 +467,7 @@ class ServiceWatchdogDrills(unittest.TestCase):
         self.assertEqual(state["attempts"], 2)
         old = RecoveryClaim(self.lease, token, "controller-lost")
         self.assertFalse(
-            self.journal._finish(old, now=datetime.now(UTC), receipt_ref=state["receipt_ref"])
+            self.journal.finish(old, now=datetime.now(UTC), receipt_ref=state["receipt_ref"])
         )
         self.assertGreaterEqual(json.loads(self.inventory.read_text())["cleanup_calls"], 2)
 
