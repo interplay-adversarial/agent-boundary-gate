@@ -28,12 +28,12 @@
     "interplay/red_teaming/transport.py": "sha256:8fd8209fb8b3f8fc591a287f751c6ec29c1784a8420e5356ff58b0e76d880c3f"
   },
   "packages": {
-    "any-llm-sdk": "1.33.0",
+    "any-llm-sdk": "1.37.0",
     "data-designer": "0.9.5",
     "data-designer-config": "0.9.5",
     "data-designer-engine": "0.9.5",
     "interplay-adversarial": "0.3.1",
-    "openai": "3.28.0",
+    "openai": "3.33.0",
     "pyarrow": "24.0.0",
     "pydantic": "2.14.0"
   },
