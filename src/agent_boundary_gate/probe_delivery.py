@@ -61,8 +61,12 @@ class RustProbeDeployment(ReceiptContract):
     )
 
 
-assert RustProbeArtifact.model_fields["protocol_digest"].default == PROTOCOL_DIGEST
-assert RustProbeDeployment.model_fields["executable_path"].default == PROBE_PATH
+# Explicit checks, not `assert`: this module's drift guard must still run under
+# `python -O`, which strips assert statements.
+if RustProbeArtifact.model_fields["protocol_digest"].default != PROTOCOL_DIGEST:
+    raise RuntimeError("probe-delivery-protocol-digest-drift")
+if RustProbeDeployment.model_fields["executable_path"].default != PROBE_PATH:
+    raise RuntimeError("probe-delivery-executable-path-drift")
 
 
 class DeliveryRequest(ReceiptContract):

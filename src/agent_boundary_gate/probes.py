@@ -91,6 +91,14 @@ def validate_receiver_url(url: str) -> None:
     if any(ord(char) <= 32 or ord(char) >= 127 for char in url):
         raise ValueError("receiver URL contains unsupported characters")
     value = urlsplit(url)
+    try:
+        # .port is lazily parsed and raises its own bare ValueError for a
+        # numeric-but-out-of-range port (e.g. ":99999"); normalize that to the
+        # same rejection message as every other shape failure below, so evidence
+        # logs never show the stdlib's own message for this one case.
+        port = value.port
+    except ValueError:
+        raise ValueError("receiver must be an explicit HTTP /probe endpoint") from None
     if (
         value.scheme != "http"
         or not value.hostname
@@ -100,6 +108,6 @@ def validate_receiver_url(url: str) -> None:
         or value.path != "/probe"
         or value.query
         or value.fragment
-        or not value.port
+        or not port
     ):
         raise ValueError("receiver must be an explicit HTTP /probe endpoint")
