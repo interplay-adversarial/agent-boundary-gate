@@ -162,3 +162,42 @@ class OpenCodeSmokeTests(unittest.TestCase):
             payload = json.loads(result.stdout)
             self.assertEqual(payload["preflight_error_type"], "ValueError")
             self.assertEqual(payload["preflight_error"], "model-credential-unavailable")
+
+    def test_main_creates_the_output_directory_even_when_its_parent_is_missing(self):
+        with tempfile.TemporaryDirectory() as root:
+            provider_path = Path(root) / "provider.json"
+            provider_path.write_text(
+                json.dumps(
+                    {
+                        "base_url": "https://example.com/v1",
+                        "api_key_env": "OPENCODE_SMOKE_SELFTEST_KEY",
+                        "model": "openai/m",
+                    }
+                )
+            )
+            provider_path.chmod(0o600)
+            # Neither "outputs" nor "smoke" exists yet -- this is exactly the
+            # shape a fresh "outputs/opencode-smoke-<timestamp>" invocation has.
+            output_dir = Path(root) / "outputs" / "smoke"
+            env = {"PATH": "", "OPENCODE_SMOKE_SELFTEST_KEY": "synthetic-credential"}
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.opencode_smoke",
+                    "--provider",
+                    str(provider_path),
+                    "--output",
+                    str(output_dir),
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            # Expected to fail past this point (PATH is empty, no real npm/opencode
+            # reachable) -- what this proves is that creating the directory itself,
+            # including its missing "outputs" parent, did not raise FileNotFoundError.
+            self.assertTrue(output_dir.is_dir())
+            self.assertEqual(output_dir.stat().st_mode & 0o777, 0o700)
+            payload = json.loads(result.stdout)
+            self.assertNotIn("preflight_error_type", payload)
