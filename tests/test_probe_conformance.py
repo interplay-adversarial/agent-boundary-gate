@@ -146,6 +146,35 @@ class ProbeTests(unittest.TestCase):
                     with self.assertRaises(BlockingIOError):
                         receiver.accept()
 
+    def test_python_probe_rejects_malformed_url_before_connecting_or_completion(self):
+        # Unlike PERL_PROBE (which takes host/port as separate argv), the Python probe
+        # takes a full URL in argv[1] -- it must validate scheme/host/path itself,
+        # mirroring validate_receiver_url, rather than trusting urllib to only ever be
+        # handed a URL already shaped like the fixed receiver's own probe endpoint.
+        with socket.socket() as receiver:
+            receiver.bind(("127.0.0.1", 0))
+            receiver.listen()
+            receiver.setblocking(False)
+            port = receiver.getsockname()[1]
+            for url in (
+                "file:///etc/passwd",
+                f"ftp://127.0.0.1:{port}/probe",
+                f"http://127.0.0.1:{port}/not-probe",
+                f"http://127.0.0.1:{port}/probe?x=1",
+                f"http://127.0.0.1:{port}/probe#frag",
+                "http://" + "fixture-user:fixture-password" + f"@127.0.0.1:{port}/probe",
+                "http://127.0.0.1/probe",
+                "not-a-url",
+            ):
+                argv = [sys.executable, "-c", PROBE, url, "probe-test", "1"]
+                with self.subTest(url=url):
+                    result = subprocess.run(argv, capture_output=True, timeout=5)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, b"")
+                    self.assertEqual(result.stderr, b"invalid-probe-input\n")
+                    with self.assertRaises(BlockingIOError):
+                        receiver.accept()
+
     def test_probes_correlate_direct_request_and_do_not_follow_redirect_or_proxy(self):
         events = []
 

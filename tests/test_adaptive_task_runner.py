@@ -14,7 +14,9 @@ from agent_boundary_gate.adaptive_task_runner import (
     AdaptiveTaskRunnerConfig,
     AttemptRecord,
     StopDecision,
+    _attempt_record,
     _build_adapted_instruction,
+    _gym_eval_run,
     _is_stuck,
     _judge_progress,
     _materialize_attempt_task,
@@ -22,6 +24,7 @@ from agent_boundary_gate.adaptive_task_runner import (
     fixed_budget_should_continue,
     load_env_file,
 )
+from agent_boundary_gate.evidence import EvidenceStore
 from agent_boundary_gate.process import ProcessResult
 
 
@@ -288,6 +291,92 @@ class LoadEnvFileTests(unittest.TestCase):
             path.chmod(0o600)
             with self.assertRaises(ValueError):
                 load_env_file(path)
+
+
+class GymEvalRunApiKeyTests(unittest.TestCase):
+    """The model API key must never appear verbatim in the gym subprocess's own argv
+    (visible to any local user via /proc/<pid>/cmdline for its lifetime)."""
+
+    def test_api_key_is_interpolated_not_materialized_in_argv(self):
+        with (
+            tempfile.TemporaryDirectory() as root,
+            patch.dict("os.environ", {"FAKE_MODEL_API_KEY": "sk-super-secret"}),
+        ):
+            root_path = Path(root)
+            config = _config(model_api_key_env="FAKE_MODEL_API_KEY")
+            captured = {}
+
+            def fake_bounded_process(argv, **kwargs):
+                captured["argv"] = argv
+                captured["env"] = kwargs["env"]
+                return ProcessResult(returncode=0, stdout=b"")
+
+            with patch(
+                "agent_boundary_gate.adaptive_task_runner.bounded_process",
+                side_effect=fake_bounded_process,
+            ):
+                _gym_eval_run(
+                    config, root_path / "task-a", root_path / "attempt", cancelled=Event()
+                )
+
+            self.assertNotIn("sk-super-secret", captured["argv"])
+            key_index = captured["argv"].index("--model-api-key")
+            self.assertEqual(captured["argv"][key_index + 1], "${oc.env:FAKE_MODEL_API_KEY}")
+            # The subprocess's own environment still carries the real value, for
+            # OmegaConf's oc.env resolver to read at Hydra config-resolution time.
+            self.assertEqual(captured["env"]["FAKE_MODEL_API_KEY"], "sk-super-secret")
+
+    def test_rejects_malformed_env_var_name(self):
+        with tempfile.TemporaryDirectory() as root:
+            root_path = Path(root)
+            config = _config(model_api_key_env="not valid; rm -rf /")
+            with self.assertRaises(ValueError):
+                _gym_eval_run(
+                    config, root_path / "task-a", root_path / "attempt", cancelled=Event()
+                )
+
+
+class AttemptRecordMalformedRewardProfileTests(unittest.TestCase):
+    """A malformed reward-profile row from Gym (an external, unvalidated contract) must
+    mask the one attempt, not raise a raw TypeError/ValueError out of the whole run."""
+
+    def _write_and_score(self, root_path: Path, rollout_info_overrides: dict) -> AttemptRecord:
+        store = EvidenceStore(root_path / "evidence")
+        rollouts_path = root_path / "rollouts.jsonl"
+        profile_path = root_path / "rollouts_reward_profiling.jsonl"
+        rollouts_path.write_text(json.dumps(_rollout_row(0.0)) + "\n")
+        rollout_info = {"rollout_id": "0:0", "_ng_task_index": 0, "_ng_rollout_index": 0}
+        rollout_info.update(rollout_info_overrides)
+        profile_path.write_text(
+            json.dumps({"_ng_task_index": 0, "rollout_infos": [rollout_info]}) + "\n"
+        )
+        record, _ = _attempt_record("task-a", 1, rollouts_path, profile_path, store)
+        return record
+
+    def test_null_reward_is_masked_not_raised(self):
+        with tempfile.TemporaryDirectory() as root:
+            record = self._write_and_score(Path(root), {"reward": None})
+            self.assertTrue(record.mask_sample)
+            self.assertEqual(record.reward, 0.0)
+            self.assertEqual(record.failure_kind, "harbor:attempt_infra_error")
+
+    def test_non_numeric_tests_passed_is_masked_not_raised(self):
+        with tempfile.TemporaryDirectory() as root:
+            record = self._write_and_score(
+                Path(root), {"reward": 1.0, "tests_passed": "not-a-number"}
+            )
+            self.assertTrue(record.mask_sample)
+            self.assertEqual(record.failure_kind, "harbor:attempt_infra_error")
+
+    def test_well_formed_row_still_scores_normally(self):
+        with tempfile.TemporaryDirectory() as root:
+            record = self._write_and_score(
+                Path(root), {"reward": 1.0, "tests_passed": 3, "tests_total": 3}
+            )
+            self.assertFalse(record.mask_sample)
+            self.assertEqual(record.reward, 1.0)
+            self.assertEqual(record.tests_passed, 3)
+            self.assertEqual(record.tests_total, 3)
 
 
 def _rollout_row(reward: float, mask_sample: bool = False, test_output: str = "") -> dict:

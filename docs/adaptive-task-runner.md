@@ -194,7 +194,10 @@ and you can mix them freely:
    task folders to run, the model, attempt budgets, thresholds.
 2. **Exported environment variables** — at minimum the model API key (named
    by `model_api_key_env` in the config, read by name so the key's *value*
-   never appears in the config file or in any persisted evidence), plus
+   never appears in the config file, in any persisted evidence, or on the
+   `gym` subprocess's own command line -- it is passed to Gym via an
+   `oc.env` interpolation that Gym's own Hydra config resolution reads back
+   out of that subprocess's environment), plus
    `PYTHONPATH=onboarding/gym/bin` if `gym_executable` doesn't already point
    at `gym-py314` (see "Python 3.14 / Gym compatibility patches" above).
 3. **An untracked `.env` file** (`--env-file`), as a convenience instead of
