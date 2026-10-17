@@ -26,6 +26,12 @@ from agent_boundary_gate.rig_transport import UnixClient
 
 DOMAIN = b"agent-boundary-gate/receiver-snapshot/1.0\0"
 
+# Bounds _drain_pending's post-shutdown accept loop below: enough to clear a burst of
+# connections already queued in the listen backlog at shutdown, without letting a
+# pathological or hostile client that keeps the backlog full turn "drain what's
+# pending" into an unbounded loop.
+MAX_PENDING_DRAIN = 16
+
 
 class CaptureRequest(ReceiptContract):
     purpose: Literal["receiver-capture"] = "receiver-capture"
@@ -208,7 +214,7 @@ class ReceiverService:
         # accept itself must be nonblocking; accepted sockets retain the header
         # timeout installed by ReceiverServer.get_request.
         server.socket.setblocking(False)
-        for _ in range(16):
+        for _ in range(MAX_PENDING_DRAIN):
             try:
                 request, address = server.get_request()
             except BlockingIOError:

@@ -129,18 +129,24 @@ if _openshell_provider is not None:
     # missing it. A faithful copy of the pinned method (see docstring above), with
     # exactly that one argument added -- everything else, including its error
     # handling, is unchanged.
-    async def _patched_exec(self, handle, command, *, cwd=None, env=None, timeout_s=None, user=None, stdin=None):
+    async def _patched_exec(
+        self, handle, command, *, cwd=None, env=None, timeout_s=None, user=None, stdin=None
+    ):
         inst = handle.raw
         if user is not None:
             _openshell_provider.LOGGER.warning(
-                f"The openshell provider cannot run commands as user={user!r}; the OpenShell exec API "
-                "has no user field. Running as the sandbox default user."
+                f"The openshell provider cannot run commands as user={user!r}; "
+                "the OpenShell exec API has no user field. Running as the sandbox default user."
             )
         merged_env = {str(k): str(v) for k, v in inst.env.items()}
         if env:
             merged_env.update({str(k): str(v) for k, v in env.items()})
-        effective_timeout = timeout_s if timeout_s is not None else self._exec_config.default_timeout_s
-        timeout_seconds = max(1, math.ceil(effective_timeout)) if effective_timeout is not None else None
+        effective_timeout = (
+            timeout_s if timeout_s is not None else self._exec_config.default_timeout_s
+        )
+        timeout_seconds = (
+            max(1, math.ceil(effective_timeout)) if effective_timeout is not None else None
+        )
         workdir = cwd if cwd is not None else inst.workdir
         try:
             result = await self._call(
@@ -156,13 +162,17 @@ if _openshell_provider is not None:
         except Exception as e:
             if _openshell_provider._is_grpc_timeout(e):
                 return _openshell_provider.SandboxExecResult(
-                    stdout=None, stderr=str(e),
-                    return_code=_openshell_provider.SANDBOX_RUNTIME_RETURN_CODE, error_type="timeout",
+                    stdout=None,
+                    stderr=str(e),
+                    return_code=_openshell_provider.SANDBOX_RUNTIME_RETURN_CODE,
+                    error_type="timeout",
                 )
             if _openshell_provider._is_runtime_failure(e):
                 return _openshell_provider.SandboxExecResult(
-                    stdout=None, stderr=str(e),
-                    return_code=_openshell_provider.SANDBOX_RUNTIME_RETURN_CODE, error_type="sandbox",
+                    stdout=None,
+                    stderr=str(e),
+                    return_code=_openshell_provider.SANDBOX_RUNTIME_RETURN_CODE,
+                    error_type="sandbox",
                 )
             raise
         return _openshell_provider.SandboxExecResult(
@@ -216,8 +226,9 @@ if _docker_provider is not None:
                         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                     with contextlib.suppress(Exception):
                         proc.wait()
+                    redacted = _docker_provider._redact_argv(argv)
                     raise TimeoutError(
-                        f"docker command timed out after {timeout_s:g}s: {_docker_provider._redact_argv(argv)}"
+                        f"docker command timed out after {timeout_s:g}s: {redacted}"
                     ) from e
                 return proc.returncode, stdout_b, stderr_b
 
@@ -273,21 +284,29 @@ if _server_utils is not None:
                     "configure Gym model limits/sampling",
                 )
         if body.model not in (None, "", "dummy_model", self.config.model_server.name):
-            raise HTTPException(422, "OpenCode sandbox execution uses the configured Gym model_server")
+            raise HTTPException(
+                422, "OpenCode sandbox execution uses the configured Gym model_server"
+            )
         items = (
-            [NeMoGymEasyInputMessage(role="user", content=body.input)] if isinstance(body.input, str) else body.input
+            [NeMoGymEasyInputMessage(role="user", content=body.input)]
+            if isinstance(body.input, str)
+            else body.input
         )
         roles = [getattr(item, "role", None) for item in items]
         if roles not in (["user"], ["system", "user"], ["developer", "user"]):
             raise HTTPException(
-                422, "OpenCode sandbox execution accepts one user text prompt and optional system/developer message"
+                422,
+                "OpenCode sandbox execution accepts one user text prompt and optional "
+                "system/developer message",
             )
         texts = []
         for item in items:
             if isinstance(item.content, str):
                 texts.append(item.content)
             else:
-                parts = [part if isinstance(part, dict) else part.model_dump() for part in item.content]
+                parts = [
+                    part if isinstance(part, dict) else part.model_dump() for part in item.content
+                ]
                 if any(part.get("type") != "input_text" for part in parts):
                     raise HTTPException(422, "OpenCode sandbox execution supports text input only")
                 texts.append("\n".join(part["text"] for part in parts))
