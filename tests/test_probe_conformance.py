@@ -180,6 +180,33 @@ class ProbeTests(unittest.TestCase):
                     with self.assertRaises(BlockingIOError):
                         receiver.accept()
 
+    def test_python_probe_bounds_a_stalled_resolver_to_its_own_timeout_budget(self):
+        # urlopen's own timeout only applies once a socket exists; it does not bound
+        # socket.getaddrinfo. Simulate a resolver that never answers by monkeypatching
+        # getaddrinfo (inside the probe's own fresh subprocess, before the real PROBE
+        # source runs) to sleep far longer than the probe's declared budget, and
+        # confirm the probe still completes close to that budget -- proving the
+        # outer `sandbox exec --timeout` would never need to SIGKILL it -- instead of
+        # hanging for the monkeypatched sleep.
+        stalled_resolver = (
+            "import socket as _socket, time as _time\n"
+            "_socket.getaddrinfo = lambda *a, **k: (_time.sleep(30), [])[1]\n"
+        )
+        argv = [
+            sys.executable,
+            "-c",
+            stalled_resolver + PROBE,
+            "http://stalled-resolver.invalid:80/probe",
+            "probe-test",
+            "1",
+        ]
+        started = time.monotonic()
+        result = subprocess.run(argv, capture_output=True, timeout=10)
+        elapsed = time.monotonic() - started
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, b"agent-boundary-gate-probe-complete:probe-test\n")
+        self.assertLess(elapsed, 5)
+
     def test_probes_correlate_direct_request_and_do_not_follow_redirect_or_proxy(self):
         events = []
 
