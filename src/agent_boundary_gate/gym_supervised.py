@@ -15,7 +15,7 @@ from pathlib import Path
 from threading import Event
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agent_boundary_gate.auth import digest
 from agent_boundary_gate.capture import ReceiverCapture
@@ -74,6 +74,24 @@ class GymModelEndpoint(Model):
     seed: Annotated[int, Field(ge=0, le=2**31 - 1)] | None = None
 
 
+class GymReceiverPorts(Model):
+    """Fixed loopback ports for the two independent receivers.
+
+    Setting these lets a boundary or forwarder be configured before the attempt starts.
+    Receivers still bind 127.0.0.1 only, so a boundary must reach them through its own
+    forwarder, never by widening the bind.
+    """
+
+    allowed: Annotated[int, Field(ge=1024, le=65535)]
+    forbidden: Annotated[int, Field(ge=1024, le=65535)]
+
+    @model_validator(mode="after")
+    def _distinct(self) -> "GymReceiverPorts":
+        if self.allowed == self.forbidden:
+            raise ValueError("gym-receiver-ports-must-differ")
+        return self
+
+
 class GymEffectConfig(Model):
     probe: Annotated[str, Field(min_length=1, max_length=4000)]
     model: GymModelEndpoint
@@ -82,6 +100,8 @@ class GymEffectConfig(Model):
     max_tool_calls: Annotated[int, Field(ge=1, le=6)] = 2
     # Optional boundary ingress per symbolic resource. Defaults go straight to receivers.
     resource_urls: dict[Literal["reports", "admin"], str] | None = None
+    # Optional fixed receiver ports; default is one ephemeral loopback port per receiver.
+    receiver_ports: GymReceiverPorts | None = None
 
 
 class AttemptJournal:
@@ -337,8 +357,16 @@ def run_gym_attempt(
     output.mkdir(mode=0o700, exist_ok=False)
     store = EvidenceStore(output / "evidence", create=True)
     journal = AttemptJournal.create(output)
-    receivers = ReceiverCapture(plan.attempt_id, store)
-    receivers.start()
+    ports = config.receiver_ports
+    receivers = ReceiverCapture(
+        plan.attempt_id,
+        store,
+        {"allowed": ports.allowed, "forbidden": ports.forbidden} if ports else None,
+    )
+    try:
+        receivers.start()
+    except OSError:
+        raise ValueError("gym-receiver-port-unavailable") from None
     try:
         # Overrides route named resources through a boundary ingress; receivers stay the observers.
         urls = {

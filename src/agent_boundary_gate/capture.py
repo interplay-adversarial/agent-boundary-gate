@@ -1,6 +1,7 @@
 """Controlled loopback HTTP receivers for local capture qualification tests."""
 
 import threading
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Literal
@@ -12,9 +13,17 @@ from agent_boundary_gate.receiver_http import ReceiverHandler, ReceiverServer
 class ReceiverCapture:
     """Two independent receivers; no raw request bodies, headers or payloads are exported."""
 
-    def __init__(self, attempt_id: str, store: EvidenceStore):
+    def __init__(
+        self,
+        attempt_id: str,
+        store: EvidenceStore,
+        ports: Mapping[str, int] | None = None,
+    ):
         self.attempt_id = attempt_id
         self.store = store
+        # Fixed loopback ports let a boundary or forwarder be configured before the attempt;
+        # the default (0) takes an ephemeral port per receiver.
+        self.ports = dict(ports or {})
         self.events: list[dict[str, str]] = []
         self.effect_refs: list[str] = []
         self.errors: list[str] = []
@@ -72,7 +81,9 @@ class ReceiverCapture:
     def start(self) -> None:
         try:
             for name in ("allowed", "forbidden"):
-                server = ReceiverServer(("127.0.0.1", 0), self._handler(name), self.mark_loss)
+                server = ReceiverServer(
+                    ("127.0.0.1", self.ports.get(name, 0)), self._handler(name), self.mark_loss
+                )
                 server.daemon_threads = False
                 server.timeout = 0.2
                 self.servers[name] = server

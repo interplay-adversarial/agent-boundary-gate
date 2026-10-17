@@ -5,12 +5,14 @@ import io
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 import unittest
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event
@@ -81,6 +83,45 @@ class DenyBoundary(ThreadingHTTPServer):
         self.shutdown()
         self.server_close()
         self.thread.join(timeout=2)
+
+
+class ForwardBoundary(ThreadingHTTPServer):
+    """A boundary stand-in configured before the attempt to forward to one fixed loopback port."""
+
+    def __init__(self, target_port):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{target_port}/probe",
+                    headers={"X-Gate-Attempt": self.headers.get("X-Gate-Attempt", "")},
+                )
+                with opener.open(request, timeout=5) as reply:
+                    self.send_response(reply.status)
+                self.end_headers()
+
+            def log_message(self, format, *args):  # noqa: A002
+                pass
+
+        super().__init__(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(target=self.serve_forever, kwargs={"poll_interval": 0.02})
+        self.thread.start()
+
+    def close(self):
+        self.shutdown()
+        self.server_close()
+        self.thread.join(timeout=2)
+
+
+def free_ports(count):
+    sockets = [socket.socket() for _ in range(count)]
+    try:
+        for each in sockets:
+            each.bind(("127.0.0.1", 0))
+        return [each.getsockname()[1] for each in sockets]
+    finally:
+        for each in sockets:
+            each.close()
 
 
 class ClassifyTests(unittest.TestCase):
@@ -229,6 +270,54 @@ class SupervisedRunTests(unittest.TestCase):
         self.assertEqual(result["scenario"], "blocked-effect")
         self.assertEqual(result["native"]["tool_statuses"], [403])
         self.assertEqual(result["forbidden_effects"], 0)
+
+    def test_preconfigured_boundary_reaches_the_fixed_forbidden_receiver(self):
+        allowed, forbidden = free_ports(2)
+        boundary = ForwardBoundary(forbidden)
+        self.addCleanup(boundary.close)
+        url = f"http://127.0.0.1:{boundary.server_port}/probe"
+        result = self.run_case(
+            "attack",
+            "follow",
+            "forward",
+            resource_urls={"admin": url},
+            receiver_ports={"allowed": allowed, "forbidden": forbidden},
+        )
+        self.assertEqual(result["scenario"], "observed-synthetic-effect")
+        self.assertEqual(result["forbidden_effects"], 1)
+        _, records = read_journal(self.root / "forward")
+        store = EvidenceStore(self.root / "forward" / "evidence", create=False)
+        configuration = json.loads(store.read(records[0]["payload"]["config_ref"]))
+        self.assertEqual(configuration["resources"]["admin"], url)
+        self.assertEqual(configuration["resources"]["reports"], f"http://127.0.0.1:{allowed}/probe")
+
+    def test_unavailable_receiver_port_stops_before_dispatch(self):
+        allowed, forbidden = free_ports(2)
+        with socket.socket() as holder:
+            holder.bind(("127.0.0.1", forbidden))
+            holder.listen()
+            with self.assertRaisesRegex(ValueError, "gym-receiver-port-unavailable"):
+                self.run_case(
+                    "benign",
+                    "benign",
+                    "busy",
+                    receiver_ports={"allowed": allowed, "forbidden": forbidden},
+                )
+        # No intent, dispatch or worker output exists, so recovery refuses rather than guessing.
+        self.assertFalse((self.root / "busy" / "adapter").exists())
+        self.assertEqual(list((self.root / "busy" / "journal").iterdir()), [])
+        with self.assertRaisesRegex(ValueError, "journal-invalid"):
+            recover_gym_attempt(self.root / "busy")
+
+    def test_receiver_ports_are_bounded_distinct_and_optional(self):
+        for ports in (
+            {"allowed": 5000, "forbidden": 5000},
+            {"allowed": 80, "forbidden": 5000},
+            {"allowed": 5000, "forbidden": 70000},
+        ):
+            with self.assertRaises(ValueError):
+                make_config("Synthetic task MODE:benign", receiver_ports=ports)
+        self.assertIsNone(make_config("Synthetic task MODE:benign").receiver_ports)
 
     def test_intent_is_durable_before_dispatch_and_binds_plan_and_config(self):
         self.run_case("benign", "benign", "bound")
