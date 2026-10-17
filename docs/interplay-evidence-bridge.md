@@ -45,8 +45,9 @@ report = evaluate_interplay_bridge(
 )
 ```
 
-The supported source is immutable Interplay
-`c882d245433584f874ce5350691a7a21a1d68bf0`. The separate red-team lock
+The supported source is immutable Interplay v0.4.2
+`ba848bc3fc1dc7fff47861a798c87deb338c37e0`. Plans recorded against the earlier
+`c882d245…` and `6372206d…` sources stay readable. The separate red-team lock
 changes only that VCS source; package versions and the exact Python 3.14.7 pin
 stay fixed. Admission verifies 25 assessment/runner/package files, including
 the optional Gym source manifest. The gate's existing endpoint campaign command

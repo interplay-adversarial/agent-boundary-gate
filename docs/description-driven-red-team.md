@@ -21,7 +21,7 @@ uv sync --project onboarding/red-team --frozen --no-editable
 ```
 
 The lock pins Python 3.14.7, DataDesigner 0.9.5, PyArrow 24.0.0 and immutable
-Interplay commit `c882d245433584f874ce5350691a7a21a1d68bf0`. The bundled
+Interplay commit `ba848bc3fc1dc7fff47861a798c87deb338c37e0`. The bundled
 `_pins/red-team.json` verifies the installed Git origin/revision, selected package
 versions and assessment/runner source digests before admission. Gym/Rust baselines
 remain separate. This pin includes the merged runner hardening and optional Gym

@@ -17,9 +17,13 @@ from agent_boundary_gate.contracts import Decision, Digest, Dispatch, GateDecisi
 from agent_boundary_gate.evidence import EvidenceStore, bytes_digest
 from agent_boundary_gate.gate_policy import evaluate
 
-INTERPLAY_COMMIT = "c882d245433584f874ce5350691a7a21a1d68bf0"
+INTERPLAY_COMMIT = "ba848bc3fc1dc7fff47861a798c87deb338c37e0"  # v0.4.2
 SUPPORTED_INTERPLAY_COMMITS = frozenset(
-    ("6372206d6d7f90b45bdfd2f2953cdde35617f2c0", INTERPLAY_COMMIT)
+    (
+        "6372206d6d7f90b45bdfd2f2953cdde35617f2c0",
+        "c882d245433584f874ce5350691a7a21a1d68bf0",
+        INTERPLAY_COMMIT,
+    )
 )
 AttemptID = Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
 

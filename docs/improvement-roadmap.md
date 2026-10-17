@@ -213,6 +213,15 @@ bumped to their latest stable releases 2026-10-17 (1.33.0 -> 1.37.0, 3.28.0 ->
 package pin updated alongside `onboarding/red-team/pyproject.toml`/`uv.lock`,
 matching the earlier interplay-pin bump's pattern) and have no remaining gap.
 
+`interplay-adversarial` was bumped 2026-10-17 from `c882d245` (v0.3.1) to the
+v0.4.2 release (`ba848bc3`) in `onboarding/red-team` and `onboarding/gym-native`.
+Only three pinned files changed (`interplay/__init__.py` version string,
+`red_teaming/garak_runner.py` install hint, `red_teaming/transport.py` docstring);
+every assessment and Gym file hashes identically, and the `[assessment]` extra's
+dependencies did not move, so neither lock cascaded. v0.4.x raises the
+`judge-kappa` floor to 0.4.0 and Garak's to 0.17.1, both outside the gate's
+environments. Plans recorded against `6372206d` and `c882d245` stay readable.
+
 `onboarding/gym`'s NeMo Gym pin was bumped 2026-10-15 from `f444b802` to
 `b454c9a` (`NVIDIA-NeMo/Gym`'s `main` at the time, 70 commits ahead of the old
 pin). Five of the gate's hash-pinned files changed, not just
