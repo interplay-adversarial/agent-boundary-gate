@@ -177,13 +177,28 @@ def red_team_run(
             output=store.root / "assessment",
         )
         summary = _summary(result.stdout, result.returncode)
-    except (OSError, ValueError, AttemptStopped):
+    except (OSError, ValueError, AttemptStopped) as stopped:
         summary = {
             "mode": "description-driven-red-team",
             "assessment_complete": False,
             "error_code": "interrupted-or-worker-failed",
             **RELEASE_INELIGIBLE,
         }
+        if isinstance(stopped, AttemptStopped):
+            # A stop (deadline, cancel, output limit) SIGKILLs the worker group
+            # before its clean-exit export, dropping every in-memory record. The
+            # fsync'd stage journal survives, so re-export it with the native
+            # recover op (no model calls) rather than reporting a blank failure.
+            try:
+                recovered = red_team_recover(output, python)
+            except (OSError, ValueError):
+                recovered = None
+            if recovered is not None and recovered.get("recovered") is True:
+                # Schema note: a recovered summary intentionally carries the
+                # `recovered` flag instead of error_code — _summary drops
+                # error_code for recovered: true, and red_team_recover runs
+                # its output through that same validator.
+                summary = recovered
     summary["start_ref"] = start_ref
     summary["config_ref"] = config_ref
     summary["summary_ref"] = store.persist_json(summary)

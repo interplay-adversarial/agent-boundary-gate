@@ -72,13 +72,53 @@ class RedTeamTests(unittest.TestCase):
         validation = ProcessResult(
             0, json.dumps({"config": config, "release_eligible": False}).encode()
         )
+        # The run times out at the boundary, then the native recover op finds no
+        # staged journal and reports a failed recovery, so the run keeps the
+        # original interrupted error summary.
+        recover_failed = ProcessResult(2, b'{"error":"assessment-failed","release_eligible":false}')
         with patch(
             "agent_boundary_gate.red_team._invoke",
-            side_effect=[validation, AttemptStopped("timeout")],
+            side_effect=[validation, AttemptStopped("timeout"), recover_failed],
         ):
             result = red_team_run(self.config, self.root / "campaign", Path("unused"))
         self.assertFalse(result["assessment_complete"])
         self.assertFalse(result["release_eligible"])
+        self.assertEqual(result["error_code"], "interrupted-or-worker-failed")
+        self.assertNotIn("recovered", result)
+        self.assertTrue(result["start_ref"].startswith("sha256:"))
+        self.assertTrue(result["summary_ref"].startswith("sha256:"))
+
+    def test_worker_timeout_salvages_staged_journal_via_native_recover(self):
+        config = json.loads(self.config.read_text())
+        validation = ProcessResult(
+            0, json.dumps({"config": config, "release_eligible": False}).encode()
+        )
+        # The run times out at the boundary, then the native recover op
+        # (no model calls) re-exports the one staged record, so the run summary
+        # carries the salvaged record instead of a blank failure.
+        recovered = ProcessResult(
+            2,
+            json.dumps(
+                {
+                    "records": 1,
+                    "failures": 1,
+                    "recovered": True,
+                    "assessment_complete": False,
+                    "release_eligible": False,
+                }
+            ).encode(),
+        )
+        with patch(
+            "agent_boundary_gate.red_team._invoke",
+            side_effect=[validation, AttemptStopped("timeout"), recovered],
+        ):
+            result = red_team_run(self.config, self.root / "campaign", Path("unused"))
+        self.assertTrue(result["recovered"], result)
+        self.assertFalse(result["assessment_complete"])
+        self.assertFalse(result["release_eligible"])
+        self.assertEqual(result["records"], 1)
+        self.assertEqual(result["failures"], 1)
+        self.assertNotIn("error_code", result)
         self.assertTrue(result["start_ref"].startswith("sha256:"))
         self.assertTrue(result["summary_ref"].startswith("sha256:"))
 

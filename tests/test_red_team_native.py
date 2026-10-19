@@ -211,19 +211,24 @@ class RedTeamNativeTests(unittest.TestCase):
         self.assertEqual(report.judge_verdict, "success")
         self.assertFalse(report.release_eligible)
 
-    def test_supervised_judge_timeout_preserves_response_for_offline_recovery(self):
+    def test_supervised_judge_timeout_salvages_staged_journal_automatically(self):
         self.hold_judge.set()
         self.values["assessment"]["campaign_seconds"] = 12
         self.save_config()
         started = time.monotonic()
         result = red_team_run(self.config, self.root / "campaign", Path(sys.executable))
-        self.assertLess(time.monotonic() - started, 20)
+        self.assertLess(time.monotonic() - started, 25)
         self.assertFalse(result["assessment_complete"])
+        # The boundary SIGKILL drops the worker's clean-exit export, but the
+        # fsync'd stage journal is re-exported automatically by the run.
+        self.assertTrue(result["recovered"], result)
+        self.assertEqual(result["records"], 1)
         events = self.root / "campaign/assessment/events.jsonl"
         self.assertTrue(events.exists())
         self.assertIn("SYNTHETIC-CANARY", events.read_text())
         self.assertIn("judge-model", self.calls)
         calls = len(self.calls)
+        # A second recovery is idempotent and makes no further model calls.
         recovered = red_team_recover(self.root / "campaign", Path(sys.executable))
         self.assertTrue(recovered["recovered"], recovered)
         self.assertFalse(recovered["assessment_complete"])
