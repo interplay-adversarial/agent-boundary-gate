@@ -129,6 +129,17 @@ Recovery preserves incomplete attempts and never rewrites the journal. A truncat
 trailing append is reported; malformed committed records are rejected. This is
 process-crash recovery, not a power-loss durability qualification.
 
+The supervisor kills the worker's process group at exactly the deadline with no
+grace period, and `records.jsonl` is only exported on a clean loop exit.
+`red-team-run` therefore runs this same recovery itself when supervision stops
+the worker before a clean export (deadline, cancellation, or output limit): the
+run summary then carries the salvaged records with `recovered: true`, and any
+round in flight at kill time is exported as incomplete and inconclusive. The
+manual command above remains the path for cases where the gate process itself
+could not run recovery, for example because it was killed. Because the kill
+has no grace, size `probe_count` so the worst-case per-probe cycle
+(generation, target, judge) fits within `campaign_seconds` with margin.
+
 ## Qualification boundary
 
 Every result has `release_eligible: false`. Judge success means the declared
