@@ -25,6 +25,10 @@ jobs:
       issues: write
       pull-requests: write
       contents: read
-    uses: interplay-adversarial/.github/.github/workflows/pr-agent.yml@bae5e9ff40cf916892fe964594ee3158eedd3ef3   # shared workflow, bumped by Dependabot
+    # TEMP (2026-10-23): pinned past Dependabot's SHA to pick up the shared workflow's
+    # temporary gemma4 default (qwen38-27b backend down on TMM MaaS) without writing the
+    # MaaS hostname into this repo's own file (audit_publication.py's url-host-not-public-
+    # reference check would flag it). Revert the pin once qwen38-27b recovers.
+    uses: interplay-adversarial/.github/.github/workflows/pr-agent.yml@0eb03f96402c6b7497bce1ba4cc7fb4be2fbde2c
     secrets:
       MAAS_API_KEY: ${{ secrets.MAAS_API_KEY }}

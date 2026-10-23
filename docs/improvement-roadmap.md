@@ -295,3 +295,40 @@ execution with no sandbox provider required); see
 
 None of these gaps is a known vulnerability; `scripts/audit_dependencies.py`
 and the Rust/CVE audits stay green.
+
+## Dependency and pin freshness audit (2026-10-23)
+
+Routine CVE sweep (`certifi`, `virtualenv`, `filelock`, `pillow`,
+`opentelemetry-api`, `setuptools`) across core and all three onboarding
+environments. `certifi`, `virtualenv`, `filelock` and `setuptools` bumped
+cleanly everywhere they appeared (core; `onboarding/gym` and
+`onboarding/gym-native`'s shared `constraint-dependencies` baseline;
+`onboarding/red-team`'s transitive pins). `pillow` needed `data-designer`
+(`0.9.5` -> `0.9.7`) bumped first in `onboarding/red-team` and
+`onboarding/gym-native` — `data-designer==0.9.5` hard-pins `pillow<13`;
+`0.9.7` relaxes it to `<14`. `onboarding/red-team`'s `data-designer` bump
+needed the usual three-way sync (matching the 2026-10-17 `any-llm-sdk`/
+`openai` pattern above): `pyproject.toml`, `uv.lock`,
+`src/agent_boundary_gate/_pins/red-team.json`'s `check_environment` package
+pin, and `tests/test_red_team_native.py`'s hardcoded `NATIVE` version guard
+(all four native tests verified to actually run, not silently skip, under
+the new pin).
+
+`opentelemetry-api` (CVE-2026-114603, fixed in `1.45.1`) was blocked the same
+way in `onboarding/red-team` and `onboarding/gym-native`: `data-designer==0.9.7`
+(the latest stable release) itself hard-pins `opentelemetry-api<1.44,>=1.43`,
+so `uv lock --upgrade-package opentelemetry-api` can't move past it — same
+root cause independently confirmed in the sibling `interplay` repo's own
+pip-audit (left unresolved there; no required check gates on it in that repo).
+Here `validate` is a required check with no waiver mechanism
+(`scripts/audit_dependencies.py` fails closed on any finding), so a constraint
+override was needed to actually merge: `override-dependencies` in both
+`pyproject.toml` files forces the whole matched OpenTelemetry release train
+(`opentelemetry-api`/`opentelemetry-sdk`/`opentelemetry-semantic-conventions`
+`1.45.1`/`1.45.1`/`0.66b1`, plus `opentelemetry-exporter-prometheus` `0.66b1`
+to stay compatible with `sdk~=1.45.1`) past `data-designer`'s own declared
+range. `data-designer` only touches the stable, additive metrics/trace API
+surface; verified empirically, not just resolved — the full `--red-team` and
+`--gym-native` test suites (all native tests, not skipped) pass under the
+override. Revisit if `data-designer` ships a release that relaxes the pin
+natively, at which point the override can likely be dropped.
