@@ -29,9 +29,9 @@
   },
   "packages": {
     "any-llm-sdk": "1.37.0",
-    "data-designer": "0.9.5",
-    "data-designer-config": "0.9.5",
-    "data-designer-engine": "0.9.5",
+    "data-designer": "0.9.7",
+    "data-designer-config": "0.9.7",
+    "data-designer-engine": "0.9.7",
     "interplay-adversarial": "0.4.2",
     "openai": "3.33.0",
     "pyarrow": "24.0.0",

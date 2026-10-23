@@ -295,3 +295,30 @@ execution with no sandbox provider required); see
 
 None of these gaps is a known vulnerability; `scripts/audit_dependencies.py`
 and the Rust/CVE audits stay green.
+
+## Dependency and pin freshness audit (2026-10-23)
+
+Routine CVE sweep (`certifi`, `virtualenv`, `filelock`, `pillow`,
+`opentelemetry-api`, `setuptools`) across core and all three onboarding
+environments. `certifi`, `virtualenv`, `filelock` and `setuptools` bumped
+cleanly everywhere they appeared (core; `onboarding/gym` and
+`onboarding/gym-native`'s shared `constraint-dependencies` baseline;
+`onboarding/red-team`'s transitive pins). `pillow` needed `data-designer`
+(`0.9.5` -> `0.9.7`) bumped first in `onboarding/red-team` and
+`onboarding/gym-native` — `data-designer==0.9.5` hard-pins `pillow<13`;
+`0.9.7` relaxes it to `<14`. `onboarding/red-team`'s `data-designer` bump
+needed the usual three-way sync (matching the 2026-10-17 `any-llm-sdk`/
+`openai` pattern above): `pyproject.toml`, `uv.lock`,
+`src/agent_boundary_gate/_pins/red-team.json`'s `check_environment` package
+pin, and `tests/test_red_team_native.py`'s hardcoded `NATIVE` version guard
+(all four native tests verified to actually run, not silently skip, under
+the new pin).
+
+**Still open, confirmed blocked (not just untried):** `opentelemetry-api`
+(CVE-2026-114603, fixed in `1.45.1`) in `onboarding/red-team` and
+`onboarding/gym-native`. `data-designer==0.9.7` (the latest stable release)
+itself hard-pins `opentelemetry-api<1.44,>=1.43` — `uv lock
+--upgrade-package opentelemetry-api` cannot move past this without
+`data-designer` relaxing its own constraint upstream. Same root cause
+independently confirmed in the sibling `interplay` repo's own pip-audit.
+Revisit when `data-designer` ships a release that widens this range.
