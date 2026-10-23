@@ -13,3 +13,13 @@ dependencies = [
 
 [tool.uv]
 package = false
+# data-designer==0.9.7 itself hard-pins opentelemetry-api<1.44,>=1.43 (CVE-2026-114603,
+# fixed in 1.45.1, is not resolvable within that range). Overrides the whole matched
+# OpenTelemetry release train past it; data-designer only uses the stable, additive
+# metrics/trace API surface, verified empirically by the full test suite below.
+override-dependencies = [
+  "opentelemetry-api==1.45.1",
+  "opentelemetry-sdk==1.45.1",
+  "opentelemetry-semantic-conventions==0.66b1",
+  "opentelemetry-exporter-prometheus==0.66b1",
+]

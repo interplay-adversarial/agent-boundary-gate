@@ -24,3 +24,14 @@ constraint-dependencies = [
   "requests==2.33.0",
   "virtualenv==21.7.13",
 ]
+# data-designer==0.9.7 itself hard-pins opentelemetry-api<1.44,>=1.43 (CVE-2026-114603,
+# fixed in 1.45.1, is not resolvable within that range) -- a constraint can only narrow,
+# not widen past this, so override-dependencies is needed instead (same reasoning as
+# onboarding/red-team). data-designer only uses the stable, additive metrics/trace API
+# surface, verified empirically by the full test suite below.
+override-dependencies = [
+  "opentelemetry-api==1.45.1",
+  "opentelemetry-sdk==1.45.1",
+  "opentelemetry-semantic-conventions==0.66b1",
+  "opentelemetry-exporter-prometheus==0.66b1",
+]

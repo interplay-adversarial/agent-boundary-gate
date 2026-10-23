@@ -314,11 +314,21 @@ pin, and `tests/test_red_team_native.py`'s hardcoded `NATIVE` version guard
 (all four native tests verified to actually run, not silently skip, under
 the new pin).
 
-**Still open, confirmed blocked (not just untried):** `opentelemetry-api`
-(CVE-2026-114603, fixed in `1.45.1`) in `onboarding/red-team` and
-`onboarding/gym-native`. `data-designer==0.9.7` (the latest stable release)
-itself hard-pins `opentelemetry-api<1.44,>=1.43` — `uv lock
---upgrade-package opentelemetry-api` cannot move past this without
-`data-designer` relaxing its own constraint upstream. Same root cause
-independently confirmed in the sibling `interplay` repo's own pip-audit.
-Revisit when `data-designer` ships a release that widens this range.
+`opentelemetry-api` (CVE-2026-114603, fixed in `1.45.1`) was blocked the same
+way in `onboarding/red-team` and `onboarding/gym-native`: `data-designer==0.9.7`
+(the latest stable release) itself hard-pins `opentelemetry-api<1.44,>=1.43`,
+so `uv lock --upgrade-package opentelemetry-api` can't move past it — same
+root cause independently confirmed in the sibling `interplay` repo's own
+pip-audit (left unresolved there; no required check gates on it in that repo).
+Here `validate` is a required check with no waiver mechanism
+(`scripts/audit_dependencies.py` fails closed on any finding), so a constraint
+override was needed to actually merge: `override-dependencies` in both
+`pyproject.toml` files forces the whole matched OpenTelemetry release train
+(`opentelemetry-api`/`opentelemetry-sdk`/`opentelemetry-semantic-conventions`
+`1.45.1`/`1.45.1`/`0.66b1`, plus `opentelemetry-exporter-prometheus` `0.66b1`
+to stay compatible with `sdk~=1.45.1`) past `data-designer`'s own declared
+range. `data-designer` only touches the stable, additive metrics/trace API
+surface; verified empirically, not just resolved — the full `--red-team` and
+`--gym-native` test suites (all native tests, not skipped) pass under the
+override. Revisit if `data-designer` ships a release that relaxes the pin
+natively, at which point the override can likely be dropped.
