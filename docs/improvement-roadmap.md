@@ -332,3 +332,14 @@ surface; verified empirically, not just resolved — the full `--red-team` and
 `--gym-native` test suites (all native tests, not skipped) pass under the
 override. Revisit if `data-designer` ships a release that relaxes the pin
 natively, at which point the override can likely be dropped.
+
+2026-11-25: the scheduled `Checks` run failed `validate` on new advisories in the
+Gym, Designer and native-worker locks. Fixed with targeted `uv lock
+--upgrade-package` runs (no unrelated lock churn): `opentelemetry-api`
+(CVE-2026-126360) to `1.45.2`, with the override train moved to
+`opentelemetry-sdk` `1.45.2` and `opentelemetry-semantic-conventions` /
+`opentelemetry-exporter-prometheus` `0.66b2`; `pyasn1` (CVE-2026-119194 to
+119197) `0.6.4` to `0.6.5`; `hydra-core` (GHSA-wf6j-7hvr-gr93) `1.3.7` to
+`1.3.8` (the constraint in `onboarding/gym` and `onboarding/gym-native`). All
+four `scripts/audit_dependencies.py` variants report zero findings, and the
+root, red-team native, gym-native worker and gym smoke suites pass.
