@@ -332,3 +332,16 @@ surface; verified empirically, not just resolved — the full `--red-team` and
 `--gym-native` test suites (all native tests, not skipped) pass under the
 override. Revisit if `data-designer` ships a release that relaxes the pin
 natively, at which point the override can likely be dropped.
+
+## Dependency sweep (2026-11-25)
+
+Scheduled `Checks` failed its dependency audit on `hydra-core` (GHSA-wf6j-7hvr-gr93, fixed in
+`1.3.8`), `pyasn1` (CVE-2026-119194 to 119197, fixed in `0.6.5`) and `opentelemetry-api`
+(CVE-2026-126360, fixed in `1.45.2`). Fixed in `onboarding/gym` and `onboarding/gym-native` (hydra,
+pyasn1, opentelemetry) and `onboarding/red-team` (opentelemetry). The `opentelemetry-*`
+`override-dependencies` in `onboarding/red-team` and `onboarding/gym-native` moved to the
+`1.45.2`/`0.66b2` release train; they are still needed because `data-designer==0.9.7` pins
+`opentelemetry-api<1.44`. All four `audit_dependencies.py` variants report zero findings and the
+root, red-team native, gym-native worker and gym native-smoke test suites pass. The
+`compiler_stdlib_image_cve_coverage: false` line in `scripts/audit_rust_probe.py` output is the
+documented "stdlib/runtime image not scanned" gap (SEC-03), a constant and not a failure.
