@@ -7,6 +7,7 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -146,6 +147,12 @@ def build(*, target: str | None = None, check: bool = False) -> dict:
     flags = [f"--remap-path-prefix={ROOT}=/agent-boundary-gate"]
     if target:
         flags += ["-C", "target-feature=+crt-static"]
+    if sys.platform == "darwin":
+        # ld64 writes the absolute build-output path into debug-map (stab) entries even
+        # with strip = true, and --remap-path-prefix cannot rewrite them. Ask the linker
+        # to omit them so a local macOS build passes the artifact-privacy scan. Linux
+        # flags (and so the release artifact) are unchanged.
+        flags += ["-C", "link-arg=-Wl,-S"]
     env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
     env["CARGO_TARGET_DIR"] = str(PROBE / "target")
     args = ["--manifest-path", str(PROBE / "Cargo.toml"), "--locked", "--offline"]

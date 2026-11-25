@@ -18,14 +18,14 @@ reachable from unit tests, which all mock the network/subprocess layer):
 
 1. Python 3.14 added eager validation of every argparse `help=` string: it tries to
    %-format each one at `add_argument()` time and raises ValueError("badly formed
-   help string") if that fails. Hydra 1.3.7's `--shell-completion` flag registers a
+   help string") if that fails. Hydra 1.3.8's `--shell-completion` flag registers a
    lazy, non-string help object (`LazyCompletionHelp`, in `hydra/_internal/utils.py`)
    specifically to defer building that string until it's actually needed -- which
    this new validation now rejects outright, before any Gym or our own code ever
    runs. This breaks every `gym eval ...` subcommand under our pinned Python 3.14.7.
-   No upstream fix exists yet: hydra-core's only release past the pinned 1.3.7 is an
-   unreleased 1.4.0 dev/rc, not a stable version this project's pinning convention
-   would adopt.
+   No upstream fix exists yet: 1.3.8 (the pinned version) still ships it, and
+   hydra-core's only newer releases are 1.4.0 dev/rc pre-releases, not a stable
+   version this project's pinning convention would adopt.
 
 2 and 3. `nemo_gym/sandbox/providers/openshell/provider.py`'s `exec()` method has
    TWO independent bugs in its one `self._client.exec(...)` call, both of which are
