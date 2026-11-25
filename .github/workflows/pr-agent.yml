@@ -25,3 +25,7 @@ jobs:
       issues: write
       pull-requests: write
       contents: read
+    # Model chain (glm-53-flash, qwen38-27b, gemma4) is set in the shared workflow.
+    uses: interplay-adversarial/.github/.github/workflows/pr-agent.yml@bb13f43d43d75b65569b5a1e1a1ce42c285e2603
+    secrets:
+      MAAS_API_KEY: ${{ secrets.MAAS_API_KEY }}
