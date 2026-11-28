@@ -239,6 +239,9 @@ The [lifecycle receipt ADR](docs/adr/0003-authenticated-lifecycle-receipts.md) d
 the broker protocol, backend API migration and remaining trust/transport work.
 The [monitor/recovery ADR](docs/adr/0004-monitor-and-lease-recovery.md) documents
 explicit monitor admission, lease recovery and deployment limits.
+Proposed, not yet implemented: [findings as derived records](docs/adr/0006-findings-as-derived-records.md),
+[pluggable mitigation and advisory backends](docs/adr/0007-pluggable-mitigation-and-advisory-backends.md)
+and the [gated adversary-framework lab](docs/adr/0008-adversary-framework-lab-replay.md).
 
 See the [prioritized improvement roadmap](docs/improvement-roadmap.md) for acceptance
 criteria, implementation status and qualification blockers.
